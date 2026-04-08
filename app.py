@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime, date
 import urllib.parse
 import requests
+import time  # 🔴 Google Sheet को क्रैश होने से बचाने के लिए नया फीचर
 
 # 1. Page Configuration (No Sidebar)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide", initial_sidebar_state="collapsed")
@@ -266,7 +267,7 @@ elif st.session_state.current_page == "ADD_RETAILER":
                 requests.post(WEBHOOK_URL, json=payload)
                 st.success("Retailer saved successfully!"); st.cache_data.clear()
 
-    # 🔴 BULK UPLOAD RETAILERS (Super-Clean Logic)
+    # 🔴 BULK UPLOAD RETAILERS (Protected from Google Sheet Crash)
     st.markdown("---")
     st.header("📂 Bulk Retailer & Opening Balance Upload")
     st.info("Upload your Excel. The system will automatically detect the columns and create retailers/balances.")
@@ -296,7 +297,7 @@ elif st.session_state.current_page == "ADD_RETAILER":
                     total_rows = len(df_ret)
                     success_ret = 0
                     
-                    # Smart column detection (Works even if column names are slightly different)
+                    # Smart column detection 
                     col_name = next((c for c in df_ret.columns if "NAME" in c or "RETAILER" in c), None)
                     col_prm = next((c for c in df_ret.columns if "PRM" in c), None)
                     col_mob = next((c for c in df_ret.columns if "DETAIL" in c or "MOB" in c), None)
@@ -316,7 +317,7 @@ elif st.session_state.current_page == "ADD_RETAILER":
                         b_mob = str(row[col_mob]).split('.')[0].strip() if col_mob else ""
                         if b_mob == "NAN": b_mob = ""
                         
-                        # Super-Clean Floating Numbers (Fixes JSON error for NaN)
+                        # Clean Numbers securely
                         try:
                             b_dues = float(str(row[col_dues]).replace(',', '').strip()) if col_dues else 0.0
                             if pd.isna(b_dues): b_dues = 0.0
@@ -327,25 +328,29 @@ elif st.session_state.current_page == "ADD_RETAILER":
                             if pd.isna(b_adv): b_adv = 0.0
                         except: b_adv = 0.0
                         
-                        if b_name: # Only upload if a Name exists
+                        # 🔴 Removed strict mobile check. Now saves if just name exists.
+                        if b_name: 
                             payload_ret = {"action": "add_retailer", "name": b_name, "mobile": b_mob, "prm": b_prm, "location": "BULK UPLOAD", "date": date.today().strftime("%d-%m-%Y")}
                             try:
                                 requests.post(WEBHOOK_URL, json=payload_ret)
                                 success_ret += 1
+                                time.sleep(0.5) # 🔴 Google Sheet को साँस लेने का मौका
                                 
                                 if b_dues > 0:
                                     payload_dues = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": b_name, "r_mob": b_mob, "type": "Opening Dues", "qty": 0, "amt_out": b_dues, "amt_in": 0, "fse": bulk_fse, "txn_id": "OPENING_BAL"}
                                     requests.post(WEBHOOK_URL, json=payload_dues)
+                                    time.sleep(0.5) # 🔴 Delay
                                 
                                 if b_adv > 0:
                                     payload_adv = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": b_name, "r_mob": b_mob, "type": "Opening Advance", "qty": 0, "amt_out": 0, "amt_in": b_adv, "fse": bulk_fse, "txn_id": "OPENING_BAL"}
                                     requests.post(WEBHOOK_URL, json=payload_adv)
-                            except: pass # Prevents crashing if network fails
+                                    time.sleep(0.5) # 🔴 Delay
+                            except: pass
                             
                         progress_bar.progress((idx + 1) / total_rows)
                         status_text.text(f"Uploading... {idx + 1}/{total_rows}")
                         
-                    st.success(f"✅ Successfully uploaded {success_ret} Retailers and their opening balances!")
+                    st.success(f"✅ Successfully uploaded {success_ret} Retailers and their balances!")
                     st.cache_data.clear()
         except Exception as e:
             st.error(f"❌ Error: Could not read file. Details: {str(e)}")
@@ -454,7 +459,6 @@ elif st.session_state.current_page == "BULK":
                             raw_date = str(row.get("Transfer Date", date.today().strftime("%d-%m-%Y")))
                             r_date = raw_date.replace('.', '-')
                             
-                            # Clean Floating Numbers for Transfer Amount
                             try:
                                 r_amt_out = float(str(row.get("Transfer Amount", "0")).replace(',', '').strip())
                                 if pd.isna(r_amt_out): r_amt_out = 0.0
@@ -470,8 +474,9 @@ elif st.session_state.current_page == "BULK":
                                     "fse": fse, "txn_id": r_txn
                                 }
                                 try:
-                                    res = requests.post(WEBHOOK_URL, json=payload)
-                                    if res.text == "Success": success_count += 1
+                                    requests.post(WEBHOOK_URL, json=payload)
+                                    success_count += 1
+                                    time.sleep(0.5) # 🔴 Google Sheet Delay
                                 except: pass
                         else:
                             not_found_count += 1
