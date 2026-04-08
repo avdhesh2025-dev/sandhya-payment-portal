@@ -65,13 +65,17 @@ prm_mapping = {}
 dropdown_options = ["Type here to search..."]
 if ret_df is not None:
     for index, row in ret_df.iterrows():
-        prm = str(row.get("PRM ID", "")).split('.')[0].strip()
+        disp_prm = str(row.get("PRM ID", "")).split('.')[0].strip()
         name = str(row.get("Retailer Name", "")).strip()
         mobile = str(row.get("Mobile Number", "")).split('.')[0].strip()
-        if prm and name and prm != "nan":
-            retailers_data[f"{prm} - {name}"] = {"Name": name, "Mobile": mobile, "PRM": prm}
-            prm_mapping[prm] = {"Name": name, "Mobile": mobile}
-            dropdown_options.append(f"{prm} - {name}")
+        
+        # 🔴 Super-Clean PRM for Backend Matching (Removes all spaces)
+        match_prm = str(row.get("PRM ID", "")).split('.')[0].replace(" ", "").strip().upper()
+        
+        if match_prm and name and match_prm != "NAN":
+            retailers_data[f"{disp_prm} - {name}"] = {"Name": name, "Mobile": mobile, "PRM": disp_prm}
+            prm_mapping[match_prm] = {"Name": name, "Mobile": mobile}
+            dropdown_options.append(f"{disp_prm} - {name}")
 
 # Session State for Navigation
 if "current_page" not in st.session_state:
@@ -309,11 +313,11 @@ elif st.session_state.current_page == "BULK":
             if uploaded_file.name.endswith('.csv'): df_upload = pd.read_csv(uploaded_file).fillna("")
             else: df_upload = pd.read_excel(uploaded_file).fillna("")
             
-            # 🔴 FIX FOR THE COLUMN NAME ERROR: Removes extra/hidden spaces in Jio excel headers
+            # 🔴 Removes extra/hidden spaces in Jio excel headers
             df_upload.columns = [' '.join(str(col).split()) for col in df_upload.columns]
                 
             st.write("### 👁️ Preview of Uploaded Data")
-            st.dataframe(df_upload, use_container_width=True)
+            st.dataframe(df_upload, use_container_width=True) 
             
             st.markdown("---")
             st.write("### 🔐 Authentication & Upload")
@@ -335,7 +339,8 @@ elif st.session_state.current_page == "BULK":
                     not_found_count = 0
                     
                     for idx, row in df_upload.iterrows():
-                        raw_prm = str(row.get("Partner PRM ID", "")).split('.')[0].strip()
+                        # 🔴 Super-Clean PRM for precise matching
+                        raw_prm = str(row.get("Partner PRM ID", "")).split('.')[0].replace(" ", "").strip().upper()
                         
                         if raw_prm in prm_mapping:
                             r_name = prm_mapping[raw_prm]["Name"]
@@ -344,7 +349,10 @@ elif st.session_state.current_page == "BULK":
                             raw_date = str(row.get("Transfer Date", date.today().strftime("%d-%m-%Y")))
                             r_date = raw_date.replace('.', '-')
                             
-                            r_amt_out = float(row.get("Transfer Amount", 0))
+                            # Clean amount (removing commas if any)
+                            raw_amt = str(row.get("Transfer Amount", "0")).replace(',', '').strip()
+                            r_amt_out = float(raw_amt) if raw_amt else 0.0
+                            
                             r_txn = str(row.get("Order ID", ""))
                             
                             # 🔴 NEW LOGIC: Deduct 3% from Transfer Amount
