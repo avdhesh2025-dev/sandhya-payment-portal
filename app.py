@@ -153,7 +153,7 @@ elif menu == "📦 माल / पेमेंट एंट्री":
             except:
                 st.error("❌ नेटवर्क एरर!")
 
-# 4. लेजर (खाता) देखें (पासबुक सिस्टम)
+# 4. लेजर (खाता) देखें
 elif menu == "📜 लेजर (खाता) देखें":
     st.title("📜 रिटेलर का पूरा खाता")
     search_prm = st.selectbox("रिटेलर का खाता देखने के लिए खोजें:", options=dropdown_options)
@@ -167,14 +167,10 @@ elif menu == "📜 लेजर (खाता) देखें":
             if not user_ledger.empty:
                 st.markdown(f"### 👤 {r_name} का खाता")
                 
-                # 🔴 जादुई कैलकुलेशन: रनिंग बैलेंस (Running Balance)
                 user_ledger['Amount Out (Debit)'] = pd.to_numeric(user_ledger['Amount Out (Debit)'], errors='coerce').fillna(0)
                 user_ledger['Amount In (Credit)'] = pd.to_numeric(user_ledger['Amount In (Credit)'], errors='coerce').fillna(0)
-                
-                # हर लाइन का बैलेंस कैलकुलेट करना (पासबुक की तरह)
                 user_ledger['Balance'] = (user_ledger['Amount Out (Debit)'] - user_ledger['Amount In (Credit)']).cumsum()
                 
-                # तारीख फ़िल्टर
                 user_ledger['DateObj'] = pd.to_datetime(user_ledger['Date'], format='%d-%m-%Y', errors='coerce')
                 date_range = st.date_input("तारीख से फ़िल्टर करें (Start Date - End Date)", [])
                 
@@ -200,7 +196,8 @@ elif menu == "📜 लेजर (खाता) देखें":
                 elif balance < 0: col3.info(f"🔵 कुल एडवांस: ₹{abs(balance)}")
                 else: col3.success(f"✅ हिसाब बराबर (₹0)")
 
-                csv_data = display_ledger.to_csv(index=False).encode('utf-8')
+                # 🔴 जादुई फिक्स: 'utf-8-sig' से हिंदी एक्सेल में बिल्कुल सही दिखेगी
+                csv_data = display_ledger.to_csv(index=False).encode('utf-8-sig')
                 st.download_button(
                     label="📥 लेजर डाउनलोड करें (Excel/CSV में)",
                     data=csv_data,
