@@ -24,7 +24,7 @@ st.markdown("""
         border-radius: 16px;
         text-align: center;
         margin-top: 10px;
-        margin-bottom: 30px;
+        margin-bottom: 20px;
         box-shadow: 0 10px 30px rgba(0,0,0,0.15);
     }
     .app-header h1 { font-size: 2.4rem; font-weight: 700; margin-bottom: 5px; color: #ffffff;}
@@ -89,9 +89,12 @@ st.markdown('<div class="app-header"><h1>🏢 Sandhya Enterprises</h1><p>Smart B
 
 # --- 🏠 HOME PAGE (Premium Grid - No Sidebar) ---
 if st.session_state.current_page == "HOME":
+    if st.button("🔄 Refresh System Data", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+        
     st.markdown("""
     <style>
-    /* Home Page Buttons Design */
     .stButton > button {
         height: 75px; background: #ffffff; color: #1e293b;
         border: 1.5px solid #e2e8f0; border-radius: 14px;
@@ -116,13 +119,19 @@ if st.session_state.current_page == "HOME":
 
 # --- 📊 1. STOCK PAGE ---
 elif st.session_state.current_page == "STOCK":
-    if st.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
+    c_back, c_ref = st.columns(2)
+    if c_back.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
+    if c_ref.button("🔄 Refresh Data", use_container_width=True): st.cache_data.clear(); st.rerun()
+    
     st.header("📊 Live Inventory Stock")
     if inv_df is not None: st.dataframe(inv_df, use_container_width=True, hide_index=True)
 
 # --- 💰 2. TODAY COLLECTION ---
 elif st.session_state.current_page == "COLLECTION":
-    if st.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
+    c_back, c_ref = st.columns(2)
+    if c_back.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
+    if c_ref.button("🔄 Refresh Data", use_container_width=True): st.cache_data.clear(); st.rerun()
+    
     st.header("💸 Today's Collection")
     if ret_df is not None and led_df is not None:
         for index, row in ret_df.iterrows():
@@ -177,7 +186,10 @@ elif st.session_state.current_page == "ENTRY":
         </style>
     """, unsafe_allow_html=True)
     
-    if st.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
+    c_back, c_ref = st.columns(2)
+    if c_back.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
+    if c_ref.button("🔄 Refresh Data", use_container_width=True): st.cache_data.clear(); st.rerun()
+    
     st.header("📦 Stock Out / Payment Entry")
     
     t_date = st.date_input("Date", date.today())
@@ -235,7 +247,9 @@ elif st.session_state.current_page == "ENTRY":
 
 # --- ➕ 4. ADD RETAILER & BULK UPLOAD ---
 elif st.session_state.current_page == "ADD_RETAILER":
-    if st.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
+    c_back, c_ref = st.columns(2)
+    if c_back.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
+    if c_ref.button("🔄 Refresh Data", use_container_width=True): st.cache_data.clear(); st.rerun()
     
     st.header("➕ Add Single Retailer")
     with st.form("add_retailer_form", clear_on_submit=True):
@@ -252,10 +266,10 @@ elif st.session_state.current_page == "ADD_RETAILER":
                 requests.post(WEBHOOK_URL, json=payload)
                 st.success("Retailer saved successfully!"); st.cache_data.clear()
 
-    # 🔴 NEW SECTION: Bulk Upload Retailers with Opening Dues/Advance
+    # 🔴 Bulk Upload Retailers
     st.markdown("---")
     st.header("📂 Bulk Retailer & Opening Balance Upload")
-    st.info("Upload your Excel containing: Retailer Name | PRM ID | Details (Mobile) | DUSE (or DUES) | ADVANCE. The system will create retailers and post their opening balances.")
+    st.info("Upload your Excel containing: Retailer Name | PRM ID | Details (Mobile) | DUSE (or DUES) | ADVANCE.")
     
     uploaded_ret_file = st.file_uploader("Upload Retailers Excel File", type=["csv", "xlsx"])
     if uploaded_ret_file is not None:
@@ -263,7 +277,6 @@ elif st.session_state.current_page == "ADD_RETAILER":
             if uploaded_ret_file.name.endswith('.csv'): df_ret = pd.read_csv(uploaded_ret_file).fillna("")
             else: df_ret = pd.read_excel(uploaded_ret_file).fillna("")
             
-            # Clean column headers
             df_ret.columns = [' '.join(str(col).upper().split()) for col in df_ret.columns]
             
             st.write("### 👁️ Preview of Retailers Data")
@@ -283,12 +296,10 @@ elif st.session_state.current_page == "ADD_RETAILER":
                     success_ret = 0
                     
                     for idx, row in df_ret.iterrows():
-                        # Extract Data mapping user's format
                         b_name = str(row.get("RETAILER NAME", "")).strip().upper()
                         b_prm = str(row.get("PRM ID", "")).split('.')[0].strip()
-                        b_mob = str(row.get("DETAILS", "")).split('.')[0].strip() # Details is mobile
+                        b_mob = str(row.get("DETAILS", "")).split('.')[0].strip()
                         
-                        # Handle Dues/Duse typo
                         b_dues_val = row.get("DUSE", row.get("DUES", 0))
                         b_adv_val = row.get("ADVANCE", 0)
                         
@@ -296,18 +307,15 @@ elif st.session_state.current_page == "ADD_RETAILER":
                         b_adv = float(str(b_adv_val).replace(',', '').strip() or 0.0)
                         
                         if b_name and b_mob:
-                            # 1. Create Retailer
                             payload_ret = {"action": "add_retailer", "name": b_name, "mobile": b_mob, "prm": b_prm, "location": "BULK UPLOAD", "date": date.today().strftime("%d-%m-%Y")}
                             try:
-                                requests.post(WEBHOOK_URL, json=payload_ret)
-                                success_ret += 1
+                                res = requests.post(WEBHOOK_URL, json=payload_ret)
+                                if res.status_code == 200: success_ret += 1
                                 
-                                # 2. Add Dues if any
                                 if b_dues > 0:
                                     payload_dues = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": b_name, "r_mob": b_mob, "type": "Opening Dues", "qty": 0, "amt_out": b_dues, "amt_in": 0, "fse": bulk_fse, "txn_id": "OPENING_BAL"}
                                     requests.post(WEBHOOK_URL, json=payload_dues)
                                 
-                                # 3. Add Advance if any
                                 if b_adv > 0:
                                     payload_adv = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": b_name, "r_mob": b_mob, "type": "Opening Advance", "qty": 0, "amt_out": 0, "amt_in": b_adv, "fse": bulk_fse, "txn_id": "OPENING_BAL"}
                                     requests.post(WEBHOOK_URL, json=payload_adv)
@@ -319,11 +327,14 @@ elif st.session_state.current_page == "ADD_RETAILER":
                     st.success(f"✅ Successfully uploaded {success_ret} Retailers and their opening balances!")
                     st.cache_data.clear()
         except Exception as e:
-            st.error(f"❌ Error: Could not read file. Ensure columns match the required format. Error details: {str(e)}")
+            st.error(f"❌ Error: Could not read file. Ensure columns match the required format. Details: {str(e)}")
 
 # --- 📜 5. LEDGER ---
 elif st.session_state.current_page == "LEDGER":
-    if st.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
+    c_back, c_ref = st.columns(2)
+    if c_back.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
+    if c_ref.button("🔄 Refresh Data", use_container_width=True): st.cache_data.clear(); st.rerun()
+    
     st.header("📜 Retailer Ledger Report")
     search_prm = st.selectbox("Select Retailer:", options=dropdown_options)
     if search_prm != "Type here to search...":
@@ -350,7 +361,10 @@ elif st.session_state.current_page == "LEDGER":
 
 # --- 💸 6. DUES REMINDERS ---
 elif st.session_state.current_page == "DUES":
-    if st.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
+    c_back, c_ref = st.columns(2)
+    if c_back.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
+    if c_ref.button("🔄 Refresh Data", use_container_width=True): st.cache_data.clear(); st.rerun()
+    
     st.header("💰 Dues Collection List (Bulk SMS)")
     if st.button("🔄 Check All Dues", use_container_width=True):
         summary = []
@@ -371,7 +385,10 @@ elif st.session_state.current_page == "DUES":
 
 # --- 📂 7. DIRECT JIO EXCEL UPLOAD (AUTO-MATCH & 3% COMMISSION DEDUCTION) ---
 elif st.session_state.current_page == "BULK":
-    if st.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
+    c_back, c_ref = st.columns(2)
+    if c_back.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
+    if c_ref.button("🔄 Refresh Data", use_container_width=True): st.cache_data.clear(); st.rerun()
+    
     st.header("📂 Auto-Match Bulk Entry (Etop Transfer)")
     st.info("Directly upload your Jio Export Excel. The system will automatically match PRM IDs and deduct 3% margin from the Transfer Amount.")
     
