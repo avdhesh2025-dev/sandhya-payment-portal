@@ -61,7 +61,7 @@ ret_df, inv_df, led_df = load_data()
 
 # Create Retailer Dropdown List & PRM Mapping Dictionary
 retailers_data = {}
-prm_mapping = {} # 🔴 NEW: For fast matching in Bulk Upload
+prm_mapping = {} 
 dropdown_options = ["Type here to search..."]
 if ret_df is not None:
     for index, row in ret_df.iterrows():
@@ -70,7 +70,7 @@ if ret_df is not None:
         mobile = str(row.get("Mobile Number", "")).split('.')[0].strip()
         if prm and name and prm != "nan":
             retailers_data[f"{prm} - {name}"] = {"Name": name, "Mobile": mobile, "PRM": prm}
-            prm_mapping[prm] = {"Name": name, "Mobile": mobile} # For Bulk Upload Auto-match
+            prm_mapping[prm] = {"Name": name, "Mobile": mobile}
             dropdown_options.append(f"{prm} - {name}")
 
 # Session State for Navigation
@@ -310,7 +310,8 @@ elif st.session_state.current_page == "BULK":
             else: df_upload = pd.read_excel(uploaded_file).fillna("")
                 
             st.write("### 👁️ Preview of Detected Data")
-            st.dataframe(df_upload.head(3), use_container_width=True) # Preview only top 3 to keep it clean
+            # 🔴 यहाँ से '.head(3)' हटा दिया गया है। अब पूरा एक्सेल दिखेगा!
+            st.dataframe(df_upload, use_container_width=True) 
             
             st.markdown("---")
             st.write("### 🔐 Authentication & Upload")
@@ -334,12 +335,10 @@ elif st.session_state.current_page == "BULK":
                     for idx, row in df_upload.iterrows():
                         raw_prm = str(row.get("Partner PRM ID", "")).split('.')[0].strip()
                         
-                        # 🔴 Auto-Match Logic
                         if raw_prm in prm_mapping:
                             r_name = prm_mapping[raw_prm]["Name"]
                             r_mob = prm_mapping[raw_prm]["Mobile"]
                             
-                            # Handle Date formatting from Jio Excel (like 08.04.2026)
                             raw_date = str(row.get("Transfer Date", date.today().strftime("%d-%m-%Y")))
                             r_date = raw_date.replace('.', '-')
                             
@@ -359,7 +358,6 @@ elif st.session_state.current_page == "BULK":
                         else:
                             not_found_count += 1
                             
-                        # Update Progress
                         progress_bar.progress((idx + 1) / total_rows)
                         status_text.text(f"Processing... {idx + 1}/{total_rows}")
                         
