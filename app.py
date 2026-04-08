@@ -20,15 +20,15 @@ st.markdown("""
     .app-header {
         background: linear-gradient(135deg, #0047AB 0%, #00c6ff 100%);
         color: white;
-        padding: 25px 20px;
+        padding: 35px 20px;
         border-radius: 16px;
         text-align: center;
         margin-top: 10px;
         margin-bottom: 30px;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
     }
-    .app-header h1 { font-size: 2.2rem; font-weight: 700; margin-bottom: 5px; color: #ffffff;}
-    .app-header p { font-size: 1rem; opacity: 0.9; margin: 0;}
+    .app-header h1 { font-size: 2.4rem; font-weight: 700; margin-bottom: 5px; color: #ffffff;}
+    .app-header p { font-size: 1.1rem; font-weight: 300; opacity: 0.8; margin: 0;}
     
     /* Input Box Design */
     .stDataFrame, .stSelectbox, .stNumberInput, .stTextInput, .stDateInput {
@@ -102,6 +102,8 @@ if st.session_state.current_page == "HOME":
         if st.button("📊 Live Stock", use_container_width=True): go_to("STOCK")
         if st.button("➕ Add Retailer", use_container_width=True): go_to("ADD_RETAILER")
         if st.button("📜 Ledger Report", use_container_width=True): go_to("LEDGER")
+        # 🆕 NEW BULK ENTRY BUTTON
+        if st.button("📂 Bulk Entry (Excel)", use_container_width=True): go_to("BULK")
 
     with col2:
         if st.button("💰 Today's Collection", use_container_width=True): go_to("COLLECTION")
@@ -301,3 +303,92 @@ elif st.session_state.current_page == "DUES":
                 msg = f"Dear Partner, your pending dues are ₹{row['Dues']}. Please clear your payment. Regards, Sandhya Enterprises."
                 st.markdown(f"**{row['Retailer']}** (₹{row['Dues']}) -> [📲 Send Reminder](https://wa.me/91{row['Mobile']}?text={urllib.parse.quote(msg)})")
         else: st.success("No dues pending!")
+
+# --- 📂 7. BULK EXCEL UPLOAD ---
+elif st.session_state.current_page == "BULK":
+    if st.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
+    st.header("📂 Bulk Entry via Excel")
+    st.info("Download the template, fill in your data, and upload it back here.")
+    
+    # 1. Provide Template
+    template_df = pd.DataFrame(columns=["Date", "Retailer Name", "Mobile Number", "Type", "Quantity", "Amount Out", "Amount In", "FSE", "Transaction ID"])
+    csv_template = template_df.to_csv(index=False).encode('utf-8-sig')
+    st.download_button("📥 Download Excel Template", csv_template, "Bulk_Entry_Template.csv", "text/csv", use_container_width=True)
+
+    st.markdown("---")
+    
+    # 2. File Uploader
+    uploaded_file = st.file_uploader("Upload Filled Excel/CSV File", type=["csv", "xlsx"])
+    
+    if uploaded_file is not None:
+        try:
+            if uploaded_file.name.endswith('.csv'):
+                df_upload = pd.read_csv(uploaded_file).fillna("")
+            else:
+                df_upload = pd.read_excel(uploaded_file).fillna("")
+                
+            st.write("### 👁️ Preview of Uploaded Data")
+            st.dataframe(df_upload, use_container_width=True)
+            
+            st.markdown("---")
+            st.write("### 🔐 Authentication & Upload")
+            
+            # Security PIN
+            col1, col2 = st.columns(2)
+            fse = col1.selectbox("Select FSE for Verification", ["Avdhesh Kumar", "Babloo kumar singh"], key="bulk_fse")
+            fse_pin = col2.text_input("Enter 4-digit PIN*", type="password", max_chars=4, key="bulk_pin")
+            
+            if st.button("🚀 Upload All Entries to Server", use_container_width=True):
+                if fse == "Avdhesh Kumar" and fse_pin != "9557":
+                    st.error("❌ Invalid PIN for Avdhesh Kumar!")
+                elif fse == "Babloo kumar singh" and fse_pin != "2081":
+                    st.error("❌ Invalid PIN for Babloo kumar singh!")
+                else:
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    total_rows = len(df_upload)
+                    success_count = 0
+                    
+                    for idx, row in df_upload.iterrows():
+                        r_date = str(row.get("Date", date.today().strftime("%d-%m-%Y")))
+                        r_name = str(row.get("Retailer Name", ""))
+                        r_mob = str(row.get("Mobile Number", "")).replace(".0", "")
+                        r_type = str(row.get("Type", ""))
+                        
+                        r_qty = row.get("Quantity", 0)
+                        r_qty = int(float(r_qty)) if str(r_qty).strip() else 0
+                        
+                        r_amt_out = row.get("Amount Out", 0)
+                        r_amt_out = float(r_amt_out) if str(r_amt_out).strip() else 0.0
+                        
+                        r_amt_in = row.get("Amount In", 0)
+                        r_amt_in = float(r_amt_in) if str(r_amt_in).strip() else 0.0
+                        
+                        r_fse = str(row.get("FSE", fse))
+                        r_txn = str(row.get("Transaction ID", ""))
+                        
+                        payload = {
+                            "action": "add_txn", "date": r_date, "r_name": r_name, "r_mob": r_mob, 
+                            "type": r_type, "qty": r_qty, "amt_out": r_amt_out, "amt_in": r_amt_in, 
+                            "fse": r_fse, "txn_id": r_txn
+                        }
+                        
+                        try:
+                            res = requests.post(WEBHOOK_URL, json=payload)
+                            if res.text == "Success":
+                                success_count += 1
+                        except:
+                            pass
+                            
+                        # Update Progress
+                        progress = (idx + 1) / total_rows
+                        progress_bar.progress(progress)
+                        status_text.text(f"Uploading {idx + 1} of {total_rows} entries...")
+                        
+                    if success_count > 0:
+                        st.success(f"✅ Successfully uploaded {success_count} out of {total_rows} entries!")
+                        st.cache_data.clear()
+                    else:
+                        st.error("❌ Failed to upload entries. Please check your data format.")
+        except Exception as e:
+            st.error("❌ Error reading file. Please ensure it matches the template format.")
