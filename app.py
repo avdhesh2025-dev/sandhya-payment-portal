@@ -6,16 +6,13 @@ from datetime import datetime
 # पेज की सेटिंग
 st.set_page_config(page_title="Sandhya Payment Portal", page_icon="💰")
 
-# आपकी गूगल शीट का सीधा लिंक
+# आपकी गूगल शीट का लिंक
 sheet_url = "https://docs.google.com/spreadsheets/d/1K3ZeUuZbpB3FmUQlt2ryri_3su4EkLOqzS7uxUQYd1Y/edit?usp=sharing"
-
-# Google Sheets से कनेक्शन
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.title("📲 संध्या इंटरप्राइजेज - पेमेंट अपडेट")
 st.markdown("---")
 
-# फॉर्म बनाना
 with st.form("payment_form", clear_on_submit=True):
     st.subheader("पेमेंट की जानकारी भरें")
     
@@ -31,8 +28,8 @@ with st.form("payment_form", clear_on_submit=True):
     if submit:
         if retailer and amount > 0:
             try:
-                # 1. शीट से पुराना डेटा पढ़ना
-                df = conn.read(spreadsheet=sheet_url, worksheet="Sandhya Enterprises Payments")
+                # 1. 'Payments' शीट से डेटा पढ़ना
+                df = conn.read(spreadsheet=sheet_url, worksheet="Payments")
                 
                 # 2. नया डेटा तैयार करना
                 new_row = pd.DataFrame([{
@@ -44,11 +41,11 @@ with st.form("payment_form", clear_on_submit=True):
                     "Collected By": fse
                 }])
                 
-                # 3. पुराने डेटा में नया डेटा जोड़ना
+                # 3. डेटा को जोड़ना
                 updated_df = pd.concat([df, new_row], ignore_index=True)
                 
                 # 4. वापस गूगल शीट में अपडेट करना
-                conn.update(spreadsheet=sheet_url, worksheet="Sandhya Enterprises Payments", data=updated_df)
+                conn.update(spreadsheet=sheet_url, worksheet="Payments", data=updated_df)
                 
                 st.success(f"✅ {retailer} का ₹{amount} का पेमेंट सेव हो गया है!")
                 st.balloons()
