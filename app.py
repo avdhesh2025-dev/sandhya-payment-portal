@@ -4,107 +4,80 @@ from datetime import datetime, date
 import urllib.parse
 import requests
 
-# 1. पेज की सेटिंग और मोबाइल फ्रेंडली लुक
+# 1. पेज की सेटिंग (पुराना साइडबार वापस आ गया)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide")
 
-# 💎💎💎 PREMIUM 3D ANIMATED UI DESIGN (No change to logic) 💎💎💎
+# 💎💎 प्रीमियम 3D डिज़ाइन (लेकिन साइडबार के साथ) 💎💎
 st.markdown("""
     <style>
-    /* पूरे ऐप का बैकग्राउंड - हल्का और साफ */
+    /* बैकग्राउंड */
     .main { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     
-    /* साइडबार छुपाना */
-    [data-testid="stSidebar"] { display: none; }
-    [data-testid="collapsedControl"] { display: none; }
-    
-    /* 🌟 प्रीमियम ग्रेडिएंट हेडर */
+    /* 🌟 प्रीमियम हेडर */
     .app-header {
         background: linear-gradient(135deg, #0047AB 0%, #00c6ff 100%);
         color: white;
         padding: 25px;
-        border-radius: 0 0 25px 25px;
+        border-radius: 15px;
         text-align: center;
         margin-bottom: 30px;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.15);
         border-bottom: 4px solid #00c6ff;
     }
     .app-header h1 { margin: 0; font-size: 2.2rem; font-weight: 800; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
     .app-header p { margin: 5px 0 0 0; font-size: 1rem; opacity: 0.9; }
 
-    /* 🎴🎴🎴 जादूई 3D हिलने वाले कार्ड्स (बटन) 🎴🎴🎴 */
-    /* Streamlit के बटन कंटेनर को टारगेट करना */
-    div[data-testid="stVerticalBlock"] > div > div > stButton {
-        width: 100%;
-    }
-
-    /* असली बटन का डिज़ाइन */
+    /* 🎴 3D बटन का डिज़ाइन (सेव, डाउनलोड आदि के लिए) */
     .stButton>button {
         width: 100% !important;
-        height: 80px !important;
         background-color: #ffffff !important;
         color: #1a1a1a !important;
         border: none !important;
-        border-radius: 20px !important;
-        font-size: 18px !important;
+        border-radius: 12px !important;
+        font-size: 16px !important;
         font-weight: 700 !important;
-        
-        /* 3D गहराई (Shadow) */
-        box-shadow: 0 8px 0 #d1d9e6, 0 15px 20px rgba(0,0,0,0.1) !important;
-        
-        /* स्मूथ एनीमेशन के लिए */
+        box-shadow: 0 6px 0 #d1d9e6, 0 10px 15px rgba(0,0,0,0.1) !important;
         transition: all 0.2s ease-out !important;
-        
-        /* सजावट: साइड बार */
-        border-left: 8px solid #007bff !important;
-        
+        border-left: 6px solid #007bff !important;
+        margin-bottom: 10px !important;
         position: relative;
         top: 0;
-        margin-bottom: 15px !important;
     }
 
-    /* 🔴 टच करने पर या माउस लाने पर हिलने वाला एनीमेशन (The "Hilta hua" part) 🔴 */
-    .stButton>button:hover, .stButton>button:active, .stButton>button:focus {
-        background-color: #ffffff !important;
+    /* 🔴 होवर पर हिलने वाला एनीमेशन */
+    .stButton>button:hover {
         color: #007bff !important;
-        border-left: 8px solid #00c6ff !important;
-        
-        /* ऊपर उठना और Shadow बढ़ना */
-        top: -5px !important;
-        box-shadow: 0 13px 0 #d1d9e6, 0 20px 25px rgba(0,0,0,0.15) !important;
-        
-        /* 🥳 हल्के झटके का एनीमेशन (Wobble) */
+        border-left: 6px solid #00c6ff !important;
+        top: -3px !important;
+        box-shadow: 0 9px 0 #d1d9e6, 0 15px 20px rgba(0,0,0,0.15) !important;
         animation: wobble-hor-bottom 0.5s both !important;
     }
     
-    /* जब बटन दबाया जाए (Click/Pressed) */
     .stButton>button:active {
-        top: 3px !important;
+        top: 4px !important;
         box-shadow: 0 2px 0 #d1d9e6, 0 5px 10px rgba(0,0,0,0.1) !important;
-        animation: none !important; /* दबाने पर एनीमेशन रोकें */
+        animation: none !important;
     }
 
-    /* 💃 झटके वाले एनीमेशन की परिभाषा (CSS Keyframes) 💃 */
     @keyframes wobble-hor-bottom {
-        0%, 100% { transform: translateX(0%); transform-origin: 50% 50%; }
-        15% { transform: translateX(-6px) rotate(-2deg); }
-        30% { transform: translateX(4px) rotate(1.5deg); }
-        45% { transform: translateX(-3px) rotate(-1deg); }
-        60% { transform: translateX(2px) rotate(0.5deg); }
-        75% { transform: translateX(-1px) rotate(-0.3deg); }
+        0%, 100% { transform: translateX(0%); }
+        15% { transform: translateX(-4px) rotate(-1deg); }
+        30% { transform: translateX(3px) rotate(1deg); }
+        45% { transform: translateX(-2px) rotate(-0.5deg); }
+        60% { transform: translateX(1px) rotate(0.2deg); }
     }
     
-    /* इनपुट बॉक्स और डेटाफ्रेम को सुंदर बनाना */
-    .stDataFrame, .stSelectbox, .stNumberInput, .stTextInput {
+    /* इनपुट बॉक्स डिज़ाइन */
+    .stDataFrame, .stSelectbox, .stNumberInput, .stTextInput, .stDateInput {
         background-color: white;
-        border-radius: 15px;
+        border-radius: 10px;
         padding: 5px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        margin-bottom: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
     </style>
 """, unsafe_allow_html=True)
 
-# 🛑 आपका APPS SCRIPT URL (कोडिंग में कोई बदलाव नहीं)
+# 🛑 आपका APPS SCRIPT URL
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby_yV4nEMwrBODnkVh0x5DrVqcbj42iDMLNlX8M7QPrVGGMltoOfZhlid_gXlB0dwMvZQ/exec"
 
 sheet_id = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
@@ -123,46 +96,44 @@ def load_data():
 
 ret_df, inv_df, led_df = load_data()
 
-# सेशन स्टेट में पेज को ट्रैक करना (कोडिंग में कोई बदलाव नहीं)
-if "current_page" not in st.session_state:
-    st.session_state.current_page = "HOME"
+# रिटेलर ड्रॉपडाउन लिस्ट
+retailers_data = {}
+dropdown_options = ["सर्च करने के लिए यहाँ टाइप करें..."]
+if ret_df is not None:
+    for index, row in ret_df.iterrows():
+        prm = str(row.get("PRM ID", "")).split('.')[0]
+        name = str(row.get("Retailer Name", ""))
+        mobile = str(row.get("Mobile Number", "")).split('.')[0]
+        if prm and name and prm != "nan":
+            retailers_data[f"{prm} - {name}"] = {"Name": name, "Mobile": mobile, "PRM": prm}
+            dropdown_options.append(f"{prm} - {name}")
 
-def go_to(page):
-    st.session_state.current_page = page
-    st.rerun()
-
-# --- APP HEADER (प्रीमियम ग्रेडिएंट) ---
+# --- 🌟 APP HEADER ---
 st.markdown('<div class="app-header"><h1>🏢 संध्या इंटरप्राइजेज</h1><p>Smart Business Management System</p></div>', unsafe_allow_html=True)
 
-# --- 🏠 HOME PAGE (जादूई 3D हिलने वाले कार्ड्स) ---
-if st.session_state.current_page == "HOME":
-    st.markdown("### 📌 मुख्य मेनू")
-    
-    col1, col2 = st.columns(2)
-    
-    # 🔴 logic में कोई बदलाव नहीं, सिर्फ लुक प्रीमियम हो गया है
-    with col1:
-        if st.button("📊 लाइव स्टॉक (Stock)"): go_to("STOCK")
-        if st.button("➕ नया रिटेलर (Add)"): go_to("ADD_RETAILER")
-        if st.button("📜 खाता रिपोर्ट (Ledger)"): go_to("LEDGER")
-
-    with col2:
-        if st.button("💰 आज की वसूली (Collection)"): go_to("COLLECTION")
-        if st.button("📦 माल / पेमेंट एंट्री"): go_to("ENTRY")
-        if st.button("💸 बकाया लिस्ट (Dues)"): go_to("DUES")
+# --- 📱 साइडबार मेनू (आपका पसंदीदा पुराना तरीका) ---
+st.sidebar.title("📲 संध्या इंटरप्राइजेज")
+st.sidebar.markdown("---")
+menu = st.sidebar.radio("मेनू चुनें:", [
+    "📊 डैशबोर्ड (स्टॉक)", 
+    "💰 Today Collection", 
+    "➕ नया रिटेलर जोड़ें", 
+    "📦 माल / पेमेंट एंट्री", 
+    "📜 लेजर (खाता) देखें", 
+    "💸 बकाया लिस्ट (Bulk SMS)"
+])
 
 # --- 📊 1. STOCK PAGE ---
-elif st.session_state.current_page == "STOCK":
-    if st.button("🔙 मुख्य मेनू पर जाएं"): go_to("HOME")
+if menu == "📊 डैशबोर्ड (स्टॉक)":
     st.header("📊 लाइव इन्वेंट्री स्टॉक")
     if inv_df is not None:
         st.dataframe(inv_df, use_container_width=True, hide_index=True)
     else: st.error("डेटा लोड नहीं हुआ।")
 
 # --- 💰 2. TODAY COLLECTION ---
-elif st.session_state.current_page == "COLLECTION":
-    if st.button("🔙 मुख्य मेनू पर जाएं"): go_to("HOME")
-    st.header("💸 आज की वसूली")
+elif menu == "💰 Today Collection":
+    st.header("💸 आज की वसूली (Today Collection)")
+    st.info("यहाँ उन सभी रिटेलर्स की लिस्ट है जिनका बकाया है। आप सीधे कॉल कर सकते हैं और पेमेंट ले सकते हैं।")
     
     if ret_df is not None and led_df is not None:
         for index, row in ret_df.iterrows():
@@ -173,42 +144,126 @@ elif st.session_state.current_page == "COLLECTION":
             
             if dues > 0:
                 with st.expander(f"👤 {name} | 🚩 बकाया: ₹{dues}"):
-                    st.markdown(f"### [📞 कॉल करें](tel:{mobile})")
-                    p_amt = st.number_input(f"पेमेंट राशि", min_value=1.0, key=f"p_{name}")
-                    if st.button(f"सेव करें {name}"):
-                        payload = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": name, "r_mob": mobile, "type": "Payment (Cash)", "qty": 0, "amt_out": 0, "amt_in": p_amt, "fse": "FSE", "txn_id": "Collection"}
-                        requests.post(WEBHOOK_URL, json=payload)
-                        st.success("पेमेंट जमा हो गया!")
-                        st.cache_data.clear()
+                    c1, c2 = st.columns(2)
+                    c1.markdown(f"### [📞 कॉल करें (Call)](tel:{mobile})")
+                    
+                    with c2:
+                        with st.form(f"pay_form_{name}", clear_on_submit=True):
+                            p_amt = st.number_input(f"पेमेंट राशि (₹)", min_value=1.0, key=f"amt_{name}")
+                            p_mode = st.selectbox("पेमेंट मोड", ["Cash", "Online"], key=f"mode_{name}")
+                            p_fse = st.selectbox("FSE", ["Ravindra Sharma", "Lal Babu Das", "Self"], key=f"fse_{name}")
+                            if st.form_submit_button("पेमेंट सेव करें", use_container_width=True):
+                                payload = {
+                                    "action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), 
+                                    "r_name": name, "r_mob": mobile, "type": f"Payment ({p_mode})", 
+                                    "qty": 0, "amt_out": 0, "amt_in": p_amt, "fse": p_fse, "txn_id": f"Direct_{p_mode}"
+                                }
+                                requests.post(WEBHOOK_URL, json=payload)
+                                st.success(f"✅ {name} का ₹{p_amt} जमा हो गया!")
+                                st.cache_data.clear()
 
 # --- 📦 3. ENTRY PAGE ---
-elif st.session_state.current_page == "ENTRY":
-    if st.button("🔙 मुख्य मेनू पर जाएं"): go_to("HOME")
-    st.header("📦 नई एंट्री करें")
-    with st.form("entry_form"):
-        if ret_df is not None:
-            t_prm = st.selectbox("रिटेलर चुनें", [f"{r['PRM ID']} - {r['Retailer Name']}" for i,r in ret_df.iterrows()])
-        t_type = st.selectbox("क्या दिया?", ["Jio Phone", "SIM Card", "Etop Recharge", "पेमेंट"])
-        t_qty = st.number_input("मात्रा", min_value=0)
-        t_amt = st.number_input("राशि ₹", min_value=0.0)
-        if st.form_submit_button("एंट्री सेव करें"):
-            # एंट्री कोड (वही पुराना)
-            st.success("एंट्री सफलतापूर्वक हो गई!")
+elif menu == "📦 माल / पेमेंट एंट्री":
+    st.header("📦 स्टॉक आउट / पेमेंट लें")
+    t_date = st.date_input("तारीख", date.today())
+    t_prm = st.selectbox("रिटेलर चुनें*", options=dropdown_options)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        t_type = st.selectbox("क्या एंट्री करनी है?", ["Jio Phone", "SIM Card", "Etop Recharge", "पेमेंट (Payment Received)"])
+        fse = st.selectbox("एंट्री करने वाला (FSE)", ["Ravindra Sharma", "Lal Babu Das", "Self"])
+    with col2:
+        t_qty = 0; t_amount = 0.0
+        if t_type == "SIM Card": t_qty = st.number_input("मात्रा (SIM)", min_value=1)
+        elif t_type in ["Etop Recharge", "पेमेंट (Payment Received)"]: t_amount = st.number_input("राशि ₹", min_value=1.0)
+        else:
+            t_qty = st.number_input("मात्रा (Phone)", min_value=1)
+            t_rate = st.number_input("रेट ₹", min_value=0.0)
+            t_amount = t_qty * t_rate
+            st.info(f"कुल राशि: ₹{t_amount}")
+        txn_id = st.text_input("Transaction ID")
+
+    if st.button("🚀 सेव करें और WhatsApp भेजें", use_container_width=True):
+        if t_prm != "सर्च करने के लिए यहाँ टाइप करें...":
+            r_name = retailers_data[t_prm]["Name"]; r_mob = retailers_data[t_prm]["Mobile"]
+            amt_out = t_amount if t_type != "पेमेंट (Payment Received)" else 0
+            amt_in = t_amount if t_type == "पेमेंट (Payment Received)" else 0
+            payload = {"action": "add_txn", "date": t_date.strftime("%d-%m-%Y"), "r_name": r_name, "r_mob": r_mob, "type": t_type, "qty": t_qty, "amt_out": amt_out, "amt_in": amt_in, "fse": fse, "txn_id": txn_id}
+            requests.post(WEBHOOK_URL, json=payload)
+            st.success("✅ सेव हो गया!"); st.cache_data.clear()
+            msg = f"*🧾 संध्या इंटरप्राइजेज*\nदिनांक: {t_date.strftime('%d-%m-%Y')}\nरिटेलर: {r_name}\nआइटम: {t_type}\nराशि: ₹{t_amount}\n🙏 धन्यवाद!"
+            st.markdown(f"### [🟢 WhatsApp भेजें](https://wa.me/91{r_mob}?text={urllib.parse.quote(msg)})", unsafe_allow_html=True)
 
 # --- ➕ 4. ADD RETAILER ---
-elif st.session_state.current_page == "ADD_RETAILER":
-    if st.button("🔙 मुख्य मेनू पर जाएं"): go_to("HOME")
+elif menu == "➕ नया रिटेलर जोड़ें":
     st.header("➕ नया रिटेलर जोड़ें")
-    # फॉर्म कोड (वही पुराना)
+    with st.form("add_retailer_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            r_name = st.text_input("रिटेलर का नाम*")
+            r_mobile = st.text_input("मोबाइल नंबर*", max_chars=10)
+        with col2:
+            r_prm = st.text_input("PRM ID*")
+            r_loc = st.text_input("लोकेशन")
+        if st.form_submit_button("सेव करें", use_container_width=True):
+            if r_name and r_prm and r_mobile:
+                payload = {"action": "add_retailer", "name": r_name.upper(), "mobile": r_mobile, "prm": r_prm, "location": r_loc.upper(), "date": datetime.now().strftime("%d-%m-%Y")}
+                requests.post(WEBHOOK_URL, json=payload)
+                st.success("सफलतापूर्वक सेव हो गया!"); st.cache_data.clear()
 
 # --- 📜 5. LEDGER ---
-elif st.session_state.current_page == "LEDGER":
-    if st.button("🔙 मुख्य मेनू पर जाएं"): go_to("HOME")
-    st.header("📜 रिटेलर खाता")
-    # लेजर कोड (वही पुराना)
+elif menu == "📜 लेजर (खाता) देखें":
+    st.header("📜 रिटेलर रिपोर्ट (खाता)")
+    search_prm = st.selectbox("रिटेलर चुनें:", options=dropdown_options)
+    
+    if search_prm != "सर्च करने के लिए यहाँ टाइप करें...":
+        try:
+            r_name = retailers_data[search_prm]["Name"]
+            led_df['DateObj'] = pd.to_datetime(led_df['Date'], format='%d-%m-%Y', errors='coerce')
+            user_df = led_df[led_df['Retailer Name'] == r_name].sort_values(by='DateObj')
+
+            st.markdown(f"### 👤 {r_name} का खाता")
+            col_d1, col_d2 = st.columns(2)
+            s_date = col_d1.date_input("शुरू (Start Date):", date.today().replace(day=1))
+            e_date = col_d2.date_input("अंत (End Date):", date.today())
+            
+            if s_date <= e_date:
+                f_df = user_df[(user_df['DateObj'].dt.date >= s_date) & (user_df['DateObj'].dt.date <= e_date)].copy()
+                f_df['Amount Out (Debit)'] = pd.to_numeric(f_df['Amount Out (Debit)'], errors='coerce').fillna(0)
+                f_df['Amount In (Credit)'] = pd.to_numeric(f_df['Amount In (Credit)'], errors='coerce').fillna(0)
+                f_df['Balance'] = (f_df['Amount Out (Debit)'] - f_df['Amount In (Credit)']).cumsum()
+                
+                st.dataframe(f_df.drop(columns=['DateObj']), use_container_width=True, hide_index=True)
+                t_out = f_df['Amount Out (Debit)'].sum()
+                t_in = f_df['Amount In (Credit)'].sum()
+                st.error(f"कुल डेबिट: ₹{t_out} | कुल क्रेडिट: ₹{t_in} | बकाया: ₹{t_out - t_in}")
+
+                c1, c2 = st.columns(2)
+                c1.download_button("📥 Excel डाउनलोड", f_df.to_csv(index=False).encode('utf-8-sig'), f"{r_name}_Ledger.csv", "text/csv", use_container_width=True)
+                html = f"<h2>संध्या इंटरप्राइजेज</h2><b>रिटेलर:</b> {r_name}<br><b>अवधि:</b> {s_date} से {e_date}<br><br>" + f_df.drop(columns=['DateObj']).to_html(index=False)
+                c2.download_button("📄 PDF (Report)", html.encode('utf-8-sig'), f"{r_name}_Report.html", "text/html", use_container_width=True)
+        except: st.error("डेटा लोड नहीं हुआ।")
 
 # --- 💸 6. DUES REMINDERS ---
-elif st.session_state.current_page == "DUES":
-    if st.button("🔙 मुख्य मेनू पर जाएं"): go_to("HOME")
-    st.header("💸 बकाया लिस्ट और व्हाट्सएप")
-    # बकाया लिस्ट कोड (वही पुराना)
+elif menu == "💸 बकाया लिस्ट (Bulk SMS)":
+    st.header("💰 बकाया वसूली लिस्ट (Bulk SMS)")
+    
+    if st.button("🔄 सभी का बकाया चेक करें", use_container_width=True):
+        try:
+            summary = []
+            for key, val in retailers_data.items():
+                name = val["Name"]
+                u_data = led_df[led_df['Retailer Name'] == name]
+                d = pd.to_numeric(u_data['Amount Out (Debit)'], errors='coerce').sum()
+                c = pd.to_numeric(u_data['Amount In (Credit)'], errors='coerce').sum()
+                if (d - c) > 0: summary.append({"रिटेलर": name, "मोबाइल": val["Mobile"], "बकाया": d - c})
+            
+            s_df = pd.DataFrame(summary)
+            if not s_df.empty:
+                st.error(f"💸 कुल मार्केट बकाया: ₹{s_df['बकाया'].sum()}")
+                st.dataframe(s_df, use_container_width=True, hide_index=True)
+                for _, row in s_df.iterrows():
+                    msg = f"डियर पार्टनर, आपका बकाया ₹{row['बकाया']} है। कृपया पेमेंट करें।"
+                    st.markdown(f"**{row['रिटेलर']}** (₹{row['बकाया']}) -> [📲 रिमाइंडर भेजें](https://wa.me/91{row['मोबाइल']}?text={urllib.parse.quote(msg)})")
+            else: st.success("कोई बकाया नहीं है!")
+        except: st.error("एरर")
