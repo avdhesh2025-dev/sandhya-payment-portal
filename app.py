@@ -47,7 +47,7 @@ st.sidebar.markdown("---")
 menu = st.sidebar.radio("मेनू चुनें:", ["📊 डैशबोर्ड (स्टॉक)", "➕ नया रिटेलर जोड़ें", "📦 माल / पेमेंट एंट्री", "📜 लेजर (खाता) देखें"])
 
 # ---------------------------------------------------------
-# 1. डैशबोर्ड (अब लाइव हो गया है)
+# 1. डैशबोर्ड (अब एरर बताएगा)
 if menu == "📊 डैशबोर्ड (स्टॉक)":
     st.title("📊 लाइव इन्वेंट्री स्टॉक")
     try:
@@ -55,14 +55,14 @@ if menu == "📊 डैशबोर्ड (स्टॉक)":
         inv_df = conn.read(spreadsheet=sheet_url, worksheet="Inventory")
         inv_df = inv_df.dropna(how="all").fillna("")
         
-        # डेटा को टेबल में दिखाना
         st.dataframe(inv_df, use_container_width=True, hide_index=True)
         st.success("✅ आपकी Google Sheet से लाइव स्टॉक कनेक्ट हो गया है!")
     except Exception as e:
-        st.error("इन्वेंट्री लोड नहीं हो पाई। कृपया चेक करें कि शीट में टैब का नाम 'Inventory' है।")
+        st.error(f"❌ शीट से जुड़ने में टेक्निकल एरर आ रहा है: {e}")
+        st.warning("कृपया चेक करें कि शीट में टैब का नाम बिल्कुल 'Inventory' है और कोई स्पेस नहीं है।")
 
 # ---------------------------------------------------------
-# 2. नया रिटेलर जोड़ें (सेव करने का सिस्टम चालू)
+# 2. नया रिटेलर जोड़ें
 elif menu == "➕ नया रिटेलर जोड़ें":
     st.title("➕ नया रिटेलर जोड़ें")
     with st.form("add_retailer_form", clear_on_submit=True):
@@ -88,12 +88,11 @@ elif menu == "➕ नया रिटेलर जोड़ें":
                         "Date Added": datetime.now().strftime("%d-%m-%Y")
                     }])
                     updated_df = pd.concat([df, new_row], ignore_index=True).fillna("")
-                    updated_df = updated_df.astype(str) # Error 400 से बचने के लिए
+                    updated_df = updated_df.astype(str)
                     
                     conn.update(spreadsheet=sheet_url, worksheet="Retailers", data=updated_df)
                     st.success(f"✅ रिटेलर {r_name} सफलतापूर्वक जुड़ गया है!")
                     st.balloons()
-                    # कैश क्लियर करना ताकि नया रिटेलर लिस्ट में तुरंत आ जाए
                     st.cache_data.clear()
                 except Exception as e:
                     st.error(f"सेव नहीं हुआ। एरर: {e}")
@@ -105,7 +104,6 @@ elif menu == "➕ नया रिटेलर जोड़ें":
 elif menu == "📦 माल / पेमेंट एंट्री":
     st.title("📦 स्टॉक आउट / पेमेंट लें")
     st.info("यह सेक्शन अगले स्टेप में लाइव होगा।")
-    # (बाकी डिज़ाइन वैसा ही रहेगा, अभी काम डैशबोर्ड और रिटेलर पर फोकस है)
     
 # ---------------------------------------------------------
 # 4. लेजर (खाता)
