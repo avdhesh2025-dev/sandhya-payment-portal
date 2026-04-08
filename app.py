@@ -69,7 +69,6 @@ if ret_df is not None:
         name = str(row.get("Retailer Name", "")).strip()
         mobile = str(row.get("Mobile Number", "")).split('.')[0].strip()
         
-        # 🔴 Super-Clean PRM for Backend Matching (Removes all spaces)
         match_prm = str(row.get("PRM ID", "")).split('.')[0].replace(" ", "").strip().upper()
         
         if match_prm and name and match_prm != "NAN":
@@ -234,10 +233,11 @@ elif st.session_state.current_page == "ENTRY":
             msg = f"*🧾 Sandhya Enterprises*\nDate: {t_date.strftime('%d-%m-%Y')}\nRetailer: {r_name}\nItem: {final_type}\nAmount: ₹{t_amount}\n🙏 Thank You!"
             st.markdown(f"### [🟢 Send WhatsApp Receipt](https://wa.me/91{r_mob}?text={urllib.parse.quote(msg)})", unsafe_allow_html=True)
 
-# --- ➕ 4. ADD RETAILER ---
+# --- ➕ 4. ADD RETAILER & BULK UPLOAD ---
 elif st.session_state.current_page == "ADD_RETAILER":
     if st.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
-    st.header("➕ Add New Retailer")
+    
+    st.header("➕ Add Single Retailer")
     with st.form("add_retailer_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
@@ -251,6 +251,75 @@ elif st.session_state.current_page == "ADD_RETAILER":
                 payload = {"action": "add_retailer", "name": r_name.upper(), "mobile": r_mobile, "prm": r_prm, "location": r_loc.upper(), "date": datetime.now().strftime("%d-%m-%Y")}
                 requests.post(WEBHOOK_URL, json=payload)
                 st.success("Retailer saved successfully!"); st.cache_data.clear()
+
+    # 🔴 NEW SECTION: Bulk Upload Retailers with Opening Dues/Advance
+    st.markdown("---")
+    st.header("📂 Bulk Retailer & Opening Balance Upload")
+    st.info("Upload your Excel containing: Retailer Name | PRM ID | Details (Mobile) | DUSE (or DUES) | ADVANCE. The system will create retailers and post their opening balances.")
+    
+    uploaded_ret_file = st.file_uploader("Upload Retailers Excel File", type=["csv", "xlsx"])
+    if uploaded_ret_file is not None:
+        try:
+            if uploaded_ret_file.name.endswith('.csv'): df_ret = pd.read_csv(uploaded_ret_file).fillna("")
+            else: df_ret = pd.read_excel(uploaded_ret_file).fillna("")
+            
+            # Clean column headers
+            df_ret.columns = [' '.join(str(col).upper().split()) for col in df_ret.columns]
+            
+            st.write("### 👁️ Preview of Retailers Data")
+            st.dataframe(df_ret, use_container_width=True)
+            
+            c1, c2 = st.columns(2)
+            bulk_fse = c1.selectbox("Select FSE", ["Avdhesh Kumar", "Babloo kumar singh"], key="b_ret_fse")
+            bulk_pin = c2.text_input("Enter 4-digit PIN*", type="password", max_chars=4, key="b_ret_pin")
+            
+            if st.button("🚀 Upload Retailers & Balances", use_container_width=True):
+                if bulk_fse == "Avdhesh Kumar" and bulk_pin != "9557": st.error("❌ Invalid PIN!")
+                elif bulk_fse == "Babloo kumar singh" and bulk_pin != "2081": st.error("❌ Invalid PIN!")
+                else:
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    total_rows = len(df_ret)
+                    success_ret = 0
+                    
+                    for idx, row in df_ret.iterrows():
+                        # Extract Data mapping user's format
+                        b_name = str(row.get("RETAILER NAME", "")).strip().upper()
+                        b_prm = str(row.get("PRM ID", "")).split('.')[0].strip()
+                        b_mob = str(row.get("DETAILS", "")).split('.')[0].strip() # Details is mobile
+                        
+                        # Handle Dues/Duse typo
+                        b_dues_val = row.get("DUSE", row.get("DUES", 0))
+                        b_adv_val = row.get("ADVANCE", 0)
+                        
+                        b_dues = float(str(b_dues_val).replace(',', '').strip() or 0.0)
+                        b_adv = float(str(b_adv_val).replace(',', '').strip() or 0.0)
+                        
+                        if b_name and b_mob:
+                            # 1. Create Retailer
+                            payload_ret = {"action": "add_retailer", "name": b_name, "mobile": b_mob, "prm": b_prm, "location": "BULK UPLOAD", "date": date.today().strftime("%d-%m-%Y")}
+                            try:
+                                requests.post(WEBHOOK_URL, json=payload_ret)
+                                success_ret += 1
+                                
+                                # 2. Add Dues if any
+                                if b_dues > 0:
+                                    payload_dues = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": b_name, "r_mob": b_mob, "type": "Opening Dues", "qty": 0, "amt_out": b_dues, "amt_in": 0, "fse": bulk_fse, "txn_id": "OPENING_BAL"}
+                                    requests.post(WEBHOOK_URL, json=payload_dues)
+                                
+                                # 3. Add Advance if any
+                                if b_adv > 0:
+                                    payload_adv = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": b_name, "r_mob": b_mob, "type": "Opening Advance", "qty": 0, "amt_out": 0, "amt_in": b_adv, "fse": bulk_fse, "txn_id": "OPENING_BAL"}
+                                    requests.post(WEBHOOK_URL, json=payload_adv)
+                            except: pass
+                            
+                        progress_bar.progress((idx + 1) / total_rows)
+                        status_text.text(f"Uploading... {idx + 1}/{total_rows}")
+                        
+                    st.success(f"✅ Successfully uploaded {success_ret} Retailers and their opening balances!")
+                    st.cache_data.clear()
+        except Exception as e:
+            st.error(f"❌ Error: Could not read file. Ensure columns match the required format. Error details: {str(e)}")
 
 # --- 📜 5. LEDGER ---
 elif st.session_state.current_page == "LEDGER":
@@ -313,7 +382,6 @@ elif st.session_state.current_page == "BULK":
             if uploaded_file.name.endswith('.csv'): df_upload = pd.read_csv(uploaded_file).fillna("")
             else: df_upload = pd.read_excel(uploaded_file).fillna("")
             
-            # 🔴 Removes extra/hidden spaces in Jio excel headers
             df_upload.columns = [' '.join(str(col).split()) for col in df_upload.columns]
                 
             st.write("### 👁️ Preview of Uploaded Data")
@@ -339,7 +407,6 @@ elif st.session_state.current_page == "BULK":
                     not_found_count = 0
                     
                     for idx, row in df_upload.iterrows():
-                        # 🔴 Super-Clean PRM for precise matching
                         raw_prm = str(row.get("Partner PRM ID", "")).split('.')[0].replace(" ", "").strip().upper()
                         
                         if raw_prm in prm_mapping:
@@ -349,13 +416,11 @@ elif st.session_state.current_page == "BULK":
                             raw_date = str(row.get("Transfer Date", date.today().strftime("%d-%m-%Y")))
                             r_date = raw_date.replace('.', '-')
                             
-                            # Clean amount (removing commas if any)
                             raw_amt = str(row.get("Transfer Amount", "0")).replace(',', '').strip()
                             r_amt_out = float(raw_amt) if raw_amt else 0.0
                             
                             r_txn = str(row.get("Order ID", ""))
                             
-                            # 🔴 NEW LOGIC: Deduct 3% from Transfer Amount
                             actual_amt_out = round(r_amt_out - (r_amt_out * 0.03), 2)
                             
                             if actual_amt_out > 0:
