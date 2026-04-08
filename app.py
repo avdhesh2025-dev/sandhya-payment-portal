@@ -1,69 +1,60 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
-import pandas as pd
 from datetime import datetime
 
 # पेज की सेटिंग
-st.set_page_config(page_title="Sandhya Payment Portal", page_icon="💰")
+st.set_page_config(page_title="Sandhya ERP System", page_icon="🏢", layout="wide")
 
-# आपकी गूगल शीट का लिंक
-sheet_url = "https://docs.google.com/spreadsheets/d/1K3ZeUuZbpB3FmUQlt2ryri_3su4EkLOqzS7uxUQYd1Y/edit?usp=sharing"
-conn = st.connection("gsheets", type=GSheetsConnection)
+# साइडबार (मेनू)
+st.sidebar.title("📲 संध्या इंटरप्राइजेज")
+st.sidebar.markdown("---")
+menu = st.sidebar.radio("मेनू चुनें:", ["📊 डैशबोर्ड (स्टॉक)", "➕ नया रिटेलर जोड़ें", "📦 माल / पेमेंट एंट्री", "📜 लेजर (खाता) देखें"])
 
-st.title("📲 संध्या इंटरप्राइजेज - पेमेंट अपडेट")
-st.markdown("---")
-
-with st.form("payment_form", clear_on_submit=True):
-    st.subheader("पेमेंट की जानकारी भरें")
+# 1. डैशबोर्ड
+if menu == "📊 डैशबोर्ड (स्टॉक)":
+    st.title("📊 लाइव इन्वेंट्री स्टॉक")
+    st.info("यहाँ हम आपकी Google Sheet से सिम, फोन और बैलेंस का लाइव स्टॉक दिखाएंगे। (कनेक्शन चालू होना बाकी है)")
     
-    date = st.date_input("तारीख (Date)", datetime.now())
-    retailer = st.text_input("रिटेलर का नाम (Retailer Name)")
-    amount = st.number_input("राशि (Amount)", min_value=0)
-    mode = st.selectbox("पेमेंट मोड", ["Online/UPI", "Cash", "Bank Transfer"])
-    txn_id = st.text_input("Transaction Id (यदि हो)")
-    fse = st.selectbox("किसने कलेक्ट किया (Collected By)", ["Ravindra Sharma", "Lal Babu Das", "Self"])
+# 2. नया रिटेलर जोड़ें
+elif menu == "➕ नया रिटेलर जोड़ें":
+    st.title("➕ नया रिटेलर जोड़ें")
+    with st.form("add_retailer_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            r_name = st.text_input("रिटेलर का नाम (Retailer Name)*")
+            r_mobile = st.text_input("मोबाइल नंबर (Mobile Number)*", max_chars=10)
+        with col2:
+            r_prm = st.text_input("PRM ID (यदि हो)")
+            r_loc = st.text_input("लोकेशन (Location)")
+            
+        submit_retailer = st.form_submit_button("नया रिटेलर सेव करें")
+        
+        if submit_retailer:
+            st.success("✅ डिज़ाइन काम कर रहा है! (डेटाबेस से जुड़ना बाकी है)")
+
+# 3. माल इशू / पेमेंट एंट्री
+elif menu == "📦 माल / पेमेंट एंट्री":
+    st.title("📦 स्टॉक आउट / पेमेंट लें")
+    with st.form("transaction_form", clear_on_submit=True):
+        t_date = st.date_input("तारीख", datetime.now())
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            t_mobile = st.text_input("रिटेलर का मोबाइल नंबर (जिसको माल देना है)*", max_chars=10)
+            t_type = st.selectbox("क्या एंट्री करनी है?", ["Jio Phone", "SIM Card", "Etop Recharge", "पेमेंट (Payment Received)"])
+        with col2:
+            t_qty = st.number_input("कितना पीस / कितनी राशि (Qty/Amount)*", min_value=0)
+            fse = st.selectbox("एंट्री करने वाला (FSE)", ["Ravindra Sharma", "Lal Babu Das", "Self"])
+            
+        submit_txn = st.form_submit_button("एंट्री सेव करें और WhatsApp भेजें")
+        
+        if submit_txn:
+            st.success("✅ ट्रांजैक्शन फॉर्म काम कर रहा है! (WhatsApp ऑटोमेशन जुड़ना बाकी है)")
+
+# 4. लेजर (खाता)
+elif menu == "📜 लेजर (खाता) देखें":
+    st.title("📜 रिटेलर का पूरा खाता")
+    search_mobile = st.text_input("रिटेलर का मोबाइल नंबर डालें और Enter दबाएं:")
+    search_btn = st.button("हिसाब खोजें")
     
-    submit = st.form_submit_button("डेटा सुरक्षित करें")
-
-    if submit:
-        if retailer and amount > 0:
-            try:
-                # 1. डेटा पढ़ना
-                df = conn.read(spreadsheet=sheet_url, worksheet="Payments")
-                
-                # 2. नया डेटा तैयार करना (सब कुछ Text में बदल दिया है)
-                new_row = pd.DataFrame([{
-                    "Date": str(date),
-                    "Retailer": str(retailer).strip(),
-                    "Amount": str(amount),
-                    "Payment Mode": str(mode),
-                    "Transaction Id": str(txn_id).strip(),
-                    "Collected By": str(fse)
-                }])
-                
-                # 3. डेटा को जोड़ना
-                if not df.empty:
-                    updated_df = pd.concat([df, new_row], ignore_index=True)
-                else:
-                    updated_df = new_row
-                
-                # 4. डेटा क्लीन करना (सबसे ज़रूरी कदम ताकि 400 Error न आए)
-                updated_df = updated_df.astype(str)
-                updated_df = updated_df.replace("nan", "")
-                updated_df = updated_df.replace("NaN", "")
-                updated_df = updated_df.replace("None", "")
-                
-                # 5. वापस गूगल शीट में अपडेट करना
-                conn.update(spreadsheet=sheet_url, worksheet="Payments", data=updated_df)
-                
-                st.success(f"✅ {retailer} का ₹{amount} का पेमेंट सेव हो गया है!")
-                st.balloons()
-                
-            except Exception as e:
-                st.error(f"एरर 400: डेटा सेव नहीं हुआ। इसका मतलब गूगल हमें बिना 'Service Account' के एंट्री नहीं करने दे रहा है।")
-                st.info("टेक्निकल एरर कोड: " + str(e))
-        else:
-            st.warning("कृपया रिटेलर का नाम और सही राशि भरें।")
-
-st.markdown("---")
-st.caption("Developed for Sandhya Enterprises")
+    if search_btn:
+        st.info("यहाँ रिटेलर का पूरा पुराना हिसाब, बकाया और एडवांस दिखेगा।")
