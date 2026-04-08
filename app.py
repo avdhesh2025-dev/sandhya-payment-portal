@@ -20,7 +20,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 🛑 आपका बिल्कुल सही APPS SCRIPT वाला URL
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby_yV4nEMwrBODnkVh0x5DrVqcbj42iDMLNlX8M7QPrVGGMltoOfZhlid_gXlB0dwMvZQ/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby_yV4nEMwrBODnkVh0x5DrVqcbj42iDMLNIX8M7QPrVGGMItoOfZhIid_gXIB0dwMvZQ/exec"
 
 # आपकी नई गूगल शीट के डायरेक्ट लिंक्स (डेटा पढ़ने के लिए)
 sheet_id = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
