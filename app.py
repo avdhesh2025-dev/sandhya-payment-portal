@@ -19,16 +19,15 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 🚀 आपकी नई गूगल शीट का लिंक
+# आपकी नई गूगल शीट का लिंक
 sheet_id = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/edit?usp=sharing"
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# डायरेक्ट CSV लिंक्स
 retailers_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Retailers"
 inventory_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Inventory"
 
-# डेटाबेस से रिटेलर्स की लिस्ट और मोबाइल नंबर लाने का फंक्शन
+# डेटाबेस से रिटेलर्स लाने का फंक्शन
 @st.cache_data(ttl=30)
 def get_retailers_data():
     try:
@@ -39,7 +38,7 @@ def get_retailers_data():
             prm = str(row.get("PRM ID", "")).split('.')[0]
             name = str(row.get("Retailer Name", ""))
             mobile = str(row.get("Mobile Number", "")).split('.')[0]
-            if prm and name:
+            if prm and name and prm != "nan":
                 key = f"{prm} - {name}"
                 ret_dict[key] = {"Name": name, "Mobile": mobile}
         return ret_dict
@@ -50,7 +49,7 @@ retailers_data = get_retailers_data()
 if retailers_data:
     dropdown_options = ["सर्च करने के लिए यहाँ टाइप करें..."] + list(retailers_data.keys())
 else:
-    dropdown_options = ["डेटाबेस कनेक्ट नहीं हुआ"]
+    dropdown_options = ["सर्च करने के लिए यहाँ टाइप करें..."]
 
 # साइडबार (मेनू)
 st.sidebar.title("📲 संध्या इंटरप्राइजेज")
@@ -65,12 +64,11 @@ if menu == "📊 डैशबोर्ड (स्टॉक)":
         inv_df = pd.read_csv(inventory_csv)
         inv_df = inv_df.dropna(how="all").fillna("")
         st.dataframe(inv_df, use_container_width=True, hide_index=True)
-        st.success("✅ स्टॉक डेटाबेस से जुड़ा हुआ है।")
     except Exception as e:
-        st.error(f"❌ एरर: {e}")
+        st.error(f"❌ स्टॉक लोड नहीं हुआ: {e}")
 
 # ---------------------------------------------------------
-# 2. नया रिटेलर जोड़ें
+# 2. नया रिटेलर जोड़ें (अब Error 400 नहीं आएगा)
 elif menu == "➕ नया रिटेलर जोड़ें":
     st.title("➕ नया रिटेलर जोड़ें")
     with st.form("add_retailer_form", clear_on_submit=True):
@@ -87,7 +85,10 @@ elif menu == "➕ नया रिटेलर जोड़ें":
         if submit_retailer:
             if r_name and r_prm and r_mobile:
                 try:
+                    # डेटा पढ़ना और खाली लाइनें हटाना
                     df = conn.read(spreadsheet=sheet_url, worksheet="Retailers")
+                    df = df.dropna(how="all") 
+                    
                     new_row = pd.DataFrame([{
                         "Retailer Name": str(r_name).strip().upper(),
                         "Mobile Number": str(r_mobile).strip(),
@@ -95,20 +96,27 @@ elif menu == "➕ नया रिटेलर जोड़ें":
                         "Location": str(r_loc).strip().upper(),
                         "Date Added": datetime.now().strftime("%d-%m-%Y")
                     }])
-                    updated_df = pd.concat([df, new_row], ignore_index=True).fillna("").astype(str)
+                    
+                    if not df.empty:
+                        updated_df = pd.concat([df, new_row], ignore_index=True)
+                    else:
+                        updated_df = new_row
+                        
+                    updated_df = updated_df.fillna("").astype(str)
                     conn.update(spreadsheet=sheet_url, worksheet="Retailers", data=updated_df)
-                    st.success(f"✅ रिटेलर {r_name} सेव हो गया!")
+                    
+                    st.success(f"✅ रिटेलर {r_name} सफलतापूर्वक सेव हो गया!")
+                    st.balloons()
                     st.cache_data.clear()
                 except Exception as e:
-                    st.error(f"Error: {e}")
+                    st.error("❌ एरर: कृपया सुनिश्चित करें कि नई शीट के 'Retailers' टैब में ऊपर हेडिंग लिखी हुई हैं।")
             else:
                 st.warning("कृपया नाम, मोबाइल नंबर और PRM ID भरें।")
 
 # ---------------------------------------------------------
-# 3. माल इशू / पेमेंट एंट्री (जादुई एंट्री)
+# 3. माल इशू / पेमेंट एंट्री
 elif menu == "📦 माल / पेमेंट एंट्री":
     st.title("📦 स्टॉक आउट / पेमेंट लें")
-    
     with st.form("transaction_form", clear_on_submit=True):
         t_date = st.date_input("तारीख", datetime.now())
         t_prm = st.selectbox("रिटेलर खोजें (PRM ID या नाम टाइप करें)*", options=dropdown_options)
@@ -126,35 +134,41 @@ elif menu == "📦 माल / पेमेंट एंट्री":
 
     if submit_txn:
         if t_prm == "सर्च करने के लिए यहाँ टाइप करें...":
-            st.error("कृपया लिस्ट में से रिटेलर चुनें!")
+            st.error("कृपया लिस्ट में से कोई रिटेलर चुनें! (अगर लिस्ट नहीं आ रही है, तो पहले नया रिटेलर जोड़ें)")
         else:
             try:
-                # 1. रिटेलर की जानकारी निकालना
                 r_name = retailers_data[t_prm]["Name"]
                 r_mob = retailers_data[t_prm]["Mobile"]
                 
-                # डेबिट/क्रेडिट तय करना
                 amt_out = t_amount if t_type != "पेमेंट (Payment Received)" else 0
                 amt_in = t_amount if t_type == "पेमेंट (Payment Received)" else 0
                 
-                # 2. Ledger में एंट्री सेव करना
+                # 1. Ledger में सेव करना
                 ledger_df = conn.read(spreadsheet=sheet_url, worksheet="Ledger")
+                ledger_df = ledger_df.dropna(how="all")
+                
                 new_txn = pd.DataFrame([{
                     "Date": t_date.strftime("%d-%m-%Y"),
                     "Retailer Name": r_name,
                     "Mobile Number": r_mob,
                     "Product/Service": t_type,
-                    "Quantity": t_qty,
-                    "Amount Out (Debit)": amt_out,
-                    "Amount In (Credit)": amt_in,
-                    "Balance": "", # बैलेंस हम बाद में कैलकुलेट करेंगे
+                    "Quantity": str(t_qty),
+                    "Amount Out (Debit)": str(amt_out),
+                    "Amount In (Credit)": str(amt_in),
+                    "Balance": "", 
                     "Collected By": fse,
                     "Transaction ID": txn_id
                 }])
-                updated_ledger = pd.concat([ledger_df, new_txn], ignore_index=True).fillna("").astype(str)
+                
+                if not ledger_df.empty:
+                    updated_ledger = pd.concat([ledger_df, new_txn], ignore_index=True)
+                else:
+                    updated_ledger = new_txn
+                    
+                updated_ledger = updated_ledger.fillna("").astype(str)
                 conn.update(spreadsheet=sheet_url, worksheet="Ledger", data=updated_ledger)
                 
-                # 3. Inventory (स्टॉक) से माल काटना
+                # 2. Inventory (स्टॉक) अपडेट करना
                 prod_map = {"Jio Phone": "JIO PHONE BHARAT", "SIM Card": "SIM CARD", "Etop Recharge": "Etop BALANCE"}
                 if t_type in prod_map:
                     inv_df = conn.read(spreadsheet=sheet_url, worksheet="Inventory")
@@ -164,7 +178,7 @@ elif menu == "📦 माल / पेमेंट एंट्री":
                     if deduct_val > 0:
                         for idx, row in inv_df.iterrows():
                             if str(row.get("Product Name", "")).strip() == prod_name:
-                                issued = float(row.get("Stock Issued", 0) or 0) + deduct_val
+                                issued = float(row.get("Stock Issued", 0) or 0) + float(deduct_val)
                                 inv_df.at[idx, "Stock Issued"] = issued
                                 opening = float(row.get("Opening Stock", 0) or 0)
                                 added = float(row.get("Stock Added", 0) or 0)
@@ -175,14 +189,13 @@ elif menu == "📦 माल / पेमेंट एंट्री":
                 st.balloons()
                 st.cache_data.clear()
                 
-                # 4. WhatsApp लिंक बनाना
                 msg = f"संध्या इंटरप्राइजेज\nतारीख: {t_date.strftime('%d-%m-%Y')}\nरिटेलर: {r_name}\nआइटम: {t_type}\nमात्रा: {t_qty}\nराशि: ₹{t_amount}\nधन्यवाद!"
                 msg_encoded = urllib.parse.quote(msg)
                 wa_url = f"https://wa.me/91{r_mob}?text={msg_encoded}"
                 st.markdown(f"### [🟢 WhatsApp पर रसीद भेजने के लिए यहाँ क्लिक करें]({wa_url})", unsafe_allow_html=True)
                 
             except Exception as e:
-                st.error(f"❌ एंट्री सेव नहीं हो पाई। एरर: {e}")
+                st.error(f"❌ एंट्री सेव नहीं हो पाई। चेक करें कि Ledger टैब में हेडिंग्स सही हैं। एरर: {e}")
 
 # ---------------------------------------------------------
 # 4. लेजर (खाता)
