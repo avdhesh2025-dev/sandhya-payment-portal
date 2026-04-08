@@ -1,7 +1,116 @@
-# 📜 लेजर (खाता) देखें - PDF और Excel के साथ
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+import urllib.parse
+import requests
+
+# पेज की सेटिंग
+st.set_page_config(page_title="Sandhya ERP System", page_icon="🏢", layout="wide")
+
+st.markdown("""
+    <style>
+    div.row-widget.stRadio > div { flex-direction: column; }
+    div.row-widget.stRadio > div > label {
+        background-color: #f0f2f6; padding: 12px 15px; border-radius: 8px;
+        border: 1px solid #d0d2d6; margin-bottom: 8px; cursor: pointer; font-weight: 500; transition: 0.3s;
+    }
+    div.row-widget.stRadio > div > label:hover { background-color: #e0e2e6; border-color: #b0b2b6; }
+    </style>
+""", unsafe_allow_html=True)
+
+# 🛑 अपना चालू APPS SCRIPT वाला URL यहाँ पेस्ट करें
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby_yV4nEMwrBODnkVh0x5DrVqcbj42iDMLNlX8M7QPrVGGMltoOfZhlid_gXlB0dwMvZQ/exec"
+
+sheet_id = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
+retailers_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Retailers"
+inventory_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Inventory"
+ledger_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Ledger"
+
+@st.cache_data(ttl=30)
+def get_retailers_data():
+    try:
+        df = pd.read_csv(retailers_csv).dropna(how="all").fillna("")
+        ret_dict = {}
+        for index, row in df.iterrows():
+            prm = str(row.get("PRM ID", "")).split('.')[0]
+            name = str(row.get("Retailer Name", ""))
+            mobile = str(row.get("Mobile Number", "")).split('.')[0]
+            if prm and name and prm != "nan":
+                key = f"{prm} - {name}"
+                ret_dict[key] = {"Name": name, "Mobile": mobile}
+        return ret_dict
+    except: return {}
+
+retailers_data = get_retailers_data()
+dropdown_options = ["सर्च करने के लिए यहाँ टाइप करें..."] + list(retailers_data.keys()) if retailers_data else ["सर्च करने के लिए यहाँ टाइप करें..."]
+
+st.sidebar.title("📲 संध्या इंटरप्राइजेज")
+st.sidebar.markdown("---")
+menu = st.sidebar.radio("मेनू चुनें:", ["📊 डैशबोर्ड (स्टॉक)", "➕ नया रिटेलर जोड़ें", "📦 माल / पेमेंट एंट्री", "📜 लेजर (खाता) देखें", "💰 बकाया लिस्ट (Bulk SMS)"])
+
+# 1. डैशबोर्ड
+if menu == "📊 डैशबोर्ड (स्टॉक)":
+    st.title("📊 लाइव इन्वेंट्री स्टॉक")
+    try:
+        inv_df = pd.read_csv(inventory_csv).dropna(how="all").fillna("")
+        st.dataframe(inv_df, use_container_width=True, hide_index=True)
+    except: st.error("स्टॉक लोड हो रहा है...")
+
+# 2. नया रिटेलर जोड़ें
+elif menu == "➕ नया रिटेलर जोड़ें":
+    st.title("➕ नया रिटेलर जोड़ें")
+    with st.form("add_retailer_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            r_name = st.text_input("रिटेलर का नाम (Retailer Name)*")
+            r_mobile = st.text_input("मोबाइल नंबर (Mobile Number)*", max_chars=10)
+        with col2:
+            r_prm = st.text_input("PRM ID* (अनिवार्य)")
+            r_loc = st.text_input("लोकेशन (Location)")
+        submit_retailer = st.form_submit_button("नया रिटेलर सेव करें")
+        if submit_retailer and r_name and r_prm and r_mobile:
+            payload = {"action": "add_retailer", "name": str(r_name).strip().upper(), "mobile": str(r_mobile).strip(), "prm": str(r_prm).strip(), "location": str(r_loc).strip().upper(), "date": datetime.now().strftime("%d-%m-%Y")}
+            res = requests.post(WEBHOOK_URL, json=payload)
+            if res.text == "Success":
+                st.success(f"✅ रिटेलर {r_name} सेव हो गया!")
+                st.cache_data.clear()
+
+# 3. माल इशू / पेमेंट एंट्री
+elif menu == "📦 माल / पेमेंट एंट्री":
+    st.title("📦 स्टॉक आउट / पेमेंट लें")
+    t_date = st.date_input("तारीख", datetime.now())
+    t_prm = st.selectbox("रिटेलर खोजें*", options=dropdown_options)
+    col1, col2 = st.columns(2)
+    with col1:
+        t_type = st.selectbox("क्या एंट्री करनी है?", ["Jio Phone", "SIM Card", "Etop Recharge", "पेमेंट (Payment Received)"])
+        fse = st.selectbox("एंट्री करने वाला (FSE)", ["Ravindra Sharma", "Lal Babu Das", "Self"])
+    with col2:
+        t_qty = 0; t_amount = 0.0
+        if t_type == "SIM Card": t_qty = st.number_input("मात्रा (SIM)", min_value=1)
+        elif t_type in ["Etop Recharge", "पेमेंट (Payment Received)"]: t_amount = st.number_input("राशि ₹", min_value=1.0)
+        else:
+            t_qty = st.number_input("मात्रा (Phone)", min_value=1)
+            t_rate = st.number_input("रेट ₹", min_value=0.0)
+            t_amount = t_qty * t_rate
+            st.info(f"कुल राशि: ₹{t_amount}")
+        txn_id = st.text_input("Transaction ID")
+
+    if st.button("🚀 एंट्री सेव करें और WhatsApp भेजें", use_container_width=True):
+        if t_prm != "सर्च करने के लिए यहाँ टाइप करें...":
+            r_name = retailers_data[t_prm]["Name"]; r_mob = retailers_data[t_prm]["Mobile"]
+            amt_out = t_amount if t_type != "पेमेंट (Payment Received)" else 0
+            amt_in = t_amount if t_type == "पेमेंट (Payment Received)" else 0
+            payload = {"action": "add_txn", "date": t_date.strftime("%d-%m-%Y"), "r_name": r_name, "r_mob": r_mob, "type": t_type, "qty": t_qty, "amt_out": amt_out, "amt_in": amt_in, "fse": fse, "txn_id": txn_id}
+            res = requests.post(WEBHOOK_URL, json=payload)
+            if res.text == "Success":
+                st.success("✅ सेव हो गया!"); st.cache_data.clear()
+                msg = f"*🧾 संध्या इंटरप्राइजेज*\nदिनांक: {t_date.strftime('%d-%m-%Y')}\nरिटेलर: {r_name}\nआइटम: {t_type}\nराशि: ₹{t_amount}\n🙏 धन्यवाद!"
+                st.markdown(f"### [🟢 WhatsApp भेजें](https://wa.me/91{r_mob}?text={urllib.parse.quote(msg)})", unsafe_allow_html=True)
+
+# 4. लेजर देखें - (PDF और EXCEL के साथ)
 elif menu == "📜 लेजर (खाता) देखें":
-    st.title("📜 रिटेलर का पूरा खाता")
-    search_prm = st.selectbox("रिटेलर का खाता देखने के लिए खोजें:", options=dropdown_options)
+    st.title("📜 रिटेलर का खाता रिपोर्ट")
+    search_prm = st.selectbox("रिटेलर चुनें:", options=dropdown_options)
     
     if search_prm != "सर्च करने के लिए यहाँ टाइप करें...":
         try:
@@ -9,69 +118,65 @@ elif menu == "📜 लेजर (खाता) देखें":
             r_name = retailers_data[search_prm]["Name"]
             user_ledger = ledger_df[ledger_df['Retailer Name'] == r_name].copy()
             
-            if not user_ledger.empty:
-                st.markdown(f"### 👤 {r_name} का खाता")
-                
-                # रनिंग बैलेंस कैलकुलेशन
-                user_ledger['Amount Out (Debit)'] = pd.to_numeric(user_ledger['Amount Out (Debit)'], errors='coerce').fillna(0)
-                user_ledger['Amount In (Credit)'] = pd.to_numeric(user_ledger['Amount In (Credit)'], errors='coerce').fillna(0)
-                user_ledger['Balance'] = (user_ledger['Amount Out (Debit)'] - user_ledger['Amount In (Credit)']).cumsum()
-                
-                st.dataframe(user_ledger, use_container_width=True, hide_index=True)
-                
-                total_out = user_ledger['Amount Out (Debit)'].sum()
-                total_in = user_ledger['Amount In (Credit)'].sum()
-                balance = total_out - total_in
-                
-                st.markdown("---")
-                col1, col2 = st.columns(2)
-                
-                # 1. Excel डाउनलोड बटन
-                with col1:
-                    excel_data = user_ledger.to_csv(index=False).encode('utf-8-sig')
-                    st.download_button(
-                        label="📥 Excel में डाउनलोड करें",
-                        data=excel_data,
-                        file_name=f"{r_name}_Ledger.csv",
-                        mime="text/csv",
-                        use_container_width=True
-                    )
-                
-                # 2. PDF डाउनलोड (सिंपल टेबल फॉर्मेट)
-                with col2:
-                    # PDF के लिए हम HTML टेबल का इस्तेमाल करेंगे
-                    html_table = user_ledger.to_html(index=False)
-                    pdf_html = f"""
-                    <html>
-                    <head><style>
-                        table {{ border-collapse: collapse; width: 100%; font-family: sans-serif; }}
-                        th, td {{ border: 1px solid #dddddd; text-align: left; padding: 8px; }}
-                        th {{ background-color: #f2f2f2; }}
-                        h2 {{ text-align: center; color: #0047AB; }}
-                    </style></head>
-                    <body>
-                        <h2>संध्या इंटरप्राइजेज - लेजर रिपोर्ट</h2>
-                        <p><b>रिटेलर:</b> {r_name}</p>
-                        <p><b>तारीख:</b> {datetime.now().strftime("%d-%m-%Y")}</p>
-                        {html_table}
-                        <br>
-                        <p><b>कुल माल (Debit):</b> ₹{total_out}</p>
-                        <p><b>कुल जमा (Credit):</b> ₹{total_in}</p>
-                        <p><b>कुल बकाया (Dues):</b> ₹{balance}</p>
-                    </body>
-                    </html>
-                    """
-                    st.download_button(
-                        label="📄 PDF में डाउनलोड करें",
-                        data=pdf_html,
-                        file_name=f"{r_name}_Ledger.html", # अभी के लिए HTML (जिसे मोबाइल पर PDF की तरह सेव कर सकते हैं)
-                        mime="text/html",
-                        use_container_width=True
-                    )
-                
-                st.info("नोट: मोबाइल पर 'PDF डाउनलोड' बटन दबाने के बाद फाइल खोलें और उसे 'Save as PDF' कर लें।")
-                
-            else:
-                st.info("इस रिटेलर की अभी कोई एंट्री नहीं है।")
-        except Exception as e:
-            st.error("डेटा लोड करने में समस्या आ रही है।")
+            # डेटा को सही फॉर्मेट में लाना
+            user_ledger['Amount Out (Debit)'] = pd.to_numeric(user_ledger['Amount Out (Debit)'], errors='coerce').fillna(0)
+            user_ledger['Amount In (Credit)'] = pd.to_numeric(user_ledger['Amount In (Credit)'], errors='coerce').fillna(0)
+            user_ledger['Balance'] = (user_ledger['Amount Out (Debit)'] - user_ledger['Amount In (Credit)']).cumsum()
+            
+            st.markdown(f"### 👤 {r_name} का खाता")
+            st.dataframe(user_ledger, use_container_width=True, hide_index=True)
+            
+            total_out = user_ledger['Amount Out (Debit)'].sum()
+            total_in = user_ledger['Amount In (Credit)'].sum()
+            dues = total_out - total_in
+            
+            st.markdown("---")
+            col1, col2 = st.columns(2)
+            
+            # 📥 एक्सेल डाउनलोड
+            with col1:
+                excel_csv = user_ledger.to_csv(index=False).encode('utf-8-sig')
+                st.download_button(label="📥 Excel में डाउनलोड करें", data=excel_csv, file_name=f"{r_name}_Ledger.csv", mime="text/csv", use_container_width=True)
+            
+            # 📄 PDF रिपोर्ट (HTML आधारित)
+            with col2:
+                html_table = user_ledger.to_html(index=False)
+                pdf_report = f"""
+                <html><body style='font-family:sans-serif;'>
+                <h2 style='text-align:center; color:#0047AB;'>संध्या इंटरप्राइजेज - लेजर रिपोर्ट</h2>
+                <hr>
+                <p><b>रिटेलर:</b> {r_name} | <b>तारीख:</b> {datetime.now().strftime('%d-%m-%Y')}</p>
+                {html_table}
+                <br>
+                <p style='font-size:18px;'><b>कुल माल (Debit):</b> ₹{total_out} | <b>कुल जमा (Credit):</b> ₹{total_in}</p>
+                <h3 style='color:red;'>कुल बकाया (Dues): ₹{dues}</h3>
+                </body></html>
+                """
+                st.download_button(label="📄 PDF/Report में डाउनलोड करें", data=pdf_report, file_name=f"{r_name}_Report.html", mime="text/html", use_container_width=True)
+
+        except: st.error("डेटा लोड नहीं हुआ।")
+
+# 5. बकाया लिस्ट
+elif menu == "💰 बकाया लिस्ट (Bulk SMS)":
+    st.title("💰 बकाया वसूली लिस्ट")
+    if st.button("🔄 सभी का बकाया चेक करें"):
+        try:
+            ledger_df = pd.read_csv(ledger_csv).dropna(how="all").fillna("")
+            summary = []
+            for key, val in retailers_data.items():
+                name = val["Name"]
+                u_data = ledger_df[ledger_df['Retailer Name'] == name]
+                dues = pd.to_numeric(u_data['Amount Out (Debit)'], errors='coerce').sum() - pd.to_numeric(u_data['Amount In (Credit)'], errors='coerce').sum()
+                if dues > 0: summary.append({"रिटेलर": name, "मोबाइल": val["Mobile"], "बकाया": dues})
+            
+            summary_df = pd.DataFrame(summary)
+            if not summary_df.empty:
+                st.error(f"💸 कुल मार्केट बकाया: ₹{summary_df['बकाया'].sum()}")
+                for _, row in summary_df.iterrows():
+                    c1, c2, c3 = st.columns([2, 1, 2])
+                    c1.write(f"**{row['रिटेलर']}**")
+                    c2.write(f"₹{row['बकाया']}")
+                    msg = f"डियर पार्टनर, आज तक का आपका बकाया ₹{row['बकाया']} है। कृपया आज ही पेमेंट कर दें।\nRegards, SANDHYA ENTERPRISES"
+                    c3.markdown(f"[📲 रिमाइंडर भेजें](https://wa.me/91{row['मोबाइल']}?text={urllib.parse.quote(msg)})")
+            else: st.success("कोई बकाया नहीं है!")
+        except: st.error("एरर: लेजर लोड नहीं हुआ।")
