@@ -296,11 +296,11 @@ elif st.session_state.current_page == "DUES":
                 st.markdown(f"**{row['Retailer']}** (₹{row['Dues']}) -> [📲 Send Reminder](https://wa.me/91{row['Mobile']}?text={urllib.parse.quote(msg)})")
         else: st.success("No dues pending!")
 
-# --- 📂 7. DIRECT JIO EXCEL UPLOAD (AUTO-MATCH) ---
+# --- 📂 7. DIRECT JIO EXCEL UPLOAD (AUTO-MATCH & 3% COMMISSION DEDUCTION) ---
 elif st.session_state.current_page == "BULK":
     if st.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
     st.header("📂 Auto-Match Bulk Entry (Etop Transfer)")
-    st.info("Directly upload your Jio System Export Excel file. The system will automatically match PRM IDs and update Etop Transfers.")
+    st.info("Directly upload your Jio Export Excel. The system will automatically match PRM IDs and deduct 3% margin from the Transfer Amount.")
     
     uploaded_file = st.file_uploader("Upload Direct Jio Excel/CSV File", type=["csv", "xlsx"])
     
@@ -308,10 +308,12 @@ elif st.session_state.current_page == "BULK":
         try:
             if uploaded_file.name.endswith('.csv'): df_upload = pd.read_csv(uploaded_file).fillna("")
             else: df_upload = pd.read_excel(uploaded_file).fillna("")
+            
+            # 🔴 FIX FOR THE COLUMN NAME ERROR: Removes extra/hidden spaces in Jio excel headers
+            df_upload.columns = [' '.join(str(col).split()) for col in df_upload.columns]
                 
-            st.write("### 👁️ Preview of Detected Data")
-            # 🔴 यहाँ से '.head(3)' हटा दिया गया है। अब पूरा एक्सेल दिखेगा!
-            st.dataframe(df_upload, use_container_width=True) 
+            st.write("### 👁️ Preview of Uploaded Data")
+            st.dataframe(df_upload, use_container_width=True)
             
             st.markdown("---")
             st.write("### 🔐 Authentication & Upload")
@@ -324,7 +326,7 @@ elif st.session_state.current_page == "BULK":
                 if fse == "Avdhesh Kumar" and fse_pin != "9557": st.error("❌ Invalid PIN for Avdhesh Kumar!")
                 elif fse == "Babloo kumar singh" and fse_pin != "2081": st.error("❌ Invalid PIN for Babloo kumar singh!")
                 elif "Partner PRM ID" not in df_upload.columns or "Transfer Amount" not in df_upload.columns:
-                    st.error("❌ Error: Missing 'Partner PRM ID' or 'Transfer Amount' columns in the uploaded file.")
+                    st.error("❌ Error: Missing 'Partner PRM ID' or 'Transfer Amount' columns. Make sure you upload the correct Jio file.")
                 else:
                     progress_bar = st.progress(0)
                     status_text = st.empty()
@@ -345,10 +347,13 @@ elif st.session_state.current_page == "BULK":
                             r_amt_out = float(row.get("Transfer Amount", 0))
                             r_txn = str(row.get("Order ID", ""))
                             
-                            if r_amt_out > 0:
+                            # 🔴 NEW LOGIC: Deduct 3% from Transfer Amount
+                            actual_amt_out = round(r_amt_out - (r_amt_out * 0.03), 2)
+                            
+                            if actual_amt_out > 0:
                                 payload = {
                                     "action": "add_txn", "date": r_date, "r_name": r_name, "r_mob": r_mob, 
-                                    "type": "Etop Transfer", "qty": 0, "amt_out": r_amt_out, "amt_in": 0, 
+                                    "type": "Etop Transfer", "qty": 0, "amt_out": actual_amt_out, "amt_in": 0, 
                                     "fse": fse, "txn_id": r_txn
                                 }
                                 try:
@@ -361,9 +366,9 @@ elif st.session_state.current_page == "BULK":
                         progress_bar.progress((idx + 1) / total_rows)
                         status_text.text(f"Processing... {idx + 1}/{total_rows}")
                         
-                    st.success(f"✅ Completed! Successfully added {success_count} Etop Transfers.")
+                    st.success(f"✅ Completed! Successfully added {success_count} Etop Transfers (with 3% deduction applied).")
                     if not_found_count > 0:
                         st.warning(f"⚠️ {not_found_count} PRMs from Excel were not found in your Retailer list. They were skipped.")
                     st.cache_data.clear()
         except Exception as e:
-            st.error("❌ Error reading file. Please make sure it's the correct Jio Export format.")
+            st.error(f"❌ Error reading file: {str(e)}")
