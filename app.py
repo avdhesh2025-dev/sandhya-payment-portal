@@ -3,39 +3,26 @@ import pandas as pd
 from datetime import datetime, date
 import urllib.parse
 import requests
+import time
 
 # 1. Page Configuration (No Sidebar)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide", initial_sidebar_state="collapsed")
 
-# 💎 Global CSS Design (Hiding sidebar and styling header/buttons)
+# 💎 Global CSS Design
 st.markdown("""
     <style>
-    /* App Background */
     .stApp { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    
-    /* Hide Sidebar completely */
     [data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
-    
-    /* 🌟 Premium Header */
     .app-header {
         background: linear-gradient(135deg, #0047AB 0%, #00c6ff 100%);
-        color: white;
-        padding: 35px 20px;
-        border-radius: 16px;
-        text-align: center;
-        margin-top: 10px;
-        margin-bottom: 20px;
+        color: white; padding: 35px 20px; border-radius: 16px;
+        text-align: center; margin-top: 10px; margin-bottom: 20px;
         box-shadow: 0 10px 30px rgba(0,0,0,0.15);
     }
     .app-header h1 { font-size: 2.4rem; font-weight: 700; margin-bottom: 5px; color: #ffffff;}
     .app-header p { font-size: 1.1rem; font-weight: 300; opacity: 0.8; margin: 0;}
-    
-    /* Input Box Design */
     .stDataFrame, .stSelectbox, .stNumberInput, .stTextInput, .stDateInput {
-        background-color: white;
-        border-radius: 10px;
-        padding: 5px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        background-color: white; border-radius: 10px; padding: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -48,12 +35,21 @@ retailers_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=
 inventory_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Inventory"
 ledger_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Ledger"
 
-@st.cache_data(ttl=30)
+# 🔴 SUPER CLEANER FOR PRM IDs (Removes .0, spaces, and texts)
+def clean_prm_id(val):
+    s = str(val).strip()
+    if not s or s.lower() == 'nan': return ""
+    try: return str(int(float(s))) # Fixes 660234925.0
+    except: return s.split('.')[0].replace(" ", "").upper()
+
+# 🔴 CACHE BUSTER (Pulls instant live data without 5-min Google delay)
+@st.cache_data(ttl=5)
 def load_data():
     try:
-        ret_df = pd.read_csv(retailers_csv).dropna(how="all").fillna("")
-        inv_df = pd.read_csv(inventory_csv).dropna(how="all").fillna("")
-        led_df = pd.read_csv(ledger_csv).dropna(how="all").fillna("")
+        cb = int(time.time())
+        ret_df = pd.read_csv(f"{retailers_csv}&cb={cb}").dropna(how="all").fillna("")
+        inv_df = pd.read_csv(f"{inventory_csv}&cb={cb}").dropna(how="all").fillna("")
+        led_df = pd.read_csv(f"{ledger_csv}&cb={cb}").dropna(how="all").fillna("")
         return ret_df, inv_df, led_df
     except: return None, None, None
 
@@ -69,29 +65,23 @@ if ret_df is not None:
         name = str(row.get("Retailer Name", "")).strip()
         mobile = str(row.get("Mobile Number", "")).split('.')[0].strip()
         
-        match_prm = str(row.get("PRM ID", "")).split('.')[0].replace(" ", "").strip().upper()
+        match_prm = clean_prm_id(row.get("PRM ID", ""))
         
-        if match_prm and name and match_prm != "NAN":
+        if match_prm and name:
             retailers_data[f"{disp_prm} - {name}"] = {"Name": name, "Mobile": mobile, "PRM": disp_prm}
             prm_mapping[match_prm] = {"Name": name, "Mobile": mobile}
             dropdown_options.append(f"{disp_prm} - {name}")
 
 # Session State for Navigation
-if "current_page" not in st.session_state:
-    st.session_state.current_page = "HOME"
-
-def go_to(page):
-    st.session_state.current_page = page
-    st.rerun()
+if "current_page" not in st.session_state: st.session_state.current_page = "HOME"
+def go_to(page): st.session_state.current_page = page; st.rerun()
 
 # --- 🌟 APP HEADER ---
 st.markdown('<div class="app-header"><h1>🏢 Sandhya Enterprises</h1><p>Smart Business Management System</p></div>', unsafe_allow_html=True)
 
-# --- 🏠 HOME PAGE (Premium Grid - No Sidebar) ---
+# --- 🏠 HOME PAGE ---
 if st.session_state.current_page == "HOME":
-    if st.button("🔄 Refresh System Data", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
+    if st.button("🔄 Refresh System Data", use_container_width=True): st.cache_data.clear(); st.rerun()
         
     st.markdown("""
     <style>
@@ -111,7 +101,6 @@ if st.session_state.current_page == "HOME":
         if st.button("➕ Add Retailer", use_container_width=True): go_to("ADD_RETAILER")
         if st.button("📜 Ledger Report", use_container_width=True): go_to("LEDGER")
         if st.button("📂 Bulk Entry (Excel)", use_container_width=True): go_to("BULK")
-
     with col2:
         if st.button("💰 Today's Collection", use_container_width=True): go_to("COLLECTION")
         if st.button("📦 Stock / Payment Entry", use_container_width=True): go_to("ENTRY")
@@ -122,7 +111,6 @@ elif st.session_state.current_page == "STOCK":
     c_back, c_ref = st.columns(2)
     if c_back.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
     if c_ref.button("🔄 Refresh Data", use_container_width=True): st.cache_data.clear(); st.rerun()
-    
     st.header("📊 Live Inventory Stock")
     if inv_df is not None: st.dataframe(inv_df, use_container_width=True, hide_index=True)
 
@@ -131,7 +119,6 @@ elif st.session_state.current_page == "COLLECTION":
     c_back, c_ref = st.columns(2)
     if c_back.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
     if c_ref.button("🔄 Refresh Data", use_container_width=True): st.cache_data.clear(); st.rerun()
-    
     st.header("💸 Today's Collection")
     if ret_df is not None and led_df is not None:
         for index, row in ret_df.iterrows():
@@ -163,33 +150,22 @@ elif st.session_state.current_page == "ENTRY":
     st.markdown("""
         <style>
         .stButton>button {
-            background-color: #ffffff !important; color: #1a1a1a !important;
-            border: none !important; border-radius: 12px !important;
-            font-size: 18px !important; font-weight: 700 !important;
-            box-shadow: 0 6px 0 #d1d9e6, 0 10px 15px rgba(0,0,0,0.1) !important;
-            transition: all 0.2s ease-out !important;
-            border-left: 6px solid #007bff !important; position: relative; top: 0;
+            background-color: #ffffff !important; color: #1a1a1a !important; border: none !important; border-radius: 12px !important;
+            font-size: 18px !important; font-weight: 700 !important; box-shadow: 0 6px 0 #d1d9e6, 0 10px 15px rgba(0,0,0,0.1) !important;
+            transition: all 0.2s ease-out !important; border-left: 6px solid #007bff !important; position: relative; top: 0;
         }
         .stButton>button:hover {
-            color: #007bff !important; border-left: 6px solid #00c6ff !important;
-            top: -3px !important; box-shadow: 0 9px 0 #d1d9e6, 0 15px 20px rgba(0,0,0,0.15) !important;
-            animation: wobble-hor-bottom 0.5s both !important;
+            color: #007bff !important; border-left: 6px solid #00c6ff !important; top: -3px !important;
+            box-shadow: 0 9px 0 #d1d9e6, 0 15px 20px rgba(0,0,0,0.15) !important; animation: wobble-hor-bottom 0.5s both !important;
         }
         .stButton>button:active { top: 4px !important; box-shadow: 0 2px 0 #d1d9e6, 0 5px 10px rgba(0,0,0,0.1) !important; animation: none !important; }
-        @keyframes wobble-hor-bottom {
-            0%, 100% { transform: translateX(0%); }
-            15% { transform: translateX(-4px) rotate(-1deg); }
-            30% { transform: translateX(3px) rotate(1deg); }
-            45% { transform: translateX(-2px) rotate(-0.5deg); }
-            60% { transform: translateX(1px) rotate(0.2deg); }
-        }
+        @keyframes wobble-hor-bottom { 0%, 100% { transform: translateX(0%); } 15% { transform: translateX(-4px) rotate(-1deg); } 30% { transform: translateX(3px) rotate(1deg); } 45% { transform: translateX(-2px) rotate(-0.5deg); } 60% { transform: translateX(1px) rotate(0.2deg); } }
         </style>
     """, unsafe_allow_html=True)
     
     c_back, c_ref = st.columns(2)
     if c_back.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
     if c_ref.button("🔄 Refresh Data", use_container_width=True): st.cache_data.clear(); st.rerun()
-    
     st.header("📦 Stock Out / Payment Entry")
     
     t_date = st.date_input("Date", date.today())
@@ -266,7 +242,6 @@ elif st.session_state.current_page == "ADD_RETAILER":
                 requests.post(WEBHOOK_URL, json=payload)
                 st.success("Retailer saved successfully!"); st.cache_data.clear()
 
-    # 🔴 BULK UPLOAD RETAILERS (Smart Column Match + Connection Session)
     st.markdown("---")
     st.header("📂 Bulk Retailer & Opening Balance Upload")
     st.info("Upload your Excel. The system will automatically detect the columns and create retailers/balances.")
@@ -278,7 +253,6 @@ elif st.session_state.current_page == "ADD_RETAILER":
             else: df_ret = pd.read_excel(uploaded_ret_file).fillna("")
             
             df_ret.columns = [' '.join(str(col).upper().split()) for col in df_ret.columns]
-            
             st.write("### 👁️ Preview of Retailers Data")
             st.dataframe(df_ret, use_container_width=True)
             
@@ -295,23 +269,19 @@ elif st.session_state.current_page == "ADD_RETAILER":
                     total_rows = len(df_ret)
                     success_ret = 0
                     
-                    # Force matching columns (fallback to index if names are weird)
                     col_name = next((c for c in df_ret.columns if "NAME" in c or "RETAILER" in c), df_ret.columns[0] if len(df_ret.columns) > 0 else None)
                     col_prm = next((c for c in df_ret.columns if "PRM" in c), df_ret.columns[1] if len(df_ret.columns) > 1 else None)
                     col_mob = next((c for c in df_ret.columns if "DETAIL" in c or "MOB" in c), df_ret.columns[2] if len(df_ret.columns) > 2 else None)
                     col_dues = next((c for c in df_ret.columns if "DUS" in c or "DUE" in c), df_ret.columns[3] if len(df_ret.columns) > 3 else None)
                     col_adv = next((c for c in df_ret.columns if "ADV" in c), df_ret.columns[4] if len(df_ret.columns) > 4 else None)
                     
-                    # Use Session to prevent connection drops
                     session = requests.Session()
                     
                     for idx, row in df_ret.iterrows():
                         b_name = str(row.get(col_name, "")).strip().upper() if col_name else ""
                         if b_name == "NAN" or "UNNAMED" in b_name or b_name == "RETAILER NAME": b_name = ""
-                        
                         b_prm = str(row.get(col_prm, "")).split('.')[0].strip() if col_prm else ""
                         if b_prm == "NAN": b_prm = ""
-                        
                         b_mob = str(row.get(col_mob, "")).split('.')[0].strip() if col_mob else ""
                         if b_mob == "NAN": b_mob = ""
                         
@@ -319,42 +289,36 @@ elif st.session_state.current_page == "ADD_RETAILER":
                             val_dues = str(row.get(col_dues, "0")).replace(',', '').strip()
                             b_dues = float(val_dues) if val_dues != "nan" and val_dues != "" else 0.0
                         except: b_dues = 0.0
-                        
                         try:
                             val_adv = str(row.get(col_adv, "0")).replace(',', '').strip()
                             b_adv = float(val_adv) if val_adv != "nan" and val_adv != "" else 0.0
                         except: b_adv = 0.0
                         
-                        if b_name: # Only add if name is strictly valid
+                        if b_name: 
                             payload_ret = {"action": "add_retailer", "name": b_name, "mobile": b_mob, "prm": b_prm, "location": "BULK UPLOAD", "date": date.today().strftime("%d-%m-%Y")}
                             try:
                                 session.post(WEBHOOK_URL, json=payload_ret)
                                 success_ret += 1
-                                
                                 if b_dues > 0:
                                     payload_dues = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": b_name, "r_mob": b_mob, "type": "Opening Dues", "qty": 0, "amt_out": b_dues, "amt_in": 0, "fse": bulk_fse, "txn_id": "OPENING_BAL"}
                                     session.post(WEBHOOK_URL, json=payload_dues)
-                                
                                 if b_adv > 0:
                                     payload_adv = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": b_name, "r_mob": b_mob, "type": "Opening Advance", "qty": 0, "amt_out": 0, "amt_in": b_adv, "fse": bulk_fse, "txn_id": "OPENING_BAL"}
                                     session.post(WEBHOOK_URL, json=payload_adv)
-                            except Exception as e:
-                                pass # Keep going even if one fails
+                            except Exception as e: pass
                             
                         progress_bar.progress((idx + 1) / total_rows)
                         status_text.text(f"Uploading... {idx + 1}/{total_rows}")
                         
                     st.success(f"✅ Successfully uploaded {success_ret} Retailers and their opening balances!")
                     st.cache_data.clear()
-        except Exception as e:
-            st.error(f"❌ Error: Could not read file. Details: {str(e)}")
+        except Exception as e: st.error(f"❌ Error: Could not read file. Details: {str(e)}")
 
 # --- 📜 5. LEDGER ---
 elif st.session_state.current_page == "LEDGER":
     c_back, c_ref = st.columns(2)
     if c_back.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
     if c_ref.button("🔄 Refresh Data", use_container_width=True): st.cache_data.clear(); st.rerun()
-    
     st.header("📜 Retailer Ledger Report")
     search_prm = st.selectbox("Select Retailer:", options=dropdown_options)
     if search_prm != "Type here to search...":
@@ -384,7 +348,6 @@ elif st.session_state.current_page == "DUES":
     c_back, c_ref = st.columns(2)
     if c_back.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
     if c_ref.button("🔄 Refresh Data", use_container_width=True): st.cache_data.clear(); st.rerun()
-    
     st.header("💰 Dues Collection List (Bulk SMS)")
     if st.button("🔄 Check All Dues", use_container_width=True):
         summary = []
@@ -403,52 +366,48 @@ elif st.session_state.current_page == "DUES":
                 st.markdown(f"**{row['Retailer']}** (₹{row['Dues']}) -> [📲 Send Reminder](https://wa.me/91{row['Mobile']}?text={urllib.parse.quote(msg)})")
         else: st.success("No dues pending!")
 
-# --- 📂 7. DIRECT JIO EXCEL UPLOAD (AUTO-MATCH & 3% COMMISSION DEDUCTION) ---
+# --- 📂 7. DIRECT JIO EXCEL UPLOAD (AUTO-MATCH) ---
 elif st.session_state.current_page == "BULK":
     c_back, c_ref = st.columns(2)
     if c_back.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
     if c_ref.button("🔄 Refresh Data", use_container_width=True): st.cache_data.clear(); st.rerun()
     
     st.header("📂 Auto-Match Bulk Entry (Etop Transfer)")
-    st.info("Directly upload your Jio Export Excel. The system will automatically match PRM IDs and deduct 3% margin from the Transfer Amount.")
+    st.info("Directly upload your Jio Export Excel. The system will automatically match PRM IDs and deduct 3% margin.")
     
     uploaded_file = st.file_uploader("Upload Direct Jio Excel/CSV File", type=["csv", "xlsx"])
-    
     if uploaded_file is not None:
         try:
             if uploaded_file.name.endswith('.csv'): df_upload = pd.read_csv(uploaded_file).fillna("")
             else: df_upload = pd.read_excel(uploaded_file).fillna("")
             
             df_upload.columns = [' '.join(str(col).split()) for col in df_upload.columns]
-                
             st.write("### 👁️ Preview of Uploaded Data")
             st.dataframe(df_upload, use_container_width=True) 
             
-            st.markdown("---")
             st.write("### 🔐 Authentication & Upload")
-            
             col1, col2 = st.columns(2)
             fse = col1.selectbox("Select FSE", ["Avdhesh Kumar", "Babloo kumar singh"], key="bulk_fse")
             fse_pin = col2.text_input("Enter 4-digit PIN*", type="password", max_chars=4, key="bulk_pin")
             
             if st.button("🚀 Match & Upload Etop Transfers", use_container_width=True):
-                if fse == "Avdhesh Kumar" and fse_pin != "9557": st.error("❌ Invalid PIN for Avdhesh Kumar!")
-                elif fse == "Babloo kumar singh" and fse_pin != "2081": st.error("❌ Invalid PIN for Babloo kumar singh!")
+                if fse == "Avdhesh Kumar" and fse_pin != "9557": st.error("❌ Invalid PIN!")
+                elif fse == "Babloo kumar singh" and fse_pin != "2081": st.error("❌ Invalid PIN!")
                 elif "Partner PRM ID" not in df_upload.columns or "Transfer Amount" not in df_upload.columns:
-                    st.error("❌ Error: Missing 'Partner PRM ID' or 'Transfer Amount' columns. Make sure you upload the correct Jio file.")
+                    st.error("❌ Error: Missing columns. Make sure you upload the correct Jio file.")
                 else:
                     progress_bar = st.progress(0)
                     status_text = st.empty()
                     total_rows = len(df_upload)
                     success_count = 0
-                    not_found_count = 0
+                    not_found_prms = []
                     
                     session = requests.Session()
                     
                     for idx, row in df_upload.iterrows():
-                        raw_prm = str(row.get("Partner PRM ID", "")).split('.')[0].replace(" ", "").strip().upper()
+                        raw_prm = clean_prm_id(row.get("Partner PRM ID", ""))
                         
-                        if raw_prm in prm_mapping:
+                        if raw_prm and raw_prm in prm_mapping:
                             r_name = prm_mapping[raw_prm]["Name"]
                             r_mob = prm_mapping[raw_prm]["Mobile"]
                             
@@ -464,24 +423,20 @@ elif st.session_state.current_page == "BULK":
                             actual_amt_out = round(r_amt_out - (r_amt_out * 0.03), 2)
                             
                             if actual_amt_out > 0:
-                                payload = {
-                                    "action": "add_txn", "date": r_date, "r_name": r_name, "r_mob": r_mob, 
-                                    "type": "Etop Transfer", "qty": 0, "amt_out": actual_amt_out, "amt_in": 0, 
-                                    "fse": fse, "txn_id": r_txn
-                                }
+                                payload = {"action": "add_txn", "date": r_date, "r_name": r_name, "r_mob": r_mob, "type": "Etop Transfer", "qty": 0, "amt_out": actual_amt_out, "amt_in": 0, "fse": fse, "txn_id": r_txn}
                                 try:
                                     session.post(WEBHOOK_URL, json=payload)
                                     success_count += 1
+                                    time.sleep(0.5) # 🔴 Slowed down to prevent Google rejection
                                 except: pass
                         else:
-                            not_found_count += 1
+                            if raw_prm: not_found_prms.append(raw_prm)
                             
                         progress_bar.progress((idx + 1) / total_rows)
                         status_text.text(f"Processing... {idx + 1}/{total_rows}")
                         
-                    st.success(f"✅ Completed! Successfully added {success_count} Etop Transfers (with 3% deduction applied).")
-                    if not_found_count > 0:
-                        st.warning(f"⚠️ {not_found_count} PRMs from Excel were not found in your Retailer list. They were skipped.")
+                    st.success(f"✅ Completed! Successfully added {success_count} Etop Transfers (with 3% deduction).")
+                    if len(not_found_prms) > 0:
+                        st.warning(f"⚠️ {len(not_found_prms)} PRMs were skipped because they are not in your Retailer List. (e.g., {', '.join(not_found_prms[:5])})")
                     st.cache_data.clear()
-        except Exception as e:
-            st.error(f"❌ Error reading file: {str(e)}")
+        except Exception as e: st.error(f"❌ Error reading file: {str(e)}")
