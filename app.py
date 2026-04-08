@@ -26,6 +26,7 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 retailers_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Retailers"
 inventory_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Inventory"
+ledger_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Ledger"
 
 # डेटाबेस से रिटेलर्स लाने का फंक्शन
 @st.cache_data(ttl=30)
@@ -68,7 +69,7 @@ if menu == "📊 डैशबोर्ड (स्टॉक)":
         st.error(f"❌ स्टॉक लोड नहीं हुआ: {e}")
 
 # ---------------------------------------------------------
-# 2. नया रिटेलर जोड़ें (अब Error 400 नहीं आएगा)
+# 2. नया रिटेलर जोड़ें
 elif menu == "➕ नया रिटेलर जोड़ें":
     st.title("➕ नया रिटेलर जोड़ें")
     with st.form("add_retailer_form", clear_on_submit=True):
@@ -85,8 +86,8 @@ elif menu == "➕ नया रिटेलर जोड़ें":
         if submit_retailer:
             if r_name and r_prm and r_mobile:
                 try:
-                    # डेटा पढ़ना और खाली लाइनें हटाना
-                    df = conn.read(spreadsheet=sheet_url, worksheet="Retailers")
+                    # डेटा पढ़ना (डायरेक्ट लिंक से)
+                    df = pd.read_csv(retailers_csv)
                     df = df.dropna(how="all") 
                     
                     new_row = pd.DataFrame([{
@@ -103,13 +104,16 @@ elif menu == "➕ नया रिटेलर जोड़ें":
                         updated_df = new_row
                         
                     updated_df = updated_df.fillna("").astype(str)
+                    
+                    # गूगल शीट में अपडेट करना
                     conn.update(spreadsheet=sheet_url, worksheet="Retailers", data=updated_df)
                     
                     st.success(f"✅ रिटेलर {r_name} सफलतापूर्वक सेव हो गया!")
                     st.balloons()
                     st.cache_data.clear()
                 except Exception as e:
-                    st.error("❌ एरर: कृपया सुनिश्चित करें कि नई शीट के 'Retailers' टैब में ऊपर हेडिंग लिखी हुई हैं।")
+                    # अब असली एरर दिखेगा
+                    st.error(f"❌ तकनीकी एरर (Technical Error): {e}")
             else:
                 st.warning("कृपया नाम, मोबाइल नंबर और PRM ID भरें।")
 
@@ -144,7 +148,7 @@ elif menu == "📦 माल / पेमेंट एंट्री":
                 amt_in = t_amount if t_type == "पेमेंट (Payment Received)" else 0
                 
                 # 1. Ledger में सेव करना
-                ledger_df = conn.read(spreadsheet=sheet_url, worksheet="Ledger")
+                ledger_df = pd.read_csv(ledger_csv)
                 ledger_df = ledger_df.dropna(how="all")
                 
                 new_txn = pd.DataFrame([{
@@ -171,7 +175,7 @@ elif menu == "📦 माल / पेमेंट एंट्री":
                 # 2. Inventory (स्टॉक) अपडेट करना
                 prod_map = {"Jio Phone": "JIO PHONE BHARAT", "SIM Card": "SIM CARD", "Etop Recharge": "Etop BALANCE"}
                 if t_type in prod_map:
-                    inv_df = conn.read(spreadsheet=sheet_url, worksheet="Inventory")
+                    inv_df = pd.read_csv(inventory_csv)
                     prod_name = prod_map[t_type]
                     deduct_val = t_amount if t_type == "Etop Recharge" else t_qty
                     
@@ -195,7 +199,7 @@ elif menu == "📦 माल / पेमेंट एंट्री":
                 st.markdown(f"### [🟢 WhatsApp पर रसीद भेजने के लिए यहाँ क्लिक करें]({wa_url})", unsafe_allow_html=True)
                 
             except Exception as e:
-                st.error(f"❌ एंट्री सेव नहीं हो पाई। चेक करें कि Ledger टैब में हेडिंग्स सही हैं। एरर: {e}")
+                st.error(f"❌ तकनीकी एरर (Technical Error): {e}")
 
 # ---------------------------------------------------------
 # 4. लेजर (खाता)
