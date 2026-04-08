@@ -3,7 +3,6 @@ import pandas as pd
 from datetime import datetime, date
 import urllib.parse
 import requests
-import time  # 🔴 Google Sheet को क्रैश होने से बचाने के लिए नया फीचर
 
 # 1. Page Configuration (No Sidebar)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide", initial_sidebar_state="collapsed")
@@ -267,7 +266,7 @@ elif st.session_state.current_page == "ADD_RETAILER":
                 requests.post(WEBHOOK_URL, json=payload)
                 st.success("Retailer saved successfully!"); st.cache_data.clear()
 
-    # 🔴 BULK UPLOAD RETAILERS (Protected from Google Sheet Crash)
+    # 🔴 BULK UPLOAD RETAILERS (Smart Column Match + Connection Session)
     st.markdown("---")
     st.header("📂 Bulk Retailer & Opening Balance Upload")
     st.info("Upload your Excel. The system will automatically detect the columns and create retailers/balances.")
@@ -278,7 +277,6 @@ elif st.session_state.current_page == "ADD_RETAILER":
             if uploaded_ret_file.name.endswith('.csv'): df_ret = pd.read_csv(uploaded_ret_file).fillna("")
             else: df_ret = pd.read_excel(uploaded_ret_file).fillna("")
             
-            # Clean column headers
             df_ret.columns = [' '.join(str(col).upper().split()) for col in df_ret.columns]
             
             st.write("### 👁️ Preview of Retailers Data")
@@ -297,60 +295,56 @@ elif st.session_state.current_page == "ADD_RETAILER":
                     total_rows = len(df_ret)
                     success_ret = 0
                     
-                    # Smart column detection 
-                    col_name = next((c for c in df_ret.columns if "NAME" in c or "RETAILER" in c), None)
-                    col_prm = next((c for c in df_ret.columns if "PRM" in c), None)
-                    col_mob = next((c for c in df_ret.columns if "DETAIL" in c or "MOB" in c), None)
-                    col_dues = next((c for c in df_ret.columns if "DUS" in c or "DUE" in c), None)
-                    col_adv = next((c for c in df_ret.columns if "ADV" in c), None)
+                    # Force matching columns (fallback to index if names are weird)
+                    col_name = next((c for c in df_ret.columns if "NAME" in c or "RETAILER" in c), df_ret.columns[0] if len(df_ret.columns) > 0 else None)
+                    col_prm = next((c for c in df_ret.columns if "PRM" in c), df_ret.columns[1] if len(df_ret.columns) > 1 else None)
+                    col_mob = next((c for c in df_ret.columns if "DETAIL" in c or "MOB" in c), df_ret.columns[2] if len(df_ret.columns) > 2 else None)
+                    col_dues = next((c for c in df_ret.columns if "DUS" in c or "DUE" in c), df_ret.columns[3] if len(df_ret.columns) > 3 else None)
+                    col_adv = next((c for c in df_ret.columns if "ADV" in c), df_ret.columns[4] if len(df_ret.columns) > 4 else None)
+                    
+                    # Use Session to prevent connection drops
+                    session = requests.Session()
                     
                     for idx, row in df_ret.iterrows():
-                        # Extract Name
-                        b_name = str(row[col_name]).strip().upper() if col_name else ""
-                        if b_name == "NAN": b_name = ""
+                        b_name = str(row.get(col_name, "")).strip().upper() if col_name else ""
+                        if b_name == "NAN" or "UNNAMED" in b_name or b_name == "RETAILER NAME": b_name = ""
                         
-                        # Extract PRM
-                        b_prm = str(row[col_prm]).split('.')[0].strip() if col_prm else ""
+                        b_prm = str(row.get(col_prm, "")).split('.')[0].strip() if col_prm else ""
                         if b_prm == "NAN": b_prm = ""
                         
-                        # Extract Mobile
-                        b_mob = str(row[col_mob]).split('.')[0].strip() if col_mob else ""
+                        b_mob = str(row.get(col_mob, "")).split('.')[0].strip() if col_mob else ""
                         if b_mob == "NAN": b_mob = ""
                         
-                        # Clean Numbers securely
                         try:
-                            b_dues = float(str(row[col_dues]).replace(',', '').strip()) if col_dues else 0.0
-                            if pd.isna(b_dues): b_dues = 0.0
+                            val_dues = str(row.get(col_dues, "0")).replace(',', '').strip()
+                            b_dues = float(val_dues) if val_dues != "nan" and val_dues != "" else 0.0
                         except: b_dues = 0.0
                         
                         try:
-                            b_adv = float(str(row[col_adv]).replace(',', '').strip()) if col_adv else 0.0
-                            if pd.isna(b_adv): b_adv = 0.0
+                            val_adv = str(row.get(col_adv, "0")).replace(',', '').strip()
+                            b_adv = float(val_adv) if val_adv != "nan" and val_adv != "" else 0.0
                         except: b_adv = 0.0
                         
-                        # 🔴 Removed strict mobile check. Now saves if just name exists.
-                        if b_name: 
+                        if b_name: # Only add if name is strictly valid
                             payload_ret = {"action": "add_retailer", "name": b_name, "mobile": b_mob, "prm": b_prm, "location": "BULK UPLOAD", "date": date.today().strftime("%d-%m-%Y")}
                             try:
-                                requests.post(WEBHOOK_URL, json=payload_ret)
+                                session.post(WEBHOOK_URL, json=payload_ret)
                                 success_ret += 1
-                                time.sleep(0.5) # 🔴 Google Sheet को साँस लेने का मौका
                                 
                                 if b_dues > 0:
                                     payload_dues = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": b_name, "r_mob": b_mob, "type": "Opening Dues", "qty": 0, "amt_out": b_dues, "amt_in": 0, "fse": bulk_fse, "txn_id": "OPENING_BAL"}
-                                    requests.post(WEBHOOK_URL, json=payload_dues)
-                                    time.sleep(0.5) # 🔴 Delay
+                                    session.post(WEBHOOK_URL, json=payload_dues)
                                 
                                 if b_adv > 0:
                                     payload_adv = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": b_name, "r_mob": b_mob, "type": "Opening Advance", "qty": 0, "amt_out": 0, "amt_in": b_adv, "fse": bulk_fse, "txn_id": "OPENING_BAL"}
-                                    requests.post(WEBHOOK_URL, json=payload_adv)
-                                    time.sleep(0.5) # 🔴 Delay
-                            except: pass
+                                    session.post(WEBHOOK_URL, json=payload_adv)
+                            except Exception as e:
+                                pass # Keep going even if one fails
                             
                         progress_bar.progress((idx + 1) / total_rows)
                         status_text.text(f"Uploading... {idx + 1}/{total_rows}")
                         
-                    st.success(f"✅ Successfully uploaded {success_ret} Retailers and their balances!")
+                    st.success(f"✅ Successfully uploaded {success_ret} Retailers and their opening balances!")
                     st.cache_data.clear()
         except Exception as e:
             st.error(f"❌ Error: Could not read file. Details: {str(e)}")
@@ -449,6 +443,8 @@ elif st.session_state.current_page == "BULK":
                     success_count = 0
                     not_found_count = 0
                     
+                    session = requests.Session()
+                    
                     for idx, row in df_upload.iterrows():
                         raw_prm = str(row.get("Partner PRM ID", "")).split('.')[0].replace(" ", "").strip().upper()
                         
@@ -460,8 +456,8 @@ elif st.session_state.current_page == "BULK":
                             r_date = raw_date.replace('.', '-')
                             
                             try:
-                                r_amt_out = float(str(row.get("Transfer Amount", "0")).replace(',', '').strip())
-                                if pd.isna(r_amt_out): r_amt_out = 0.0
+                                val_amt = str(row.get("Transfer Amount", "0")).replace(',', '').strip()
+                                r_amt_out = float(val_amt) if val_amt != "nan" and val_amt != "" else 0.0
                             except: r_amt_out = 0.0
                             
                             r_txn = str(row.get("Order ID", ""))
@@ -474,9 +470,8 @@ elif st.session_state.current_page == "BULK":
                                     "fse": fse, "txn_id": r_txn
                                 }
                                 try:
-                                    requests.post(WEBHOOK_URL, json=payload)
+                                    session.post(WEBHOOK_URL, json=payload)
                                     success_count += 1
-                                    time.sleep(0.5) # 🔴 Google Sheet Delay
                                 except: pass
                         else:
                             not_found_count += 1
