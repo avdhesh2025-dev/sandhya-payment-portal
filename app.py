@@ -5,17 +5,17 @@ import urllib.parse
 import requests
 import time
 
-# 1. Page Configuration (Keep it clean, No Sidebar)
+# 1. Page Configuration (Restore Original Grid Layout)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide", initial_sidebar_state="collapsed")
 
-# 💎 Premium CSS (Design restored exactly as per your final stable version)
+# 💎 Restore CSS Design (English + 3D Effects)
 st.markdown("""
     <style>
     .stApp { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     [data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
     .app-header {
         background: linear-gradient(135deg, #0047AB 0%, #00c6ff 100%);
-        color: white; padding: 35px 20px; border-radius: 16px;
+        color: white; padding: 25px 20px; border-radius: 16px;
         text-align: center; margin-top: 10px; margin-bottom: 20px;
         box-shadow: 0 10px 30px rgba(0,0,0,0.15);
     }
@@ -29,7 +29,7 @@ st.markdown("""
     .stDataFrame, .stSelectbox, .stNumberInput, .stTextInput, .stDateInput {
         background-color: white; border-radius: 10px; padding: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
-    /* Restoration of the 3D Wobble Button Design for Entry Page */
+    /* 3D Wobble Effect for Entry Button */
     .wobble-btn > div > button {
         background-color: #ffffff !important; color: #1a1a1a !important; border: none !important; border-radius: 12px !important;
         font-size: 18px !important; font-weight: 700 !important; box-shadow: 0 6px 0 #d1d9e6 !important;
@@ -39,7 +39,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 🛑 CONFIGURATION & URLS
+# 🛑 CONFIGURATION (STABLE)
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby_yV4nEMwrBODnkVh0x5DrVqcbj42iDMLNlX8M7QPrVGGMltoOfZhlid_gXlB0dwMvZQ/exec"
 sheet_id = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
 retailers_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Retailers"
@@ -65,7 +65,6 @@ def load_data():
 
 ret_df, inv_df, led_df = load_data()
 
-# Data Mapping
 retailers_data = {}; prm_mapping = {}; dropdown_options = ["Type here to search..."]
 if ret_df is not None:
     for _, row in ret_df.iterrows():
@@ -81,21 +80,19 @@ if ret_df is not None:
 if "current_page" not in st.session_state: st.session_state.current_page = "HOME"
 def go_to(page): st.session_state.current_page = page; st.rerun()
 
-st.markdown('<div class="app-header"><h1>🏢 Sandhya Enterprises</h1><p>Smart Business Management System</p></div>', unsafe_allow_html=True)
-
-# --- 🔄 REFRESH BUTTON (Top of page) ---
-def show_refresh():
-    if st.button("🔄 Refresh System Data", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
+# --- 🌟 APP HEADER ---
+st.markdown('<div class="app-header"><h1>🏢 Sandhya Enterprises</h1><p>Smart Management System</p></div>', unsafe_allow_html=True)
 
 # --- 🏠 HOME PAGE ---
 if st.session_state.current_page == "HOME":
-    show_refresh()
+    if st.button("🔄 Refresh System Data", use_container_width=True):
+        st.cache_data.clear(); st.rerun()
+        
     st.markdown("""<style>
     .stButton > button { height: 75px; background: #ffffff; color: #1e293b; border: 1.5px solid #e2e8f0; border-radius: 14px; font-size: 18px; font-weight: 600; margin-bottom: 15px;}
     .stButton > button:hover { border-color: #3b82f6; color: #3b82f6; box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
     </style>""", unsafe_allow_html=True)
+    
     col1, col2 = st.columns(2)
     with col1:
         if st.button("📊 Live Stock", use_container_width=True): go_to("STOCK")
@@ -108,7 +105,7 @@ if st.session_state.current_page == "HOME":
         if st.button("💸 Dues List", use_container_width=True): go_to("DUES")
         if st.button("🚨 Urgent Recovery", use_container_width=True): go_to("URGENT")
 
-# --- 📊 1. STOCK PAGE ---
+# --- 📊 1. STOCK ---
 elif st.session_state.current_page == "STOCK":
     c1, c2 = st.columns(2); c1.button("🔙 Back Menu", on_click=go_to, args=("HOME",)); c2.button("🔄 Refresh", on_click=st.rerun)
     st.header("📊 Live Inventory Stock")
@@ -167,25 +164,25 @@ elif st.session_state.current_page == "ENTRY":
         if (fse=="Avdhesh Kumar" and fse_pin=="9557") or (fse=="Babloo kumar singh" and fse_pin=="2081"):
             if t_prm != "Type here to search...":
                 r_name = retailers_data[t_prm]["Name"]; r_mob = retailers_data[t_prm]["Mobile"]
-                payload = {"action":"add_txn","date":t_date.strftime("%d-%m-%Y"),"r_name":r_name,"r_mob":r_mob,"type":t_type,"qty":t_qty,"amt_out":t_amt if t_type!="Payment Received" else 0,"amt_in":t_amt if t_type=="Payment Received" else 0,"fse":fse,"txn_id":txn_id}
+                payload = {"action":"add_txn","date":t_date.strftime("%d-%m-%Y"),"r_name":r_name, "r_mob":r_mob, "type":t_type,"qty":t_qty,"amt_out":t_amt if t_type!="Payment Received" else 0,"amt_in":t_amt if t_type=="Payment Received" else 0,"fse":fse,"txn_id":txn_id}
                 requests.post(WEBHOOK_URL, json=payload)
-                st.success("✅ Entry Saved in Sheet!"); st.cache_data.clear()
+                st.success("✅ Entry Saved Successfully!"); st.cache_data.clear()
                 msg = urllib.parse.quote(f"*Sandhya Enterprises*\nRetailer: {r_name}\nItem: {t_type}\nAmount: ₹{t_amt}")
                 st.markdown(f"### [🟢 Send WhatsApp](https://wa.me/91{r_mob}?text={msg})")
-            else: st.error("Please Select a Retailer")
+            else: st.error("Select Retailer")
         else: st.error("Invalid PIN")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- ➕ 4. ADD RETAILER PAGE ---
+# --- ➕ 4. ADD RETAILER ---
 elif st.session_state.current_page == "ADD_RETAILER":
     c1, c2 = st.columns(2); c1.button("🔙 Back Menu", on_click=go_to, args=("HOME",)); c2.button("🔄 Refresh", on_click=st.rerun)
-    st.header("➕ Add Single Retailer")
+    st.header("➕ Add New Retailer")
     with st.form("add_r"):
         n = st.text_input("Name"); m = st.text_input("Mobile"); p = st.text_input("PRM ID")
         if st.form_submit_button("Save Retailer"):
             if n and p:
                 requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":"Manual","date":date.today().strftime("%d-%m-%Y")})
-                st.success("Retailer Added to Sheet!"); st.cache_data.clear()
+                st.success("Retailer Added!"); st.cache_data.clear()
             else: st.error("Name and PRM ID required")
     
     st.markdown("---")
@@ -199,8 +196,7 @@ elif st.session_state.current_page == "ADD_RETAILER":
             prog = st.progress(0); sess = requests.Session()
             for i, row in df_up.iterrows():
                 b_name = str(row.get("RETAILER NAME", "")).strip().upper()
-                b_prm = clean_prm_id(row.get("PRM ID", ""))
-                b_mob = clean_prm_id(row.get("DETAILS", ""))
+                b_prm = clean_prm_id(row.get("PRM ID", "")); b_mob = clean_prm_id(row.get("DETAILS", ""))
                 b_dues = float(str(row.get("DUSE", 0)).replace(',',''))
                 b_adv = float(str(row.get("ADVANCE", 0)).replace(',',''))
                 if b_name:
@@ -210,7 +206,7 @@ elif st.session_state.current_page == "ADD_RETAILER":
                     if b_adv > 0: sess.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":b_name,"r_mob":b_mob,"type":"Opening Advance","qty":0,"amt_out":0,"amt_in":b_adv,"fse":"SYSTEM","txn_id":"OPENING"})
                     time.sleep(0.4)
                 prog.progress((i+1)/len(df_up))
-            st.success("All data uploaded successfully!"); st.cache_data.clear()
+            st.success("Uploaded!"); st.cache_data.clear()
 
 # --- 📜 5. LEDGER ---
 elif st.session_state.current_page == "LEDGER":
@@ -221,27 +217,27 @@ elif st.session_state.current_page == "LEDGER":
         r_name = retailers_data[search]["Name"]
         f_led = led_df[led_df['Retailer Name'] == r_name].sort_values(by='DateObj')
         st.dataframe(f_led.drop(columns=['DateObj']), use_container_width=True, hide_index=True)
-        st.download_button("📥 Download Excel", f_led.to_csv(index=False).encode('utf-8-sig'), f"{r_name}_ledger.csv")
+        st.download_button("📥 Excel", f_led.to_csv(index=False).encode('utf-8-sig'), f"{r_name}_ledger.csv")
 
 # --- 💸 6. DUES ---
 elif st.session_state.current_page == "DUES":
     c1, c2 = st.columns(2); c1.button("🔙 Back Menu", on_click=go_to, args=("HOME",)); c2.button("🔄 Refresh", on_click=st.rerun)
-    st.header("💰 Dues Collection List")
+    st.header("💰 Dues List")
     summary = []
-    for k, v in retailers_data.items():
-        name = v["Name"]
-        d = pd.to_numeric(led_df[led_df['Retailer Name']==name]['Amount Out (Debit)'], errors='coerce').sum()
-        c = pd.to_numeric(led_df[led_df['Retailer Name']==name]['Amount In (Credit)'], errors='coerce').sum()
-        if (d-c) > 0: summary.append({"Retailer": name, "Mobile": v["Mobile"], "Dues": d-c})
-    if summary:
-        st.dataframe(pd.DataFrame(summary), use_container_width=True, hide_index=True)
-    else: st.success("Zero Dues Found!")
+    if retailers_data and led_df is not None:
+        for k, v in retailers_data.items():
+            name = v["Name"]
+            d = pd.to_numeric(led_df[led_df['Retailer Name']==name]['Amount Out (Debit)'], errors='coerce').sum()
+            c = pd.to_numeric(led_df[led_df['Retailer Name']==name]['Amount In (Credit)'], errors='coerce').sum()
+            if (d-c) > 0: summary.append({"Retailer": name, "Mobile": v["Mobile"], "Dues": d-c})
+        if summary: st.dataframe(pd.DataFrame(summary), use_container_width=True, hide_index=True)
+        else: st.success("No Dues!")
 
-# --- 📂 7. BULK ETOP (JIO) ---
+# --- 📂 7. BULK JIO ---
 elif st.session_state.current_page == "BULK":
     c1, c2 = st.columns(2); c1.button("🔙 Back Menu", on_click=go_to, args=("HOME",)); c2.button("🔄 Refresh", on_click=st.rerun)
-    st.header("📂 Jio Bulk Auto-Match (3% Deduct)")
-    up_j = st.file_uploader("Upload Jio Excel", type=["xlsx","csv"])
+    st.header("📂 Jio Bulk Auto-Match")
+    up_j = st.file_uploader("Upload Jio Export", type=["xlsx","csv"])
     if up_j:
         df_j = pd.read_excel(up_j) if up_j.name.endswith('xlsx') else pd.read_csv(up_j)
         df_j.columns = [' '.join(str(col).split()) for col in df_j.columns]
@@ -264,10 +260,9 @@ elif st.session_state.current_page == "BULK":
 elif st.session_state.current_page == "URGENT":
     c1, c2 = st.columns(2); c1.button("🔙 Back Menu", on_click=go_to, args=("HOME",)); c2.button("🔄 Refresh", on_click=st.rerun)
     st.error("### 🚨 Urgent Recovery Panel")
-    f_n = st.selectbox("Select FSE", ["Babloo kumar singh", "Avdhesh Kumar"])
-    f_p = st.text_input("Enter PIN", type="password")
+    f_n = st.selectbox("Select FSE", ["Babloo kumar singh", "Avdhesh Kumar"]); f_p = st.text_input("PIN", type="password")
     if (f_p=="2081" and f_n=="Babloo kumar singh") or (f_p=="9557" and f_n=="Avdhesh Kumar"):
-        now = datetime.now(); u_list = []
+        now = datetime.now(); overdue_found = False
         for _, row in led_df.iterrows():
             r_type, r_date = str(row['Product/Service']), row['DateObj']
             a_out = float(pd.to_numeric(row['Amount Out (Debit)'], errors='coerce') or 0)
@@ -276,9 +271,11 @@ elif st.session_state.current_page == "URGENT":
             if "Etop" in r_type and (now - r_date) > timedelta(hours=24) and a_out > a_in: is_u = True
             if "JPB" in r_type and (now - r_date) > timedelta(days=15) and a_out > a_in: is_u = True
             if is_u:
+                overdue_found = True
                 st.markdown(f"""<div class="urgent-card"><b>{row['Retailer Name']}</b> | ₹{a_out-a_in} | {row['Date']}</div>""", unsafe_allow_html=True)
                 with st.form(f"r_{_}"):
-                    rsn = st.text_input("Enter Reason")
+                    rsn = st.text_input("Reason")
                     if st.form_submit_button("Submit"):
                         requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":row['Retailer Name'],"type":"Urgent Reason","txn_id":rsn,"fse":f_n,"amt_in":0,"amt_out":0,"qty":0})
                         st.success("Reason Sent!"); st.cache_data.clear()
+        if not overdue_found: st.success("No Urgent Recovery!")
