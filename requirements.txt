@@ -1,2 +1,5 @@
-st-gsheets-connection
+streamlit
 pandas
+requests
+jinja2
+pdfkit
