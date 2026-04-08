@@ -4,7 +4,6 @@ from datetime import datetime, date, timedelta
 import urllib.parse
 import requests
 import time
-import json
 
 # 1. Page Configuration (No Sidebar)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide", initial_sidebar_state="collapsed")
@@ -53,15 +52,6 @@ def clean_prm_id(val):
     try: return str(int(float(s)))
     except: return s.split('.')[0].replace(" ", "").upper()
 
-# 🚀 बुलेटप्रूफ डेटा सेंडर (अब कोई एरर नहीं आएगा)
-def send_to_google_sheet(payload):
-    try:
-        headers = {'Content-Type': 'application/json'}
-        requests.post(WEBHOOK_URL, data=json.dumps(payload), headers=headers)
-        return True
-    except Exception as e:
-        return False
-
 @st.cache_data(ttl=5)
 def load_data():
     try:
@@ -88,7 +78,9 @@ if ret_df is not None:
             dropdown_options.append(f"{prm} - {name}")
 
 if "current_page" not in st.session_state: st.session_state.current_page = "HOME"
-def go_to(page): st.session_state.current_page = page; st.rerun()
+
+def go_to(page): 
+    st.session_state.current_page = page
 
 st.markdown('<div class="app-header"><h1>🏢 Sandhya Enterprises</h1><p>Smart Management System</p></div>', unsafe_allow_html=True)
 
@@ -104,20 +96,20 @@ if st.session_state.current_page == "HOME":
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("📊 Live Stock", use_container_width=True): go_to("STOCK")
-        if st.button("➕ Add Retailer", use_container_width=True): go_to("ADD_RETAILER")
-        if st.button("📜 Ledger Report", use_container_width=True): go_to("LEDGER")
-        if st.button("📂 Bulk Entry (Excel)", use_container_width=True): go_to("BULK")
+        if st.button("📊 Live Stock", use_container_width=True): go_to("STOCK"); st.rerun()
+        if st.button("➕ Add Retailer", use_container_width=True): go_to("ADD_RETAILER"); st.rerun()
+        if st.button("📜 Ledger Report", use_container_width=True): go_to("LEDGER"); st.rerun()
+        if st.button("📂 Bulk Entry (Excel)", use_container_width=True): go_to("BULK"); st.rerun()
     with col2:
-        if st.button("💰 Today's Collection", use_container_width=True): go_to("COLLECTION")
-        if st.button("📦 Stock / Payment Entry", use_container_width=True): go_to("ENTRY")
-        if st.button("💸 Dues List", use_container_width=True): go_to("DUES")
-        if st.button("🚨 Urgent Recovery", use_container_width=True): go_to("URGENT")
+        if st.button("💰 Today's Collection", use_container_width=True): go_to("COLLECTION"); st.rerun()
+        if st.button("📦 Stock / Payment Entry", use_container_width=True): go_to("ENTRY"); st.rerun()
+        if st.button("💸 Dues List", use_container_width=True): go_to("DUES"); st.rerun()
+        if st.button("🚨 Urgent Recovery", use_container_width=True): go_to("URGENT"); st.rerun()
 
 # --- 📊 1. STOCK ---
 elif st.session_state.current_page == "STOCK":
     c1, c2 = st.columns(2)
-    if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME")
+    if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
     if c2.button("🔄 Refresh", use_container_width=True): st.cache_data.clear(); st.rerun()
     st.header("📊 Live Inventory Stock")
     if inv_df is not None: st.dataframe(inv_df, use_container_width=True, hide_index=True)
@@ -125,7 +117,7 @@ elif st.session_state.current_page == "STOCK":
 # --- 💰 2. TODAY COLLECTION ---
 elif st.session_state.current_page == "COLLECTION":
     c1, c2 = st.columns(2)
-    if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME")
+    if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
     if c2.button("🔄 Refresh", use_container_width=True): st.cache_data.clear(); st.rerun()
     st.header("💸 Today's Collection")
     if ret_df is not None and led_df is not None:
@@ -143,14 +135,14 @@ elif st.session_state.current_page == "COLLECTION":
                         if st.form_submit_button("Save"):
                             if (f_n=="Avdhesh Kumar" and f_p=="9557") or (f_n=="Babloo kumar singh" and f_p=="2081"):
                                 payload = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": name, "r_mob": mob, "type": "Collection", "qty": 0, "amt_out": 0, "amt_in": p_amt, "fse": f_n, "txn_id": "DIRECT"}
-                                send_to_google_sheet(payload)
+                                requests.post(WEBHOOK_URL, json=payload) # 🔴 Pure Direct Send
                                 st.success("✅ Saved!"); st.cache_data.clear()
                             else: st.error("❌ Wrong PIN")
 
 # --- 📦 3. ENTRY PAGE (3D Wobble) ---
 elif st.session_state.current_page == "ENTRY":
     c1, c2 = st.columns(2)
-    if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME")
+    if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
     if c2.button("🔄 Refresh", use_container_width=True): st.cache_data.clear(); st.rerun()
     st.header("📦 Stock / Payment Entry")
     t_date = st.date_input("Date", date.today())
@@ -162,12 +154,11 @@ elif st.session_state.current_page == "ENTRY":
         fse_pin = st.text_input("Enter PIN", type="password")
     with col2:
         t_qty, t_amt = 0, 0.0
-        p_mode = "" # For Cash/Online
+        p_mode = "" 
         if t_type == "Etop Transfer":
             etop_opt = st.selectbox("Amount ₹", ["5000", "3000", "2000", "1500", "500", "Manual"])
             t_amt = float(etop_opt) if etop_opt != "Manual" else st.number_input("Enter Amount", min_value=1.0)
         
-        # 🟢 Cash/Online Option is clearly added here
         elif t_type == "Payment Received":
             p_mode = st.selectbox("Payment Mode (Cash/Online)", ["Cash", "Online"])
             t_amt = st.number_input("Enter Amount", min_value=1.0, value=None)
@@ -188,10 +179,13 @@ elif st.session_state.current_page == "ENTRY":
                 
                 payload = {"action":"add_txn","date":t_date.strftime("%d-%m-%Y"),"r_name":r_name, "r_mob":r_mob, "type":final_type,"qty":t_qty,"amt_out":t_amt if t_type!="Payment Received" else 0,"amt_in":t_amt if t_type=="Payment Received" else 0,"fse":fse,"txn_id":txn_id}
                 
-                send_to_google_sheet(payload)
-                st.success("✅ Entry Saved Successfully!"); st.cache_data.clear()
-                msg = urllib.parse.quote(f"*Sandhya Enterprises*\nRetailer: {r_name}\nItem: {final_type}\nAmount: ₹{t_amt}")
-                st.markdown(f"### [🟢 Send WhatsApp](https://wa.me/91{r_mob}?text={msg})")
+                try:
+                    requests.post(WEBHOOK_URL, json=payload) # 🔴 Pure Direct Send
+                    st.success("✅ Entry Saved Successfully!"); st.cache_data.clear()
+                    msg = urllib.parse.quote(f"*Sandhya Enterprises*\nRetailer: {r_name}\nItem: {final_type}\nAmount: ₹{t_amt}")
+                    st.markdown(f"### [🟢 Send WhatsApp](https://wa.me/91{r_mob}?text={msg})")
+                except:
+                    st.error("Failed to connect to server.")
             else: st.error("Please Select a Retailer")
         else: st.error("❌ Invalid PIN")
     st.markdown('</div>', unsafe_allow_html=True)
@@ -199,24 +193,26 @@ elif st.session_state.current_page == "ENTRY":
 # --- ➕ 4. ADD RETAILER ---
 elif st.session_state.current_page == "ADD_RETAILER":
     c1, c2 = st.columns(2)
-    if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME")
+    if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
     if c2.button("🔄 Refresh", use_container_width=True): st.cache_data.clear(); st.rerun()
     
     st.header("➕ Add Single Retailer")
-    with st.form("add_r"):
+    with st.form("add_r", clear_on_submit=True):
         c_a1, c_a2 = st.columns(2)
         with c_a1:
             n = st.text_input("Retailer Name*")
             m = st.text_input("Mobile Number*")
         with c_a2:
             p = st.text_input("PRM ID*")
-            loc = st.text_input("Location (Address)") # 🟢 Location/Address is here!
+            loc = st.text_input("Location (Address)")
             
         if st.form_submit_button("Save Retailer"):
             if n and p and m:
                 payload = {"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":loc.upper(),"date":date.today().strftime("%d-%m-%Y")}
-                send_to_google_sheet(payload)
-                st.success("✅ Retailer Added Successfully!"); st.cache_data.clear()
+                try:
+                    requests.post(WEBHOOK_URL, json=payload) # 🔴 Pure Direct Send
+                    st.success("✅ Retailer Added Successfully!"); st.cache_data.clear()
+                except: st.error("Connection Failed.")
             else: st.error("❌ Name, Mobile and PRM ID are required")
     
     st.markdown("---")
@@ -233,16 +229,18 @@ elif st.session_state.current_page == "ADD_RETAILER":
                 b_prm = clean_prm_id(row.get("PRM ID", "")); b_mob = clean_prm_id(row.get("DETAILS", ""))
                 b_dues = float(str(row.get("DUSE", 0)).replace(',','')); b_adv = float(str(row.get("ADVANCE", 0)).replace(',',''))
                 if b_name:
-                    send_to_google_sheet({"action":"add_retailer","name":b_name,"mobile":b_mob,"prm":b_prm,"location":"BULK","date":date.today().strftime("%d-%m-%Y")})
-                    if b_dues > 0: send_to_google_sheet({"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":b_name,"r_mob":b_mob,"type":"Opening Dues","qty":0,"amt_out":b_dues,"amt_in":0,"fse":"SYSTEM","txn_id":"OPENING"})
-                    if b_adv > 0: send_to_google_sheet({"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":b_name,"r_mob":b_mob,"type":"Opening Advance","qty":0,"amt_out":0,"amt_in":b_adv,"fse":"SYSTEM","txn_id":"OPENING"})
+                    requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":b_name,"mobile":b_mob,"prm":b_prm,"location":"BULK","date":date.today().strftime("%d-%m-%Y")})
+                    time.sleep(0.5)
+                    if b_dues > 0: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":b_name,"r_mob":b_mob,"type":"Opening Dues","qty":0,"amt_out":b_dues,"amt_in":0,"fse":"SYSTEM","txn_id":"OPENING"})
+                    if b_adv > 0: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":b_name,"r_mob":b_mob,"type":"Opening Advance","qty":0,"amt_out":0,"amt_in":b_adv,"fse":"SYSTEM","txn_id":"OPENING"})
+                    time.sleep(0.5)
                 prog.progress((i+1)/len(df_up))
             st.success("✅ Bulk Upload Success!"); st.cache_data.clear()
 
 # --- 📜 5. LEDGER ---
 elif st.session_state.current_page == "LEDGER":
     c1, c2 = st.columns(2)
-    if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME")
+    if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
     if c2.button("🔄 Refresh", use_container_width=True): st.cache_data.clear(); st.rerun()
     st.header("📜 Ledger Report")
     search = st.selectbox("Select Retailer", options=dropdown_options)
@@ -255,7 +253,7 @@ elif st.session_state.current_page == "LEDGER":
 # --- 📂 6. BULK ENTRY (JIO ETOP) ---
 elif st.session_state.current_page == "BULK":
     c1, c2 = st.columns(2)
-    if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME")
+    if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
     if c2.button("🔄 Refresh", use_container_width=True): st.cache_data.clear(); st.rerun()
     st.header("📂 Jio Bulk Etop (3% Margin Deduct)")
     up_j = st.file_uploader("Upload Jio Export Excel", type=["xlsx","csv"])
@@ -272,14 +270,15 @@ elif st.session_state.current_page == "BULK":
                     prm = clean_prm_id(row.get("Partner PRM ID", ""))
                     if prm in prm_mapping:
                         amt = float(str(row.get("Transfer Amount", 0)).replace(',',''))
-                        send_to_google_sheet({"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":prm_mapping[prm]['Name'],"r_mob":prm_mapping[prm]['Mobile'],"type":"Etop Transfer","qty":0,"amt_out":round(amt*0.97,2),"amt_in":0,"fse":f_n,"txn_id":str(row.get("Order ID",""))})
+                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":prm_mapping[prm]['Name'],"r_mob":prm_mapping[prm]['Mobile'],"type":"Etop Transfer","qty":0,"amt_out":round(amt*0.97,2),"amt_in":0,"fse":f_n,"txn_id":str(row.get("Order ID",""))})
+                        time.sleep(0.5)
                     prog.progress((i+1)/len(df_j))
                 st.success("✅ Done!"); st.cache_data.clear()
 
 # --- 🚨 7. URGENT RECOVERY ---
 elif st.session_state.current_page == "URGENT":
     c1, c2 = st.columns(2)
-    if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME")
+    if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
     if c2.button("🔄 Refresh", use_container_width=True): st.cache_data.clear(); st.rerun()
     st.error("### 🚨 Urgent Recovery Panel")
     f_n = st.selectbox("Select FSE", ["Babloo kumar singh", "Avdhesh Kumar"])
@@ -294,14 +293,12 @@ elif st.session_state.current_page == "URGENT":
             if "Etop" in r_type and (now - r_date) > timedelta(hours=24) and a_out > a_in: is_u = True
             if "JPB" in r_type and (now - r_date) > timedelta(days=15) and a_out > a_in: is_u = True
             if is_u:
-                u_list.append({"Retailer": row['Retailer Name'], "Dues": a_out-a_in, "Date": row['Date'], "Type": r_type})
+                u_list.append({"Retailer": row['Retailer Name'], "Amount": a_out-a_in, "Date": row['Date'], "Type": r_type})
                 st.markdown(f"""<div class="urgent-card"><b>{row['Retailer Name']}</b> | ₹{a_out-a_in} | Since: {row['Date']} ({r_type})</div>""", unsafe_allow_html=True)
                 with st.form(f"r_{_}"):
                     rsn = st.text_input("Reason for delay")
                     if st.form_submit_button("Submit"):
-                        send_to_google_sheet({"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":row['Retailer Name'],"type":"Urgent Reason","txn_id":rsn,"fse":f_n,"amt_in":0,"amt_out":0,"qty":0})
+                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":row['Retailer Name'],"type":"Urgent Reason","txn_id":rsn,"fse":f_n,"amt_in":0,"amt_out":0,"qty":0})
                         st.success("✅ Reason Recorded!"); st.cache_data.clear()
         if u_list:
             st.download_button("📥 Excel Download Urgent List", pd.DataFrame(u_list).to_csv(index=False).encode('utf-8-sig'), "Urgent_Recovery.csv")
-        else:
-            st.success("No Urgent Recovery Dues!")
