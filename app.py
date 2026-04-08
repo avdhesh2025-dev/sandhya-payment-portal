@@ -1,7 +1,7 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
+from streamlit_gsheets import GSheetsConnection
 
 # पेज की सेटिंग
 st.set_page_config(page_title="Sandhya ERP System", page_icon="🏢", layout="wide")
@@ -18,15 +18,20 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# गूगल शीट कनेक्शन
-sheet_url = "https://docs.google.com/spreadsheets/d/1K3ZeUuZbpB3FmUQlt2ryri_3su4EkLOqzS7uxUQYd1Y/edit?usp=sharing"
+# 🚀 आपकी नई गूगल शीट का डायरेक्ट लिंक
+sheet_id = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
+retailers_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Retailers"
+inventory_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Inventory"
+
+# डेटा सेव करने का कनेक्शन (नई शीट का लिंक)
+sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/edit?usp=sharing"
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# डेटाबेस से रिटेलर्स की लिस्ट लाने का फंक्शन
+# डेटाबेस से रिटेलर्स की लिस्ट लाने का फंक्शन (डायरेक्ट लिंक से)
 @st.cache_data(ttl=30)
 def get_retailer_list():
     try:
-        df = conn.read(spreadsheet=sheet_url, worksheet="Retailers")
+        df = pd.read_csv(retailers_csv)
         df = df.dropna(how="all").fillna("")
         retailer_options = []
         for index, row in df.iterrows():
@@ -47,19 +52,18 @@ st.sidebar.markdown("---")
 menu = st.sidebar.radio("मेनू चुनें:", ["📊 डैशबोर्ड (स्टॉक)", "➕ नया रिटेलर जोड़ें", "📦 माल / पेमेंट एंट्री", "📜 लेजर (खाता) देखें"])
 
 # ---------------------------------------------------------
-# 1. डैशबोर्ड (अब एरर बताएगा)
+# 1. डैशबोर्ड
 if menu == "📊 डैशबोर्ड (स्टॉक)":
     st.title("📊 लाइव इन्वेंट्री स्टॉक")
     try:
-        # Inventory शीट से डेटा ला रहे हैं
-        inv_df = conn.read(spreadsheet=sheet_url, worksheet="Inventory")
+        # Inventory शीट से डायरेक्ट डेटा ला रहे हैं
+        inv_df = pd.read_csv(inventory_csv)
         inv_df = inv_df.dropna(how="all").fillna("")
         
         st.dataframe(inv_df, use_container_width=True, hide_index=True)
-        st.success("✅ आपकी Google Sheet से लाइव स्टॉक कनेक्ट हो गया है!")
+        st.success("✅ आपकी नई Google Sheet से लाइव स्टॉक कनेक्ट हो गया है!")
     except Exception as e:
-        st.error(f"❌ शीट से जुड़ने में टेक्निकल एरर आ रहा है: {e}")
-        st.warning("कृपया चेक करें कि शीट में टैब का नाम बिल्कुल 'Inventory' है और कोई स्पेस नहीं है।")
+        st.error(f"❌ एरर: {e}")
 
 # ---------------------------------------------------------
 # 2. नया रिटेलर जोड़ें
@@ -91,11 +95,11 @@ elif menu == "➕ नया रिटेलर जोड़ें":
                     updated_df = updated_df.astype(str)
                     
                     conn.update(spreadsheet=sheet_url, worksheet="Retailers", data=updated_df)
-                    st.success(f"✅ रिटेलर {r_name} सफलतापूर्वक जुड़ गया है!")
+                    st.success(f"✅ रिटेलर {r_name} नई शीट में सफलतापूर्वक जुड़ गया है!")
                     st.balloons()
                     st.cache_data.clear()
                 except Exception as e:
-                    st.error(f"सेव नहीं हुआ। एरर: {e}")
+                    st.error(f"Error: {e}")
             else:
                 st.warning("कृपया नाम, मोबाइल नंबर और PRM ID जरूर भरें।")
 
