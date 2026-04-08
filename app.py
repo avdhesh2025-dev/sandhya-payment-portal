@@ -19,7 +19,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 🛑 अपना चालू APPS SCRIPT वाला URL यहाँ डालें
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyklZMrRuayCWiJdr-S0JY8Z25UNS0Hj8jGypHyZ4l5MmZzjtfrWB_zYwUmz-V9kBFjEQ/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby_yV4nEMwrBODnkVh0x5DrVqcbj42iDMLNlX8M7QPrVGGMltoOfZhlid_gXlB0dwMvZQ/exec"
 
 sheet_id = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
 retailers_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Retailers"
@@ -95,7 +95,6 @@ elif menu == "📦 माल / पेमेंट एंट्री":
         t_qty = 0
         t_amount = 0.0
         
-        # ऑटोमैटिक कैलकुलेशन बॉक्स
         if t_type == "SIM Card":
             t_qty = st.number_input("मात्रा (Quantity - SIM के लिए)", min_value=1)
             t_amount = 0.0
@@ -105,7 +104,7 @@ elif menu == "📦 माल / पेमेंट एंट्री":
         else: # Jio Phone
             t_qty = st.number_input("मात्रा (Quantity - Phone के लिए)", min_value=1)
             t_rate = st.number_input("प्रति पीस रेट (Rate per piece ₹)", min_value=0.0, step=10.0)
-            t_amount = t_qty * t_rate # गुणा हो गया
+            t_amount = t_qty * t_rate
             st.info(f"कुल राशि (Total Amount): ₹{t_amount}")
             
         txn_id = st.text_input("Transaction ID (यदि हो)")
@@ -154,7 +153,7 @@ elif menu == "📦 माल / पेमेंट एंट्री":
             except:
                 st.error("❌ नेटवर्क एरर!")
 
-# 4. लेजर (खाता) देखें
+# 4. लेजर (खाता) देखें (पासबुक सिस्टम)
 elif menu == "📜 लेजर (खाता) देखें":
     st.title("📜 रिटेलर का पूरा खाता")
     search_prm = st.selectbox("रिटेलर का खाता देखने के लिए खोजें:", options=dropdown_options)
@@ -168,6 +167,14 @@ elif menu == "📜 लेजर (खाता) देखें":
             if not user_ledger.empty:
                 st.markdown(f"### 👤 {r_name} का खाता")
                 
+                # 🔴 जादुई कैलकुलेशन: रनिंग बैलेंस (Running Balance)
+                user_ledger['Amount Out (Debit)'] = pd.to_numeric(user_ledger['Amount Out (Debit)'], errors='coerce').fillna(0)
+                user_ledger['Amount In (Credit)'] = pd.to_numeric(user_ledger['Amount In (Credit)'], errors='coerce').fillna(0)
+                
+                # हर लाइन का बैलेंस कैलकुलेट करना (पासबुक की तरह)
+                user_ledger['Balance'] = (user_ledger['Amount Out (Debit)'] - user_ledger['Amount In (Credit)']).cumsum()
+                
+                # तारीख फ़िल्टर
                 user_ledger['DateObj'] = pd.to_datetime(user_ledger['Date'], format='%d-%m-%Y', errors='coerce')
                 date_range = st.date_input("तारीख से फ़िल्टर करें (Start Date - End Date)", [])
                 
@@ -180,8 +187,8 @@ elif menu == "📜 लेजर (खाता) देखें":
                 display_ledger = user_ledger.drop(columns=['DateObj'], errors='ignore')
                 st.dataframe(display_ledger, use_container_width=True, hide_index=True)
                 
-                total_out = pd.to_numeric(display_ledger['Amount Out (Debit)'], errors='coerce').sum()
-                total_in = pd.to_numeric(display_ledger['Amount In (Credit)'], errors='coerce').sum()
+                total_out = display_ledger['Amount Out (Debit)'].sum()
+                total_in = display_ledger['Amount In (Credit)'].sum()
                 balance = total_out - total_in
                 
                 st.markdown("---")
