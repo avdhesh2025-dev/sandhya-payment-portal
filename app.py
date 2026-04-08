@@ -32,7 +32,6 @@ st.markdown("""
     
     /* 🎴 प्रीमियम कार्ड (बटन) का डिज़ाइन */
     .stButton > button {
-        width: 100%;
         height: 75px;
         background: #ffffff;
         color: #1e293b;
@@ -98,25 +97,26 @@ def go_to(page):
 # --- 🌟 APP HEADER ---
 st.markdown('<div class="app-header"><h1>🏢 संध्या इंटरप्राइजेज</h1><p>Smart Business Management System</p></div>', unsafe_allow_html=True)
 
-# --- 🏠 HOME PAGE (प्रीमियम ग्रिड) ---
+# --- 🏠 HOME PAGE (प्रीमियम ग्रिड - पूरी चौड़ाई के साथ) ---
 if st.session_state.current_page == "HOME":
     st.markdown("### 📌 मुख्य मेनू")
     st.write("") # थोड़ा स्पेस
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("📊 लाइव स्टॉक (Stock)"): go_to("STOCK")
-        if st.button("➕ नया रिटेलर (Add)"): go_to("ADD_RETAILER")
-        if st.button("📜 खाता रिपोर्ट (Ledger)"): go_to("LEDGER")
+        # 🔴 यहाँ use_container_width=True जोड़ा गया है ताकि बॉक्स पूरा कवर करे
+        if st.button("📊 लाइव स्टॉक (Stock)", use_container_width=True): go_to("STOCK")
+        if st.button("➕ नया रिटेलर (Add)", use_container_width=True): go_to("ADD_RETAILER")
+        if st.button("📜 खाता रिपोर्ट (Ledger)", use_container_width=True): go_to("LEDGER")
 
     with col2:
-        if st.button("💰 आज की वसूली (Collection)"): go_to("COLLECTION")
-        if st.button("📦 माल / पेमेंट एंट्री"): go_to("ENTRY")
-        if st.button("💸 बकाया लिस्ट (Dues)"): go_to("DUES")
+        if st.button("💰 आज की वसूली (Collection)", use_container_width=True): go_to("COLLECTION")
+        if st.button("📦 माल / पेमेंट एंट्री", use_container_width=True): go_to("ENTRY")
+        if st.button("💸 बकाया लिस्ट (Dues)", use_container_width=True): go_to("DUES")
 
 # --- 📊 1. STOCK PAGE ---
 elif st.session_state.current_page == "STOCK":
-    if st.button("🔙 वापस मेनू पर जाएं"): go_to("HOME")
+    if st.button("🔙 वापस मेनू पर जाएं", use_container_width=True): go_to("HOME")
     st.header("📊 लाइव इन्वेंट्री स्टॉक")
     if inv_df is not None:
         st.dataframe(inv_df, use_container_width=True, hide_index=True)
@@ -124,7 +124,7 @@ elif st.session_state.current_page == "STOCK":
 
 # --- 💰 2. TODAY COLLECTION ---
 elif st.session_state.current_page == "COLLECTION":
-    if st.button("🔙 वापस मेनू पर जाएं"): go_to("HOME")
+    if st.button("🔙 वापस मेनू पर जाएं", use_container_width=True): go_to("HOME")
     st.header("💸 आज की वसूली (Today Collection)")
     st.info("यहाँ उन सभी रिटेलर्स की लिस्ट है जिनका बकाया है। आप सीधे कॉल कर सकते हैं और पेमेंट ले सकते हैं।")
     
@@ -145,7 +145,7 @@ elif st.session_state.current_page == "COLLECTION":
                             p_amt = st.number_input(f"पेमेंट राशि (₹)", min_value=1.0, key=f"amt_{name}")
                             p_mode = st.selectbox("पेमेंट मोड", ["Cash", "Online"], key=f"mode_{name}")
                             p_fse = st.selectbox("FSE", ["Ravindra Sharma", "Lal Babu Das", "Self"], key=f"fse_{name}")
-                            if st.form_submit_button("पेमेंट सेव करें"):
+                            if st.form_submit_button("पेमेंट सेव करें", use_container_width=True):
                                 payload = {
                                     "action": "add_txn", 
                                     "date": date.today().strftime("%d-%m-%Y"), 
@@ -160,7 +160,7 @@ elif st.session_state.current_page == "COLLECTION":
 
 # --- 📦 3. ENTRY PAGE ---
 elif st.session_state.current_page == "ENTRY":
-    if st.button("🔙 वापस मेनू पर जाएं"): go_to("HOME")
+    if st.button("🔙 वापस मेनू पर जाएं", use_container_width=True): go_to("HOME")
     st.header("📦 स्टॉक आउट / पेमेंट लें")
     t_date = st.date_input("तारीख", date.today())
     t_prm = st.selectbox("रिटेलर चुनें*", options=dropdown_options)
@@ -193,7 +193,7 @@ elif st.session_state.current_page == "ENTRY":
 
 # --- ➕ 4. ADD RETAILER ---
 elif st.session_state.current_page == "ADD_RETAILER":
-    if st.button("🔙 वापस मेनू पर जाएं"): go_to("HOME")
+    if st.button("🔙 वापस मेनू पर जाएं", use_container_width=True): go_to("HOME")
     st.header("➕ नया रिटेलर जोड़ें")
     with st.form("add_retailer_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
@@ -203,7 +203,7 @@ elif st.session_state.current_page == "ADD_RETAILER":
         with col2:
             r_prm = st.text_input("PRM ID*")
             r_loc = st.text_input("लोकेशन")
-        if st.form_submit_button("सेव करें"):
+        if st.form_submit_button("सेव करें", use_container_width=True):
             if r_name and r_prm and r_mobile:
                 payload = {"action": "add_retailer", "name": r_name.upper(), "mobile": r_mobile, "prm": r_prm, "location": r_loc.upper(), "date": datetime.now().strftime("%d-%m-%Y")}
                 requests.post(WEBHOOK_URL, json=payload)
@@ -211,7 +211,7 @@ elif st.session_state.current_page == "ADD_RETAILER":
 
 # --- 📜 5. LEDGER ---
 elif st.session_state.current_page == "LEDGER":
-    if st.button("🔙 वापस मेनू पर जाएं"): go_to("HOME")
+    if st.button("🔙 वापस मेनू पर जाएं", use_container_width=True): go_to("HOME")
     st.header("📜 रिटेलर रिपोर्ट (खाता)")
     search_prm = st.selectbox("रिटेलर चुनें:", options=dropdown_options)
     
@@ -238,17 +238,17 @@ elif st.session_state.current_page == "LEDGER":
                 st.error(f"कुल डेबिट: ₹{t_out} | कुल क्रेडिट: ₹{t_in} | बकाया: ₹{t_out - t_in}")
 
                 c1, c2 = st.columns(2)
-                c1.download_button("📥 Excel डाउनलोड", f_df.to_csv(index=False).encode('utf-8-sig'), f"{r_name}_Ledger.csv", "text/csv")
+                c1.download_button("📥 Excel डाउनलोड", f_df.to_csv(index=False).encode('utf-8-sig'), f"{r_name}_Ledger.csv", "text/csv", use_container_width=True)
                 html = f"<h2>संध्या इंटरप्राइजेज</h2><b>रिटेलर:</b> {r_name}<br><b>अवधि:</b> {s_date} से {e_date}<br><br>" + f_df.drop(columns=['DateObj']).to_html(index=False)
-                c2.download_button("📄 PDF (Report)", html.encode('utf-8-sig'), f"{r_name}_Report.html", "text/html")
+                c2.download_button("📄 PDF (Report)", html.encode('utf-8-sig'), f"{r_name}_Report.html", "text/html", use_container_width=True)
         except: st.error("डेटा लोड नहीं हुआ।")
 
 # --- 💸 6. DUES REMINDERS ---
 elif st.session_state.current_page == "DUES":
-    if st.button("🔙 वापस मेनू पर जाएं"): go_to("HOME")
+    if st.button("🔙 वापस मेनू पर जाएं", use_container_width=True): go_to("HOME")
     st.header("💰 बकाया वसूली लिस्ट (Bulk SMS)")
     
-    if st.button("🔄 सभी का बकाया चेक करें"):
+    if st.button("🔄 सभी का बकाया चेक करें", use_container_width=True):
         try:
             summary = []
             for key, val in retailers_data.items():
