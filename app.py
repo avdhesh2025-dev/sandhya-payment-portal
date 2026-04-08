@@ -4,10 +4,10 @@ from datetime import datetime, date
 import urllib.parse
 import requests
 
-# 1. पेज की सेटिंग (पुराना साइडबार वापस आ गया)
+# 1. पेज की सेटिंग (पुराना साइडबार)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide")
 
-# 💎💎 प्रीमियम 3D डिज़ाइन (लेकिन साइडबार के साथ) 💎💎
+# 💎 ग्लोबल डिज़ाइन (बाकी सब सादा और साफ़ रहेगा)
 st.markdown("""
     <style>
     /* बैकग्राउंड */
@@ -27,46 +27,6 @@ st.markdown("""
     .app-header h1 { margin: 0; font-size: 2.2rem; font-weight: 800; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
     .app-header p { margin: 5px 0 0 0; font-size: 1rem; opacity: 0.9; }
 
-    /* 🎴 3D बटन का डिज़ाइन (सेव, डाउनलोड आदि के लिए) */
-    .stButton>button {
-        width: 100% !important;
-        background-color: #ffffff !important;
-        color: #1a1a1a !important;
-        border: none !important;
-        border-radius: 12px !important;
-        font-size: 16px !important;
-        font-weight: 700 !important;
-        box-shadow: 0 6px 0 #d1d9e6, 0 10px 15px rgba(0,0,0,0.1) !important;
-        transition: all 0.2s ease-out !important;
-        border-left: 6px solid #007bff !important;
-        margin-bottom: 10px !important;
-        position: relative;
-        top: 0;
-    }
-
-    /* 🔴 होवर पर हिलने वाला एनीमेशन */
-    .stButton>button:hover {
-        color: #007bff !important;
-        border-left: 6px solid #00c6ff !important;
-        top: -3px !important;
-        box-shadow: 0 9px 0 #d1d9e6, 0 15px 20px rgba(0,0,0,0.15) !important;
-        animation: wobble-hor-bottom 0.5s both !important;
-    }
-    
-    .stButton>button:active {
-        top: 4px !important;
-        box-shadow: 0 2px 0 #d1d9e6, 0 5px 10px rgba(0,0,0,0.1) !important;
-        animation: none !important;
-    }
-
-    @keyframes wobble-hor-bottom {
-        0%, 100% { transform: translateX(0%); }
-        15% { transform: translateX(-4px) rotate(-1deg); }
-        30% { transform: translateX(3px) rotate(1deg); }
-        45% { transform: translateX(-2px) rotate(-0.5deg); }
-        60% { transform: translateX(1px) rotate(0.2deg); }
-    }
-    
     /* इनपुट बॉक्स डिज़ाइन */
     .stDataFrame, .stSelectbox, .stNumberInput, .stTextInput, .stDateInput {
         background-color: white;
@@ -111,7 +71,7 @@ if ret_df is not None:
 # --- 🌟 APP HEADER ---
 st.markdown('<div class="app-header"><h1>🏢 संध्या इंटरप्राइजेज</h1><p>Smart Business Management System</p></div>', unsafe_allow_html=True)
 
-# --- 📱 साइडबार मेनू (आपका पसंदीदा पुराना तरीका) ---
+# --- 📱 साइडबार मेनू ---
 st.sidebar.title("📲 संध्या इंटरप्राइजेज")
 st.sidebar.markdown("---")
 menu = st.sidebar.radio("मेनू चुनें:", [
@@ -162,8 +122,48 @@ elif menu == "💰 Today Collection":
                                 st.success(f"✅ {name} का ₹{p_amt} जमा हो गया!")
                                 st.cache_data.clear()
 
-# --- 📦 3. ENTRY PAGE ---
+# --- 📦 3. ENTRY PAGE (सिर्फ यहाँ 3D डिज़ाइन लागू होगा) ---
 elif menu == "📦 माल / पेमेंट एंट्री":
+    # 🎴 सिर्फ इस पेज के लिए 3D और हिलने वाला (Wobble) एनीमेशन
+    st.markdown("""
+        <style>
+        .stButton>button {
+            width: 100% !important;
+            background-color: #ffffff !important;
+            color: #1a1a1a !important;
+            border: none !important;
+            border-radius: 12px !important;
+            font-size: 18px !important;
+            font-weight: 700 !important;
+            box-shadow: 0 6px 0 #d1d9e6, 0 10px 15px rgba(0,0,0,0.1) !important;
+            transition: all 0.2s ease-out !important;
+            border-left: 6px solid #007bff !important;
+            margin-bottom: 10px !important;
+            position: relative;
+            top: 0;
+        }
+        .stButton>button:hover {
+            color: #007bff !important;
+            border-left: 6px solid #00c6ff !important;
+            top: -3px !important;
+            box-shadow: 0 9px 0 #d1d9e6, 0 15px 20px rgba(0,0,0,0.15) !important;
+            animation: wobble-hor-bottom 0.5s both !important;
+        }
+        .stButton>button:active {
+            top: 4px !important;
+            box-shadow: 0 2px 0 #d1d9e6, 0 5px 10px rgba(0,0,0,0.1) !important;
+            animation: none !important;
+        }
+        @keyframes wobble-hor-bottom {
+            0%, 100% { transform: translateX(0%); }
+            15% { transform: translateX(-4px) rotate(-1deg); }
+            30% { transform: translateX(3px) rotate(1deg); }
+            45% { transform: translateX(-2px) rotate(-0.5deg); }
+            60% { transform: translateX(1px) rotate(0.2deg); }
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
     st.header("📦 स्टॉक आउट / पेमेंट लें")
     t_date = st.date_input("तारीख", date.today())
     t_prm = st.selectbox("रिटेलर चुनें*", options=dropdown_options)
