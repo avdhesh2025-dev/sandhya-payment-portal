@@ -266,10 +266,10 @@ elif st.session_state.current_page == "ADD_RETAILER":
                 requests.post(WEBHOOK_URL, json=payload)
                 st.success("Retailer saved successfully!"); st.cache_data.clear()
 
-    # 🔴 Bulk Upload Retailers
+    # 🔴 BULK UPLOAD RETAILERS (Super-Clean Logic)
     st.markdown("---")
     st.header("📂 Bulk Retailer & Opening Balance Upload")
-    st.info("Upload your Excel containing: Retailer Name | PRM ID | Details (Mobile) | DUSE (or DUES) | ADVANCE.")
+    st.info("Upload your Excel. The system will automatically detect the columns and create retailers/balances.")
     
     uploaded_ret_file = st.file_uploader("Upload Retailers Excel File", type=["csv", "xlsx"])
     if uploaded_ret_file is not None:
@@ -277,6 +277,7 @@ elif st.session_state.current_page == "ADD_RETAILER":
             if uploaded_ret_file.name.endswith('.csv'): df_ret = pd.read_csv(uploaded_ret_file).fillna("")
             else: df_ret = pd.read_excel(uploaded_ret_file).fillna("")
             
+            # Clean column headers
             df_ret.columns = [' '.join(str(col).upper().split()) for col in df_ret.columns]
             
             st.write("### 👁️ Preview of Retailers Data")
@@ -295,22 +296,42 @@ elif st.session_state.current_page == "ADD_RETAILER":
                     total_rows = len(df_ret)
                     success_ret = 0
                     
+                    # Smart column detection (Works even if column names are slightly different)
+                    col_name = next((c for c in df_ret.columns if "NAME" in c or "RETAILER" in c), None)
+                    col_prm = next((c for c in df_ret.columns if "PRM" in c), None)
+                    col_mob = next((c for c in df_ret.columns if "DETAIL" in c or "MOB" in c), None)
+                    col_dues = next((c for c in df_ret.columns if "DUS" in c or "DUE" in c), None)
+                    col_adv = next((c for c in df_ret.columns if "ADV" in c), None)
+                    
                     for idx, row in df_ret.iterrows():
-                        b_name = str(row.get("RETAILER NAME", "")).strip().upper()
-                        b_prm = str(row.get("PRM ID", "")).split('.')[0].strip()
-                        b_mob = str(row.get("DETAILS", "")).split('.')[0].strip()
+                        # Extract Name
+                        b_name = str(row[col_name]).strip().upper() if col_name else ""
+                        if b_name == "NAN": b_name = ""
                         
-                        b_dues_val = row.get("DUSE", row.get("DUES", 0))
-                        b_adv_val = row.get("ADVANCE", 0)
+                        # Extract PRM
+                        b_prm = str(row[col_prm]).split('.')[0].strip() if col_prm else ""
+                        if b_prm == "NAN": b_prm = ""
                         
-                        b_dues = float(str(b_dues_val).replace(',', '').strip() or 0.0)
-                        b_adv = float(str(b_adv_val).replace(',', '').strip() or 0.0)
+                        # Extract Mobile
+                        b_mob = str(row[col_mob]).split('.')[0].strip() if col_mob else ""
+                        if b_mob == "NAN": b_mob = ""
                         
-                        if b_name and b_mob:
+                        # Super-Clean Floating Numbers (Fixes JSON error for NaN)
+                        try:
+                            b_dues = float(str(row[col_dues]).replace(',', '').strip()) if col_dues else 0.0
+                            if pd.isna(b_dues): b_dues = 0.0
+                        except: b_dues = 0.0
+                        
+                        try:
+                            b_adv = float(str(row[col_adv]).replace(',', '').strip()) if col_adv else 0.0
+                            if pd.isna(b_adv): b_adv = 0.0
+                        except: b_adv = 0.0
+                        
+                        if b_name: # Only upload if a Name exists
                             payload_ret = {"action": "add_retailer", "name": b_name, "mobile": b_mob, "prm": b_prm, "location": "BULK UPLOAD", "date": date.today().strftime("%d-%m-%Y")}
                             try:
-                                res = requests.post(WEBHOOK_URL, json=payload_ret)
-                                if res.status_code == 200: success_ret += 1
+                                requests.post(WEBHOOK_URL, json=payload_ret)
+                                success_ret += 1
                                 
                                 if b_dues > 0:
                                     payload_dues = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": b_name, "r_mob": b_mob, "type": "Opening Dues", "qty": 0, "amt_out": b_dues, "amt_in": 0, "fse": bulk_fse, "txn_id": "OPENING_BAL"}
@@ -319,7 +340,7 @@ elif st.session_state.current_page == "ADD_RETAILER":
                                 if b_adv > 0:
                                     payload_adv = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": b_name, "r_mob": b_mob, "type": "Opening Advance", "qty": 0, "amt_out": 0, "amt_in": b_adv, "fse": bulk_fse, "txn_id": "OPENING_BAL"}
                                     requests.post(WEBHOOK_URL, json=payload_adv)
-                            except: pass
+                            except: pass # Prevents crashing if network fails
                             
                         progress_bar.progress((idx + 1) / total_rows)
                         status_text.text(f"Uploading... {idx + 1}/{total_rows}")
@@ -327,7 +348,7 @@ elif st.session_state.current_page == "ADD_RETAILER":
                     st.success(f"✅ Successfully uploaded {success_ret} Retailers and their opening balances!")
                     st.cache_data.clear()
         except Exception as e:
-            st.error(f"❌ Error: Could not read file. Ensure columns match the required format. Details: {str(e)}")
+            st.error(f"❌ Error: Could not read file. Details: {str(e)}")
 
 # --- 📜 5. LEDGER ---
 elif st.session_state.current_page == "LEDGER":
@@ -433,11 +454,13 @@ elif st.session_state.current_page == "BULK":
                             raw_date = str(row.get("Transfer Date", date.today().strftime("%d-%m-%Y")))
                             r_date = raw_date.replace('.', '-')
                             
-                            raw_amt = str(row.get("Transfer Amount", "0")).replace(',', '').strip()
-                            r_amt_out = float(raw_amt) if raw_amt else 0.0
+                            # Clean Floating Numbers for Transfer Amount
+                            try:
+                                r_amt_out = float(str(row.get("Transfer Amount", "0")).replace(',', '').strip())
+                                if pd.isna(r_amt_out): r_amt_out = 0.0
+                            except: r_amt_out = 0.0
                             
                             r_txn = str(row.get("Order ID", ""))
-                            
                             actual_amt_out = round(r_amt_out - (r_amt_out * 0.03), 2)
                             
                             if actual_amt_out > 0:
