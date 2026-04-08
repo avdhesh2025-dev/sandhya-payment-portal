@@ -28,33 +28,40 @@ with st.form("payment_form", clear_on_submit=True):
     if submit:
         if retailer and amount > 0:
             try:
-                # 1. डेटा पढ़ें (ध्यान दें: शीट का नाम "Payments" होना चाहिए)
+                # 1. डेटा पढ़ना
                 df = conn.read(spreadsheet=sheet_url, worksheet="Payments")
                 
-                # 2. खाली जगह और फालतू रोज़ को साफ करना (यही Error 400 को रोकेगा)
-                df = df.dropna(how="all").fillna("")
-                
-                # 3. नया डेटा तैयार करना
+                # 2. नया डेटा तैयार करना (सब कुछ Text में बदल दिया है)
                 new_row = pd.DataFrame([{
                     "Date": str(date),
-                    "Retailer": retailer,
-                    "Amount": amount,
-                    "Payment Mode": mode,
-                    "Transaction Id": txn_id,
-                    "Collected By": fse
+                    "Retailer": str(retailer).strip(),
+                    "Amount": str(amount),
+                    "Payment Mode": str(mode),
+                    "Transaction Id": str(txn_id).strip(),
+                    "Collected By": str(fse)
                 }])
                 
-                # 4. डेटा को जोड़ना
-                updated_df = pd.concat([df, new_row], ignore_index=True)
-                updated_df = updated_df.fillna("") # एक बार फिर से क्लीन करना
+                # 3. डेटा को जोड़ना
+                if not df.empty:
+                    updated_df = pd.concat([df, new_row], ignore_index=True)
+                else:
+                    updated_df = new_row
+                
+                # 4. डेटा क्लीन करना (सबसे ज़रूरी कदम ताकि 400 Error न आए)
+                updated_df = updated_df.astype(str)
+                updated_df = updated_df.replace("nan", "")
+                updated_df = updated_df.replace("NaN", "")
+                updated_df = updated_df.replace("None", "")
                 
                 # 5. वापस गूगल शीट में अपडेट करना
                 conn.update(spreadsheet=sheet_url, worksheet="Payments", data=updated_df)
                 
                 st.success(f"✅ {retailer} का ₹{amount} का पेमेंट सेव हो गया है!")
                 st.balloons()
+                
             except Exception as e:
-                st.error(f"कुछ तकनीकी समस्या आ रही है: {e}")
+                st.error(f"एरर 400: डेटा सेव नहीं हुआ। इसका मतलब गूगल हमें बिना 'Service Account' के एंट्री नहीं करने दे रहा है।")
+                st.info("टेक्निकल एरर कोड: " + str(e))
         else:
             st.warning("कृपया रिटेलर का नाम और सही राशि भरें।")
 
