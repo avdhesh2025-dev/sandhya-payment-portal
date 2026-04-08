@@ -2,49 +2,57 @@ import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
 
-# --- STEP 1: Google Sheet Connection (Aapka purana connection waisa hi rahega) ---
-scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+# --- STEP 1: Google Sheet Connection Setup ---
+# Dhyan rakhein: Apni JSON file ka naam exact 'credentials.json' rakh kar upload karein
+JSON_FILE_NAME = "credentials.json" 
 
-# Apni JSON file ka naam yahan dalein
-creds = Credentials.from_service_account_file("aapka_json_file.json", scopes=scope)
-client = gspread.authorize(creds)
+try:
+    scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+    creds = Credentials.from_service_account_file(JSON_FILE_NAME, scopes=scope)
+    client = gspread.authorize(creds)
+    
+    # Sheet connect karein
+    sheet = client.open("SANDHYA PAYMENTS DATA").sheet1
+    
+except FileNotFoundError:
+    st.error(f"❌ Error: '{JSON_FILE_NAME}' file nahi mili! Kripya apni JSON file ka naam credentials.json rakh kar upload karein.")
+    st.stop()
+except Exception as e:
+    st.error(f"❌ Connection Error: {e}\n(Check karein ki aapne JSON email ko sheet me Editor banaya hai ya nahi)")
+    st.stop()
 
-# Sheet connect karein (Make sure JSON email ko Sheet me Editor permission mili ho)
-sheet = client.open("SANDHYA PAYMENTS DATA").sheet1 
 
-
-# --- STEP 2: Streamlit Form (Isse warning nahi aayegi aur UI pyara lagega) ---
+# --- STEP 2: Streamlit App Design & Logic ---
 st.title("📝 Sandhya Enterprises - Data Entry")
 
-# clear_on_submit=True se submit hone ke baad box apne aap khali ho jayega
+# 'with st.form' use karne se warning nahi aayegi aur box submit hone par khali ho jayenge
 with st.form("my_data_form", clear_on_submit=True):
     st.subheader("Nayi Entry Karein")
     
-    # Yahan aap apne purane inputs daal sakte hain (Yeh sirf example hai)
+    # Yahan aapke inputs hain (Aap chahain toh purane inputs yahan badal sakte hain)
     date = st.date_input("Date")
     name = st.text_input("Name")
     amount = st.number_input("Amount", min_value=0)
     status = st.selectbox("Status", ["Success", "Pending"])
     
-    # Pyar sa submit button 🚀
+    # Submit Button
     submit_button = st.form_submit_button("Submit Data 🚀")
     
-    # Jab koi Submit button dabayega, tab yeh code chalega
+    # Submit dabane par kya hoga:
     if submit_button:
-        if name != "": # Basic check ki naam khali na ho
+        if name.strip() == "":
+            st.warning("⚠️ Kripya naam zaroor bharein!")
+        else:
             try:
-                # 1. Jo data sheet me bhejna hai uski list banayein
+                # Naya data sheet ke liye list format mein taiyar karein
                 new_row_data = [str(date), name, amount, status]
                 
-                # 2. Google sheet me naya row add karein
+                # Google sheet mein naya row add karein
                 sheet.append_row(new_row_data)
                 
-                # 3. Success message aur balloons (Pyar wala option)
-                st.success(f"🎉 Bohot badhiya! {name} ka data Google Sheet me save ho gaya.")
+                # Success message
+                st.success(f"🎉 Bohot badhiya! {name} ki entry Google Sheet mein save ho gayi.")
                 st.balloons()
                 
             except Exception as e:
-                # Agar koi error aayi toh red color me dikhegi
-                st.error(f"⚠️ Error aayi hai: {e}")
-        else:
-            st.warning("⚠️ Kripya naam zaroor bharein!")
+                st.error(f"⚠️ Data add karne mein dikkat aayi: {e}")
