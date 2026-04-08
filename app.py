@@ -2,12 +2,12 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import urllib.parse
-from streamlit_gsheets import GSheetsConnection
+import requests
 
 # पेज की सेटिंग
 st.set_page_config(page_title="Sandhya ERP System", page_icon="🏢", layout="wide")
 
-# मेनू का डिज़ाइन
+# मेनू और पेज का डिज़ाइन
 st.markdown("""
     <style>
     div.row-widget.stRadio > div { flex-direction: column; }
@@ -19,16 +19,16 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# आपकी नई गूगल शीट का लिंक
-sheet_id = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
-sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/edit?usp=sharing"
-conn = st.connection("gsheets", type=GSheetsConnection)
+# 🛑 आपका APPS SCRIPT वाला URL (फोटो से लिया गया)
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby_yV4nEMwrBODnkVh0x5DrVqcbj42iDMLNlX8M7QPrVGGMltoOfZhlid_gXlB0dwMvZQ/exec"
 
+# आपकी गूगल शीट के डायरेक्ट लिंक्स
+sheet_id = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
 retailers_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Retailers"
 inventory_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Inventory"
 ledger_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Ledger"
 
-# डेटाबेस से रिटेलर्स लाने का फंक्शन
+# डेटाबेस से रिटेलर्स की लिस्ट लाना
 @st.cache_data(ttl=30)
 def get_retailers_data():
     try:
@@ -66,7 +66,7 @@ if menu == "📊 डैशबोर्ड (स्टॉक)":
         inv_df = inv_df.dropna(how="all").fillna("")
         st.dataframe(inv_df, use_container_width=True, hide_index=True)
     except Exception as e:
-        st.error(f"❌ स्टॉक लोड नहीं हुआ: {e}")
+        st.error("स्टॉक लोड हो रहा है...")
 
 # ---------------------------------------------------------
 # 2. नया रिटेलर जोड़ें
@@ -85,35 +85,24 @@ elif menu == "➕ नया रिटेलर जोड़ें":
         
         if submit_retailer:
             if r_name and r_prm and r_mobile:
+                payload = {
+                    "action": "add_retailer",
+                    "name": str(r_name).strip().upper(),
+                    "mobile": str(r_mobile).strip(),
+                    "prm": str(r_prm).strip(),
+                    "location": str(r_loc).strip().upper(),
+                    "date": datetime.now().strftime("%d-%m-%Y")
+                }
                 try:
-                    # डेटा पढ़ना (डायरेक्ट लिंक से)
-                    df = pd.read_csv(retailers_csv)
-                    df = df.dropna(how="all") 
-                    
-                    new_row = pd.DataFrame([{
-                        "Retailer Name": str(r_name).strip().upper(),
-                        "Mobile Number": str(r_mobile).strip(),
-                        "PRM ID": str(r_prm).strip(),
-                        "Location": str(r_loc).strip().upper(),
-                        "Date Added": datetime.now().strftime("%d-%m-%Y")
-                    }])
-                    
-                    if not df.empty:
-                        updated_df = pd.concat([df, new_row], ignore_index=True)
+                    res = requests.post(WEBHOOK_URL, json=payload)
+                    if res.text == "Success":
+                        st.success(f"✅ रिटेलर {r_name} सफलतापूर्वक सेव हो गया!")
+                        st.balloons()
+                        st.cache_data.clear()
                     else:
-                        updated_df = new_row
-                        
-                    updated_df = updated_df.fillna("").astype(str)
-                    
-                    # गूगल शीट में अपडेट करना
-                    conn.update(spreadsheet=sheet_url, worksheet="Retailers", data=updated_df)
-                    
-                    st.success(f"✅ रिटेलर {r_name} सफलतापूर्वक सेव हो गया!")
-                    st.balloons()
-                    st.cache_data.clear()
+                        st.error(f"❌ सेव नहीं हुआ: {res.text}")
                 except Exception as e:
-                    # अब असली एरर दिखेगा
-                    st.error(f"❌ तकनीकी एरर (Technical Error): {e}")
+                    st.error("❌ नेटवर्क एरर! कृपया इंटरनेट चेक करें।")
             else:
                 st.warning("कृपया नाम, मोबाइल नंबर और PRM ID भरें।")
 
@@ -138,71 +127,79 @@ elif menu == "📦 माल / पेमेंट एंट्री":
 
     if submit_txn:
         if t_prm == "सर्च करने के लिए यहाँ टाइप करें...":
-            st.error("कृपया लिस्ट में से कोई रिटेलर चुनें! (अगर लिस्ट नहीं आ रही है, तो पहले नया रिटेलर जोड़ें)")
+            st.error("कृपया लिस्ट में से कोई रिटेलर चुनें!")
         else:
+            r_name = retailers_data[t_prm]["Name"]
+            r_mob = retailers_data[t_prm]["Mobile"]
+            amt_out = t_amount if t_type != "पेमेंट (Payment Received)" else 0
+            amt_in = t_amount if t_type == "पेमेंट (Payment Received)" else 0
+            
+            payload = {
+                "action": "add_txn",
+                "date": t_date.strftime("%d-%m-%Y"),
+                "r_name": r_name,
+                "r_mob": r_mob,
+                "type": t_type,
+                "qty": t_qty,
+                "amt_out": amt_out,
+                "amt_in": amt_in,
+                "fse": fse,
+                "txn_id": txn_id
+            }
             try:
-                r_name = retailers_data[t_prm]["Name"]
-                r_mob = retailers_data[t_prm]["Mobile"]
-                
-                amt_out = t_amount if t_type != "पेमेंट (Payment Received)" else 0
-                amt_in = t_amount if t_type == "पेमेंट (Payment Received)" else 0
-                
-                # 1. Ledger में सेव करना
-                ledger_df = pd.read_csv(ledger_csv)
-                ledger_df = ledger_df.dropna(how="all")
-                
-                new_txn = pd.DataFrame([{
-                    "Date": t_date.strftime("%d-%m-%Y"),
-                    "Retailer Name": r_name,
-                    "Mobile Number": r_mob,
-                    "Product/Service": t_type,
-                    "Quantity": str(t_qty),
-                    "Amount Out (Debit)": str(amt_out),
-                    "Amount In (Credit)": str(amt_in),
-                    "Balance": "", 
-                    "Collected By": fse,
-                    "Transaction ID": txn_id
-                }])
-                
-                if not ledger_df.empty:
-                    updated_ledger = pd.concat([ledger_df, new_txn], ignore_index=True)
+                res = requests.post(WEBHOOK_URL, json=payload)
+                if res.text == "Success":
+                    st.success(f"✅ {r_name} की एंट्री लेजर में सेव हो गई और स्टॉक अपडेट हो गया!")
+                    st.balloons()
+                    st.cache_data.clear()
+                    
+                    msg = f"संध्या इंटरप्राइजेज\nतारीख: {t_date.strftime('%d-%m-%Y')}\nरिटेलर: {r_name}\nआइटम: {t_type}\nमात्रा: {t_qty}\nराशि: ₹{t_amount}\nधन्यवाद!"
+                    wa_url = f"https://wa.me/91{r_mob}?text={urllib.parse.quote(msg)}"
+                    st.markdown(f"### [🟢 WhatsApp पर रसीद भेजने के लिए यहाँ क्लिक करें]({wa_url})", unsafe_allow_html=True)
                 else:
-                    updated_ledger = new_txn
-                    
-                updated_ledger = updated_ledger.fillna("").astype(str)
-                conn.update(spreadsheet=sheet_url, worksheet="Ledger", data=updated_ledger)
-                
-                # 2. Inventory (स्टॉक) अपडेट करना
-                prod_map = {"Jio Phone": "JIO PHONE BHARAT", "SIM Card": "SIM CARD", "Etop Recharge": "Etop BALANCE"}
-                if t_type in prod_map:
-                    inv_df = pd.read_csv(inventory_csv)
-                    prod_name = prod_map[t_type]
-                    deduct_val = t_amount if t_type == "Etop Recharge" else t_qty
-                    
-                    if deduct_val > 0:
-                        for idx, row in inv_df.iterrows():
-                            if str(row.get("Product Name", "")).strip() == prod_name:
-                                issued = float(row.get("Stock Issued", 0) or 0) + float(deduct_val)
-                                inv_df.at[idx, "Stock Issued"] = issued
-                                opening = float(row.get("Opening Stock", 0) or 0)
-                                added = float(row.get("Stock Added", 0) or 0)
-                                inv_df.at[idx, "Current Stock"] = opening + added - issued
-                        conn.update(spreadsheet=sheet_url, worksheet="Inventory", data=inv_df.fillna("").astype(str))
-                
-                st.success(f"✅ {r_name} की एंट्री लेजर में सेव हो गई और स्टॉक अपडेट हो गया!")
-                st.balloons()
-                st.cache_data.clear()
-                
-                msg = f"संध्या इंटरप्राइजेज\nतारीख: {t_date.strftime('%d-%m-%Y')}\nरिटेलर: {r_name}\nआइटम: {t_type}\nमात्रा: {t_qty}\nराशि: ₹{t_amount}\nधन्यवाद!"
-                msg_encoded = urllib.parse.quote(msg)
-                wa_url = f"https://wa.me/91{r_mob}?text={msg_encoded}"
-                st.markdown(f"### [🟢 WhatsApp पर रसीद भेजने के लिए यहाँ क्लिक करें]({wa_url})", unsafe_allow_html=True)
-                
-            except Exception as e:
-                st.error(f"❌ तकनीकी एरर (Technical Error): {e}")
+                    st.error(f"❌ सेव नहीं हुआ: {res.text}")
+            except:
+                st.error("❌ नेटवर्क एरर! कृपया इंटरनेट चेक करें।")
 
 # ---------------------------------------------------------
-# 4. लेजर (खाता)
+# 4. लेजर (खाता) देखें (नया और चालू)
 elif menu == "📜 लेजर (खाता) देखें":
     st.title("📜 रिटेलर का पूरा खाता")
-    st.info("यह आखिरी सेक्शन हम अगले स्टेप में चालू करेंगे!")
+    search_prm = st.selectbox("रिटेलर का खाता देखने के लिए खोजें:", options=dropdown_options)
+    
+    if search_prm != "सर्च करने के लिए यहाँ टाइप करें...":
+        try:
+            # लेजर डेटा पढ़ना
+            ledger_df = pd.read_csv(ledger_csv)
+            ledger_df = ledger_df.dropna(how="all").fillna("")
+            
+            # रिटेलर का नाम निकालना
+            r_name = retailers_data[search_prm]["Name"]
+            
+            # उस रिटेलर का डेटा फ़िल्टर करना
+            user_ledger = ledger_df[ledger_df['Retailer Name'] == r_name]
+            
+            if not user_ledger.empty:
+                st.markdown(f"### 👤 {r_name} का खाता")
+                st.dataframe(user_ledger, use_container_width=True, hide_index=True)
+                
+                # कुल हिसाब जोड़ना
+                total_out = pd.to_numeric(user_ledger['Amount Out (Debit)'], errors='coerce').sum()
+                total_in = pd.to_numeric(user_ledger['Amount In (Credit)'], errors='coerce').sum()
+                balance = total_out - total_in
+                
+                st.markdown("---")
+                col1, col2, col3 = st.columns(3)
+                col1.error(f"🔴 कुल माल दिया: ₹{total_out}")
+                col2.success(f"🟢 कुल पैसा आया: ₹{total_in}")
+                
+                if balance > 0:
+                    col3.warning(f"⚠️ बकाया (Dues): ₹{balance}")
+                elif balance < 0:
+                    col3.info(f"🔵 एडवांस (Advance): ₹{abs(balance)}")
+                else:
+                    col3.success(f"✅ बकाया: ₹0 (हिसाब बराबर)")
+            else:
+                st.info("इस रिटेलर की अभी कोई एंट्री नहीं है।")
+        except Exception as e:
+            st.error("लेजर लोड हो रहा है...")
