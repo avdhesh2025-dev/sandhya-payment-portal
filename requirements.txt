@@ -3,3 +3,4 @@ pandas
 requests
 jinja2
 pdfkit
+openpyxl
