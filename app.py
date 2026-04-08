@@ -59,16 +59,18 @@ def load_data():
 
 ret_df, inv_df, led_df = load_data()
 
-# Create Retailer Dropdown List
+# Create Retailer Dropdown List & PRM Mapping Dictionary
 retailers_data = {}
+prm_mapping = {} # 🔴 NEW: For fast matching in Bulk Upload
 dropdown_options = ["Type here to search..."]
 if ret_df is not None:
     for index, row in ret_df.iterrows():
-        prm = str(row.get("PRM ID", "")).split('.')[0]
-        name = str(row.get("Retailer Name", ""))
-        mobile = str(row.get("Mobile Number", "")).split('.')[0]
+        prm = str(row.get("PRM ID", "")).split('.')[0].strip()
+        name = str(row.get("Retailer Name", "")).strip()
+        mobile = str(row.get("Mobile Number", "")).split('.')[0].strip()
         if prm and name and prm != "nan":
             retailers_data[f"{prm} - {name}"] = {"Name": name, "Mobile": mobile, "PRM": prm}
+            prm_mapping[prm] = {"Name": name, "Mobile": mobile} # For Bulk Upload Auto-match
             dropdown_options.append(f"{prm} - {name}")
 
 # Session State for Navigation
@@ -102,7 +104,6 @@ if st.session_state.current_page == "HOME":
         if st.button("📊 Live Stock", use_container_width=True): go_to("STOCK")
         if st.button("➕ Add Retailer", use_container_width=True): go_to("ADD_RETAILER")
         if st.button("📜 Ledger Report", use_container_width=True): go_to("LEDGER")
-        # 🆕 NEW BULK ENTRY BUTTON
         if st.button("📂 Bulk Entry (Excel)", use_container_width=True): go_to("BULK")
 
     with col2:
@@ -149,7 +150,6 @@ elif st.session_state.current_page == "COLLECTION":
 elif st.session_state.current_page == "ENTRY":
     st.markdown("""
         <style>
-        /* 3D animated buttons only for this page */
         .stButton>button {
             background-color: #ffffff !important; color: #1a1a1a !important;
             border: none !important; border-radius: 12px !important;
@@ -187,32 +187,24 @@ elif st.session_state.current_page == "ENTRY":
         fse_pin = st.text_input("Enter 4-digit PIN*", type="password", max_chars=4)
 
     with col2:
-        t_qty = 0
-        t_amount = 0.0
-        p_mode = ""
-        
+        t_qty = 0; t_amount = 0.0; p_mode = ""
         if t_type == "Etop Transfer":
             etop_opt = st.selectbox("Select Amount ₹", ["5000", "3000", "2000", "1500", "500", "Manual"])
             if etop_opt == "Manual":
                 t_amt_input = st.number_input("Enter Manual Amount ₹", min_value=1.0, value=None, step=10.0)
                 t_amount = t_amt_input if t_amt_input else 0.0
-            else:
-                t_amount = float(etop_opt)
-                
+            else: t_amount = float(etop_opt)
         elif t_type == "Payment Received":
             p_mode = st.selectbox("Payment Mode", ["Cash", "Online"])
             t_amt_input = st.number_input("Enter Amount ₹ (Type Here)", min_value=1.0, value=None, step=10.0)
             t_amount = t_amt_input if t_amt_input else 0.0
-            
         elif t_type == "JPB V4":
             t_qty = st.number_input("Quantity (Piece)", min_value=1)
             t_rate_input = st.number_input("Rate ₹", min_value=0.0, value=None, step=10.0)
             if t_rate_input:
                 t_amount = t_qty * t_rate_input
                 st.info(f"Total Amount: ₹{t_amount}")
-            else:
-                t_amount = 0.0
-                
+            else: t_amount = 0.0
         elif t_type == "Sim Card":
             t_qty = st.number_input("Quantity (SIM)", min_value=1)
             t_amount = 0.0
@@ -304,91 +296,76 @@ elif st.session_state.current_page == "DUES":
                 st.markdown(f"**{row['Retailer']}** (₹{row['Dues']}) -> [📲 Send Reminder](https://wa.me/91{row['Mobile']}?text={urllib.parse.quote(msg)})")
         else: st.success("No dues pending!")
 
-# --- 📂 7. BULK EXCEL UPLOAD ---
+# --- 📂 7. DIRECT JIO EXCEL UPLOAD (AUTO-MATCH) ---
 elif st.session_state.current_page == "BULK":
     if st.button("🔙 Back to Main Menu", use_container_width=True): go_to("HOME")
-    st.header("📂 Bulk Entry via Excel")
-    st.info("Download the template, fill in your data, and upload it back here.")
+    st.header("📂 Auto-Match Bulk Entry (Etop Transfer)")
+    st.info("Directly upload your Jio System Export Excel file. The system will automatically match PRM IDs and update Etop Transfers.")
     
-    # 1. Provide Template
-    template_df = pd.DataFrame(columns=["Date", "Retailer Name", "Mobile Number", "Type", "Quantity", "Amount Out", "Amount In", "FSE", "Transaction ID"])
-    csv_template = template_df.to_csv(index=False).encode('utf-8-sig')
-    st.download_button("📥 Download Excel Template", csv_template, "Bulk_Entry_Template.csv", "text/csv", use_container_width=True)
-
-    st.markdown("---")
-    
-    # 2. File Uploader
-    uploaded_file = st.file_uploader("Upload Filled Excel/CSV File", type=["csv", "xlsx"])
+    uploaded_file = st.file_uploader("Upload Direct Jio Excel/CSV File", type=["csv", "xlsx"])
     
     if uploaded_file is not None:
         try:
-            if uploaded_file.name.endswith('.csv'):
-                df_upload = pd.read_csv(uploaded_file).fillna("")
-            else:
-                df_upload = pd.read_excel(uploaded_file).fillna("")
+            if uploaded_file.name.endswith('.csv'): df_upload = pd.read_csv(uploaded_file).fillna("")
+            else: df_upload = pd.read_excel(uploaded_file).fillna("")
                 
-            st.write("### 👁️ Preview of Uploaded Data")
-            st.dataframe(df_upload, use_container_width=True)
+            st.write("### 👁️ Preview of Detected Data")
+            st.dataframe(df_upload.head(3), use_container_width=True) # Preview only top 3 to keep it clean
             
             st.markdown("---")
             st.write("### 🔐 Authentication & Upload")
             
-            # Security PIN
             col1, col2 = st.columns(2)
-            fse = col1.selectbox("Select FSE for Verification", ["Avdhesh Kumar", "Babloo kumar singh"], key="bulk_fse")
+            fse = col1.selectbox("Select FSE", ["Avdhesh Kumar", "Babloo kumar singh"], key="bulk_fse")
             fse_pin = col2.text_input("Enter 4-digit PIN*", type="password", max_chars=4, key="bulk_pin")
             
-            if st.button("🚀 Upload All Entries to Server", use_container_width=True):
-                if fse == "Avdhesh Kumar" and fse_pin != "9557":
-                    st.error("❌ Invalid PIN for Avdhesh Kumar!")
-                elif fse == "Babloo kumar singh" and fse_pin != "2081":
-                    st.error("❌ Invalid PIN for Babloo kumar singh!")
+            if st.button("🚀 Match & Upload Etop Transfers", use_container_width=True):
+                if fse == "Avdhesh Kumar" and fse_pin != "9557": st.error("❌ Invalid PIN for Avdhesh Kumar!")
+                elif fse == "Babloo kumar singh" and fse_pin != "2081": st.error("❌ Invalid PIN for Babloo kumar singh!")
+                elif "Partner PRM ID" not in df_upload.columns or "Transfer Amount" not in df_upload.columns:
+                    st.error("❌ Error: Missing 'Partner PRM ID' or 'Transfer Amount' columns in the uploaded file.")
                 else:
                     progress_bar = st.progress(0)
                     status_text = st.empty()
                     total_rows = len(df_upload)
                     success_count = 0
+                    not_found_count = 0
                     
                     for idx, row in df_upload.iterrows():
-                        r_date = str(row.get("Date", date.today().strftime("%d-%m-%Y")))
-                        r_name = str(row.get("Retailer Name", ""))
-                        r_mob = str(row.get("Mobile Number", "")).replace(".0", "")
-                        r_type = str(row.get("Type", ""))
+                        raw_prm = str(row.get("Partner PRM ID", "")).split('.')[0].strip()
                         
-                        r_qty = row.get("Quantity", 0)
-                        r_qty = int(float(r_qty)) if str(r_qty).strip() else 0
-                        
-                        r_amt_out = row.get("Amount Out", 0)
-                        r_amt_out = float(r_amt_out) if str(r_amt_out).strip() else 0.0
-                        
-                        r_amt_in = row.get("Amount In", 0)
-                        r_amt_in = float(r_amt_in) if str(r_amt_in).strip() else 0.0
-                        
-                        r_fse = str(row.get("FSE", fse))
-                        r_txn = str(row.get("Transaction ID", ""))
-                        
-                        payload = {
-                            "action": "add_txn", "date": r_date, "r_name": r_name, "r_mob": r_mob, 
-                            "type": r_type, "qty": r_qty, "amt_out": r_amt_out, "amt_in": r_amt_in, 
-                            "fse": r_fse, "txn_id": r_txn
-                        }
-                        
-                        try:
-                            res = requests.post(WEBHOOK_URL, json=payload)
-                            if res.text == "Success":
-                                success_count += 1
-                        except:
-                            pass
+                        # 🔴 Auto-Match Logic
+                        if raw_prm in prm_mapping:
+                            r_name = prm_mapping[raw_prm]["Name"]
+                            r_mob = prm_mapping[raw_prm]["Mobile"]
+                            
+                            # Handle Date formatting from Jio Excel (like 08.04.2026)
+                            raw_date = str(row.get("Transfer Date", date.today().strftime("%d-%m-%Y")))
+                            r_date = raw_date.replace('.', '-')
+                            
+                            r_amt_out = float(row.get("Transfer Amount", 0))
+                            r_txn = str(row.get("Order ID", ""))
+                            
+                            if r_amt_out > 0:
+                                payload = {
+                                    "action": "add_txn", "date": r_date, "r_name": r_name, "r_mob": r_mob, 
+                                    "type": "Etop Transfer", "qty": 0, "amt_out": r_amt_out, "amt_in": 0, 
+                                    "fse": fse, "txn_id": r_txn
+                                }
+                                try:
+                                    res = requests.post(WEBHOOK_URL, json=payload)
+                                    if res.text == "Success": success_count += 1
+                                except: pass
+                        else:
+                            not_found_count += 1
                             
                         # Update Progress
-                        progress = (idx + 1) / total_rows
-                        progress_bar.progress(progress)
-                        status_text.text(f"Uploading {idx + 1} of {total_rows} entries...")
+                        progress_bar.progress((idx + 1) / total_rows)
+                        status_text.text(f"Processing... {idx + 1}/{total_rows}")
                         
-                    if success_count > 0:
-                        st.success(f"✅ Successfully uploaded {success_count} out of {total_rows} entries!")
-                        st.cache_data.clear()
-                    else:
-                        st.error("❌ Failed to upload entries. Please check your data format.")
+                    st.success(f"✅ Completed! Successfully added {success_count} Etop Transfers.")
+                    if not_found_count > 0:
+                        st.warning(f"⚠️ {not_found_count} PRMs from Excel were not found in your Retailer list. They were skipped.")
+                    st.cache_data.clear()
         except Exception as e:
-            st.error("❌ Error reading file. Please ensure it matches the template format.")
+            st.error("❌ Error reading file. Please make sure it's the correct Jio Export format.")
