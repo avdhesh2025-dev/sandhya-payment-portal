@@ -18,7 +18,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 🛑 अपना चालू APPS SCRIPT वाला URL यहाँ डालें:
+# 🛑 अपना चालू APPS SCRIPT वाला URL यहाँ डालें
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby_yV4nEMwrBODnkVh0x5DrVqcbj42iDMLNlX8M7QPrVGGMltoOfZhlid_gXlB0dwMvZQ/exec"
 
 sheet_id = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
@@ -79,7 +79,7 @@ elif menu == "➕ नया रिटेलर जोड़ें":
                 st.success(f"✅ रिटेलर {r_name} सेव हो गया!")
                 st.cache_data.clear()
 
-# 3. माल इशू / पेमेंट एंट्री (स्मार्ट डिज़ाइन)
+# 3. माल इशू / पेमेंट एंट्री
 elif menu == "📦 माल / पेमेंट एंट्री":
     st.title("📦 स्टॉक आउट / पेमेंट लें")
     
@@ -95,14 +95,18 @@ elif menu == "📦 माल / पेमेंट एंट्री":
         t_qty = 0
         t_amount = 0.0
         
-        # स्मार्ट बॉक्स: जो सेलेक्ट होगा, वही बॉक्स दिखेगा
+        # ऑटोमैटिक कैलकुलेशन बॉक्स
         if t_type == "SIM Card":
             t_qty = st.number_input("मात्रा (Quantity - SIM के लिए)", min_value=1)
+            t_amount = 0.0
         elif t_type in ["Etop Recharge", "पेमेंट (Payment Received)"]:
-            t_amount = st.number_input("राशि (Amount ₹)", min_value=1.0, step=10.0)
+            t_qty = 0
+            t_amount = st.number_input("कुल राशि (Amount ₹)", min_value=1.0, step=10.0)
         else: # Jio Phone
             t_qty = st.number_input("मात्रा (Quantity - Phone के लिए)", min_value=1)
-            t_amount = st.number_input("कुल राशि (Amount ₹)", min_value=0.0, step=10.0)
+            t_rate = st.number_input("प्रति पीस रेट (Rate per piece ₹)", min_value=0.0, step=10.0)
+            t_amount = t_qty * t_rate # गुणा हो गया
+            st.info(f"कुल राशि (Total Amount): ₹{t_amount}")
             
         txn_id = st.text_input("Transaction ID (यदि हो)")
 
@@ -118,7 +122,6 @@ elif menu == "📦 माल / पेमेंट एंट्री":
             amt_out = t_amount if t_type != "पेमेंट (Payment Received)" else 0
             amt_in = t_amount if t_type == "पेमेंट (Payment Received)" else 0
             
-            # पुराना बकाया निकालना
             try:
                 l_df = pd.read_csv(ledger_csv).dropna(how="all").fillna("")
                 u_ledger = l_df[l_df['Retailer Name'] == r_name]
@@ -138,11 +141,10 @@ elif menu == "📦 माल / पेमेंट एंट्री":
                     st.success(f"✅ {r_name} की एंट्री लेजर में सेव हो गई!")
                     st.balloons()
                     
-                    # शानदार WhatsApp रसीद
                     bal_text = f"बकाया (Dues): ₹{new_bal}" if new_bal >= 0 else f"एडवांस जमा: ₹{abs(new_bal)}"
                     msg = f"*🧾 संध्या इंटरप्राइजेज - रसीद*\n------------------------\n*दिनांक:* {t_date.strftime('%d-%m-%Y')}\n*रिटेलर:* {r_name}\n*आइटम:* {t_type}\n"
                     if t_qty > 0: msg += f"*मात्रा:* {t_qty} पीस\n"
-                    if t_amount > 0: msg += f"*राशि:* ₹{t_amount}\n"
+                    if t_amount > 0: msg += f"*कुल राशि:* ₹{t_amount}\n"
                     msg += f"------------------------\n*कुल {bal_text}*\n*एंट्री द्वारा:* {fse}\n🙏 धन्यवाद!"
                     
                     wa_url = f"https://wa.me/91{r_mob}?text={urllib.parse.quote(msg)}"
@@ -152,7 +154,7 @@ elif menu == "📦 माल / पेमेंट एंट्री":
             except:
                 st.error("❌ नेटवर्क एरर!")
 
-# 4. लेजर (खाता) देखें - (तारीख और डाउनलोड के साथ)
+# 4. लेजर (खाता) देखें
 elif menu == "📜 लेजर (खाता) देखें":
     st.title("📜 रिटेलर का पूरा खाता")
     search_prm = st.selectbox("रिटेलर का खाता देखने के लिए खोजें:", options=dropdown_options)
@@ -166,7 +168,6 @@ elif menu == "📜 लेजर (खाता) देखें":
             if not user_ledger.empty:
                 st.markdown(f"### 👤 {r_name} का खाता")
                 
-                # तारीख से फ़िल्टर (Date Range)
                 user_ledger['DateObj'] = pd.to_datetime(user_ledger['Date'], format='%d-%m-%Y', errors='coerce')
                 date_range = st.date_input("तारीख से फ़िल्टर करें (Start Date - End Date)", [])
                 
@@ -176,7 +177,6 @@ elif menu == "📜 लेजर (खाता) देखें":
                     end_d = pd.to_datetime(end_d)
                     user_ledger = user_ledger[(user_ledger['DateObj'] >= start_d) & (user_ledger['DateObj'] <= end_d)]
                 
-                # 'DateObj' कॉलम को हटाकर टेबल दिखाना
                 display_ledger = user_ledger.drop(columns=['DateObj'], errors='ignore')
                 st.dataframe(display_ledger, use_container_width=True, hide_index=True)
                 
@@ -193,7 +193,6 @@ elif menu == "📜 लेजर (खाता) देखें":
                 elif balance < 0: col3.info(f"🔵 कुल एडवांस: ₹{abs(balance)}")
                 else: col3.success(f"✅ हिसाब बराबर (₹0)")
 
-                # डेटा डाउनलोड करने का बटन (CSV)
                 csv_data = display_ledger.to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="📥 लेजर डाउनलोड करें (Excel/CSV में)",
@@ -202,7 +201,6 @@ elif menu == "📜 लेजर (खाता) देखें":
                     mime="text/csv"
                 )
                 
-                # लेजर समरी WhatsApp पर भेजना
                 r_mob = retailers_data[search_prm]["Mobile"]
                 summary_msg = f"*📊 संध्या इंटरप्राइजेज - लेजर समरी*\n*रिटेलर:* {r_name}\n*कुल माल लिया:* ₹{total_out}\n*कुल पेमेंट दिया:* ₹{total_in}\n*बाकी बकाया:* ₹{balance if balance > 0 else 0}\n*एडवांस:* ₹{abs(balance) if balance < 0 else 0}\n(पूरा हिसाब जानने के लिए डिस्ट्रीब्यूटर से संपर्क करें)"
                 wa_ledger_url = f"https://wa.me/91{r_mob}?text={urllib.parse.quote(summary_msg)}"
