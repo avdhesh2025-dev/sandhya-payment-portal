@@ -28,10 +28,13 @@ with st.form("payment_form", clear_on_submit=True):
     if submit:
         if retailer and amount > 0:
             try:
-                # 1. 'Payments' शीट से डेटा पढ़ना
+                # 1. डेटा पढ़ें (ध्यान दें: शीट का नाम "Payments" होना चाहिए)
                 df = conn.read(spreadsheet=sheet_url, worksheet="Payments")
                 
-                # 2. नया डेटा तैयार करना
+                # 2. खाली जगह और फालतू रोज़ को साफ करना (यही Error 400 को रोकेगा)
+                df = df.dropna(how="all").fillna("")
+                
+                # 3. नया डेटा तैयार करना
                 new_row = pd.DataFrame([{
                     "Date": str(date),
                     "Retailer": retailer,
@@ -41,10 +44,11 @@ with st.form("payment_form", clear_on_submit=True):
                     "Collected By": fse
                 }])
                 
-                # 3. डेटा को जोड़ना
+                # 4. डेटा को जोड़ना
                 updated_df = pd.concat([df, new_row], ignore_index=True)
+                updated_df = updated_df.fillna("") # एक बार फिर से क्लीन करना
                 
-                # 4. वापस गूगल शीट में अपडेट करना
+                # 5. वापस गूगल शीट में अपडेट करना
                 conn.update(spreadsheet=sheet_url, worksheet="Payments", data=updated_df)
                 
                 st.success(f"✅ {retailer} का ₹{amount} का पेमेंट सेव हो गया है!")
