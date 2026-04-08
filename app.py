@@ -6,8 +6,10 @@ from datetime import datetime
 # पेज की सेटिंग
 st.set_page_config(page_title="Sandhya Payment Portal", page_icon="💰")
 
-# Google Sheets से सीधा कनेक्शन (बिना Secrets के)
+# आपकी गूगल शीट का सीधा लिंक
 sheet_url = "https://docs.google.com/spreadsheets/d/1K3ZeUuZbpB3FmUQlt2ryri_3su4EkLOqzS7uxUQYd1Y/edit?usp=sharing"
+
+# Google Sheets से कनेक्शन
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.title("📲 संध्या इंटरप्राइजेज - पेमेंट अपडेट")
@@ -29,10 +31,10 @@ with st.form("payment_form", clear_on_submit=True):
     if submit:
         if retailer and amount > 0:
             try:
-                # शीट का डेटा पढ़ना (वर्कशीट का नाम 'Sandhya Enterprises Payments' होना चाहिए)
+                # 1. शीट से पुराना डेटा पढ़ना
                 df = conn.read(spreadsheet=sheet_url, worksheet="Sandhya Enterprises Payments")
                 
-                # नया डेटा तैयार करना
+                # 2. नया डेटा तैयार करना
                 new_row = pd.DataFrame([{
                     "Date": str(date),
                     "Retailer": retailer,
@@ -42,16 +44,16 @@ with st.form("payment_form", clear_on_submit=True):
                     "Collected By": fse
                 }])
                 
-                # डेटा को जोड़ना
+                # 3. पुराने डेटा में नया डेटा जोड़ना
                 updated_df = pd.concat([df, new_row], ignore_index=True)
                 
-                # वापस गूगल शीट में अपडेट करना
+                # 4. वापस गूगल शीट में अपडेट करना
                 conn.update(spreadsheet=sheet_url, worksheet="Sandhya Enterprises Payments", data=updated_df)
                 
                 st.success(f"✅ {retailer} का ₹{amount} का पेमेंट सेव हो गया है!")
                 st.balloons()
             except Exception as e:
-                st.error("Error: कृपया सुनिश्चित करें कि गूगल शीट में नीचे वाले टैब का नाम 'Sandhya Enterprises Payments' ही है।")
+                st.error(f"कुछ तकनीकी समस्या आ रही है: {e}")
         else:
             st.warning("कृपया रिटेलर का नाम और सही राशि भरें।")
 
