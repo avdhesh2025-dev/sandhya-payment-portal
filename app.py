@@ -19,10 +19,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 🛑 आपका APPS SCRIPT वाला URL (फोटो से लिया गया)
+# 🛑 आपका बिल्कुल सही APPS SCRIPT वाला URL
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby_yV4nEMwrBODnkVh0x5DrVqcbj42iDMLNlX8M7QPrVGGMltoOfZhlid_gXlB0dwMvZQ/exec"
 
-# आपकी गूगल शीट के डायरेक्ट लिंक्स
+# आपकी नई गूगल शीट के डायरेक्ट लिंक्स (डेटा पढ़ने के लिए)
 sheet_id = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
 retailers_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Retailers"
 inventory_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Inventory"
@@ -162,28 +162,23 @@ elif menu == "📦 माल / पेमेंट एंट्री":
                 st.error("❌ नेटवर्क एरर! कृपया इंटरनेट चेक करें।")
 
 # ---------------------------------------------------------
-# 4. लेजर (खाता) देखें (नया और चालू)
+# 4. लेजर (खाता) देखें
 elif menu == "📜 लेजर (खाता) देखें":
     st.title("📜 रिटेलर का पूरा खाता")
     search_prm = st.selectbox("रिटेलर का खाता देखने के लिए खोजें:", options=dropdown_options)
     
     if search_prm != "सर्च करने के लिए यहाँ टाइप करें...":
         try:
-            # लेजर डेटा पढ़ना
             ledger_df = pd.read_csv(ledger_csv)
             ledger_df = ledger_df.dropna(how="all").fillna("")
             
-            # रिटेलर का नाम निकालना
             r_name = retailers_data[search_prm]["Name"]
-            
-            # उस रिटेलर का डेटा फ़िल्टर करना
             user_ledger = ledger_df[ledger_df['Retailer Name'] == r_name]
             
             if not user_ledger.empty:
                 st.markdown(f"### 👤 {r_name} का खाता")
                 st.dataframe(user_ledger, use_container_width=True, hide_index=True)
                 
-                # कुल हिसाब जोड़ना
                 total_out = pd.to_numeric(user_ledger['Amount Out (Debit)'], errors='coerce').sum()
                 total_in = pd.to_numeric(user_ledger['Amount In (Credit)'], errors='coerce').sum()
                 balance = total_out - total_in
