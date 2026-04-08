@@ -19,7 +19,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 🛑 अपना चालू APPS SCRIPT वाला URL यहाँ डालें
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby_yV4nEMwrBODnkVh0x5DrVqcbj42iDMLNlX8M7QPrVGGMltoOfZhlid_gXlB0dwMvZQ/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyklZMrRuayCWiJdr-S0JY8Z25UNS0Hj8jGypHyZ4l5MmZzjtfrWB_zYwUmz-V9kBFjEQ/exec"
 
 sheet_id = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
 retailers_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Retailers"
