@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, date
 import urllib.parse
 import requests
 
@@ -18,7 +18,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 🛑 अपना चालू APPS SCRIPT वाला URL यहाँ पेस्ट करें
+# 🛑 आपका APPS SCRIPT URL
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby_yV4nEMwrBODnkVh0x5DrVqcbj42iDMLNlX8M7QPrVGGMltoOfZhlid_gXlB0dwMvZQ/exec"
 
 sheet_id = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
@@ -48,7 +48,7 @@ st.sidebar.title("📲 संध्या इंटरप्राइजेज")
 st.sidebar.markdown("---")
 menu = st.sidebar.radio("मेनू चुनें:", ["📊 डैशबोर्ड (स्टॉक)", "➕ नया रिटेलर जोड़ें", "📦 माल / पेमेंट एंट्री", "📜 लेजर (खाता) देखें", "💰 बकाया लिस्ट (Bulk SMS)"])
 
-# 1. डैशबोर्ड
+# --- 1. डैशबोर्ड ---
 if menu == "📊 डैशबोर्ड (स्टॉक)":
     st.title("📊 लाइव इन्वेंट्री स्टॉक")
     try:
@@ -56,30 +56,29 @@ if menu == "📊 डैशबोर्ड (स्टॉक)":
         st.dataframe(inv_df, use_container_width=True, hide_index=True)
     except: st.error("स्टॉक लोड हो रहा है...")
 
-# 2. नया रिटेलर जोड़ें
+# --- 2. नया रिटेलर ---
 elif menu == "➕ नया रिटेलर जोड़ें":
     st.title("➕ नया रिटेलर जोड़ें")
     with st.form("add_retailer_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
-            r_name = st.text_input("रिटेलर का नाम (Retailer Name)*")
-            r_mobile = st.text_input("मोबाइल नंबर (Mobile Number)*", max_chars=10)
+            r_name = st.text_input("रिटेलर का नाम*")
+            r_mobile = st.text_input("मोबाइल नंबर*", max_chars=10)
         with col2:
-            r_prm = st.text_input("PRM ID* (अनिवार्य)")
-            r_loc = st.text_input("लोकेशन (Location)")
-        submit_retailer = st.form_submit_button("नया रिटेलर सेव करें")
-        if submit_retailer and r_name and r_prm and r_mobile:
-            payload = {"action": "add_retailer", "name": str(r_name).strip().upper(), "mobile": str(r_mobile).strip(), "prm": str(r_prm).strip(), "location": str(r_loc).strip().upper(), "date": datetime.now().strftime("%d-%m-%Y")}
-            res = requests.post(WEBHOOK_URL, json=payload)
-            if res.text == "Success":
-                st.success(f"✅ रिटेलर {r_name} सेव हो गया!")
-                st.cache_data.clear()
+            r_prm = st.text_input("PRM ID*")
+            r_loc = st.text_input("लोकेशन")
+        if st.form_submit_button("सेव करें"):
+            if r_name and r_prm and r_mobile:
+                payload = {"action": "add_retailer", "name": r_name.upper(), "mobile": r_mobile, "prm": r_prm, "location": r_loc.upper(), "date": datetime.now().strftime("%d-%m-%Y")}
+                res = requests.post(WEBHOOK_URL, json=payload)
+                if res.text == "Success":
+                    st.success("सफलतापूर्वक सेव हो गया!"); st.cache_data.clear()
 
-# 3. माल इशू / पेमेंट एंट्री
+# --- 3. एंट्री ---
 elif menu == "📦 माल / पेमेंट एंट्री":
     st.title("📦 स्टॉक आउट / पेमेंट लें")
-    t_date = st.date_input("तारीख", datetime.now())
-    t_prm = st.selectbox("रिटेलर खोजें*", options=dropdown_options)
+    t_date = st.date_input("तारीख", date.today())
+    t_prm = st.selectbox("रिटेलर चुनें*", options=dropdown_options)
     col1, col2 = st.columns(2)
     with col1:
         t_type = st.selectbox("क्या एंट्री करनी है?", ["Jio Phone", "SIM Card", "Etop Recharge", "पेमेंट (Payment Received)"])
@@ -95,7 +94,7 @@ elif menu == "📦 माल / पेमेंट एंट्री":
             st.info(f"कुल राशि: ₹{t_amount}")
         txn_id = st.text_input("Transaction ID")
 
-    if st.button("🚀 एंट्री सेव करें और WhatsApp भेजें", use_container_width=True):
+    if st.button("🚀 सेव करें और WhatsApp भेजें", use_container_width=True):
         if t_prm != "सर्च करने के लिए यहाँ टाइप करें...":
             r_name = retailers_data[t_prm]["Name"]; r_mob = retailers_data[t_prm]["Mobile"]
             amt_out = t_amount if t_type != "पेमेंट (Payment Received)" else 0
@@ -105,78 +104,73 @@ elif menu == "📦 माल / पेमेंट एंट्री":
             if res.text == "Success":
                 st.success("✅ सेव हो गया!"); st.cache_data.clear()
                 msg = f"*🧾 संध्या इंटरप्राइजेज*\nदिनांक: {t_date.strftime('%d-%m-%Y')}\nरिटेलर: {r_name}\nआइटम: {t_type}\nराशि: ₹{t_amount}\n🙏 धन्यवाद!"
-                st.markdown(f"### [🟢 WhatsApp भेजें](https://wa.me/91{r_mob}?text={urllib.parse.quote(msg)})", unsafe_allow_html=True)
+                st.markdown(f"### [🟢 WhatsApp भेजें](https://wa.me/91{r_mob}?text={urllib.parse.quote(msg)})")
 
-# 4. लेजर देखें - (PDF और EXCEL के साथ)
+# --- 4. लेजर (तारीख के साथ) ---
 elif menu == "📜 लेजर (खाता) देखें":
-    st.title("📜 रिटेलर का खाता रिपोर्ट")
+    st.title("📜 रिटेलर रिपोर्ट (Date Filter)")
     search_prm = st.selectbox("रिटेलर चुनें:", options=dropdown_options)
     
     if search_prm != "सर्च करने के लिए यहाँ टाइप करें...":
         try:
             ledger_df = pd.read_csv(ledger_csv).dropna(how="all").fillna("")
+            ledger_df['DateObj'] = pd.to_datetime(ledger_df['Date'], format='%d-%m-%Y', errors='coerce')
+            
             r_name = retailers_data[search_prm]["Name"]
-            user_ledger = ledger_df[ledger_df['Retailer Name'] == r_name].copy()
-            
-            # डेटा को सही फॉर्मेट में लाना
-            user_ledger['Amount Out (Debit)'] = pd.to_numeric(user_ledger['Amount Out (Debit)'], errors='coerce').fillna(0)
-            user_ledger['Amount In (Credit)'] = pd.to_numeric(user_ledger['Amount In (Credit)'], errors='coerce').fillna(0)
-            user_ledger['Balance'] = (user_ledger['Amount Out (Debit)'] - user_ledger['Amount In (Credit)']).cumsum()
-            
+            user_df = ledger_df[ledger_df['Retailer Name'] == r_name].sort_values(by='DateObj')
+
             st.markdown(f"### 👤 {r_name} का खाता")
-            st.dataframe(user_ledger, use_container_width=True, hide_index=True)
+            d_range = st.date_input("तारीख सीमा चुनें:", [date.today().replace(day=1), date.today()])
             
-            total_out = user_ledger['Amount Out (Debit)'].sum()
-            total_in = user_ledger['Amount In (Credit)'].sum()
-            dues = total_out - total_in
-            
-            st.markdown("---")
-            col1, col2 = st.columns(2)
-            
-            # 📥 एक्सेल डाउनलोड
-            with col1:
-                excel_csv = user_ledger.to_csv(index=False).encode('utf-8-sig')
-                st.download_button(label="📥 Excel में डाउनलोड करें", data=excel_csv, file_name=f"{r_name}_Ledger.csv", mime="text/csv", use_container_width=True)
-            
-            # 📄 PDF रिपोर्ट (HTML आधारित)
-            with col2:
-                html_table = user_ledger.to_html(index=False)
-                pdf_report = f"""
-                <html><body style='font-family:sans-serif;'>
-                <h2 style='text-align:center; color:#0047AB;'>संध्या इंटरप्राइजेज - लेजर रिपोर्ट</h2>
-                <hr>
-                <p><b>रिटेलर:</b> {r_name} | <b>तारीख:</b> {datetime.now().strftime('%d-%m-%Y')}</p>
-                {html_table}
-                <br>
-                <p style='font-size:18px;'><b>कुल माल (Debit):</b> ₹{total_out} | <b>कुल जमा (Credit):</b> ₹{total_in}</p>
-                <h3 style='color:red;'>कुल बकाया (Dues): ₹{dues}</h3>
-                </body></html>
-                """
-                st.download_button(label="📄 PDF/Report में डाउनलोड करें", data=pdf_report, file_name=f"{r_name}_Report.html", mime="text/html", use_container_width=True)
+            if len(d_range) == 2:
+                s_date, e_date = d_range
+                f_df = user_df[(user_ledger['DateObj'].dt.date >= s_date) & (user_ledger['DateObj'].dt.date <= e_date)].copy()
+                
+                # रनिंग बैलेंस
+                f_df['Amount Out (Debit)'] = pd.to_numeric(f_df['Amount Out (Debit)'], errors='coerce').fillna(0)
+                f_df['Amount In (Credit)'] = pd.to_numeric(f_df['Amount In (Credit)'], errors='coerce').fillna(0)
+                f_df['Balance'] = (f_df['Amount Out (Debit)'] - f_df['Amount In (Credit)']).cumsum()
+                
+                st.dataframe(f_df.drop(columns=['DateObj']), use_container_width=True, hide_index=True)
+                
+                t_out = f_df['Amount Out (Debit)'].sum()
+                t_in = f_df['Amount In (Credit)'].sum()
+                st.error(f"कुल डेबिट: ₹{t_out} | कुल क्रेडिट: ₹{t_in} | बकाया: ₹{t_out - t_in}")
+
+                # Download Buttons
+                col1, col2 = st.columns(2)
+                col1.download_button("📥 Excel", f_df.to_csv(index=False).encode('utf-8-sig'), f"{r_name}_Ledger.csv", "text/csv")
+                
+                html = f"<h2>संध्या इंटरप्राइजेज</h2><b>रिटेलर:</b> {r_name}<br><b>अवधि:</b> {s_date} to {e_date}<br><br>" + f_df.drop(columns=['DateObj']).to_html(index=False)
+                col2.download_button("📄 PDF (Report)", html.encode('utf-8-sig'), f"{r_name}_Report.html", "text/html")
 
         except: st.error("डेटा लोड नहीं हुआ।")
 
-# 5. बकाया लिस्ट
+# --- 5. बकाया लिस्ट (तारीख के साथ) ---
 elif menu == "💰 बकाया लिस्ट (Bulk SMS)":
-    st.title("💰 बकाया वसूली लिस्ट")
-    if st.button("🔄 सभी का बकाया चेक करें"):
+    st.title("💰 बकाया लिस्ट फ़िल्टर")
+    
+    # यहाँ भी तारीख का ऑप्शन
+    st.info("यह लिस्ट आज की तारीख तक का कुल बकाया दिखाएगी।")
+    if st.button("🔄 लिस्ट अपडेट करें"):
         try:
             ledger_df = pd.read_csv(ledger_csv).dropna(how="all").fillna("")
             summary = []
             for key, val in retailers_data.items():
                 name = val["Name"]
                 u_data = ledger_df[ledger_df['Retailer Name'] == name]
-                dues = pd.to_numeric(u_data['Amount Out (Debit)'], errors='coerce').sum() - pd.to_numeric(u_data['Amount In (Credit)'], errors='coerce').sum()
-                if dues > 0: summary.append({"रिटेलर": name, "मोबाइल": val["Mobile"], "बकाया": dues})
+                d = pd.to_numeric(u_data['Amount Out (Debit)'], errors='coerce').sum()
+                c = pd.to_numeric(u_data['Amount In (Credit)'], errors='coerce').sum()
+                if (d - c) > 0:
+                    summary.append({"रिटेलर": name, "मोबाइल": val["Mobile"], "बकाया": d - c})
             
-            summary_df = pd.DataFrame(summary)
-            if not summary_df.empty:
-                st.error(f"💸 कुल मार्केट बकाया: ₹{summary_df['बकाया'].sum()}")
-                for _, row in summary_df.iterrows():
-                    c1, c2, c3 = st.columns([2, 1, 2])
-                    c1.write(f"**{row['रिटेलर']}**")
-                    c2.write(f"₹{row['बकाया']}")
-                    msg = f"डियर पार्टनर, आज तक का आपका बकाया ₹{row['बकाया']} है। कृपया आज ही पेमेंट कर दें।\nRegards, SANDHYA ENTERPRISES"
-                    c3.markdown(f"[📲 रिमाइंडर भेजें](https://wa.me/91{row['मोबाइल']}?text={urllib.parse.quote(msg)})")
+            s_df = pd.DataFrame(summary)
+            if not s_df.empty:
+                st.error(f"💸 कुल मार्केट बकाया: ₹{s_df['बकाया'].sum()}")
+                st.dataframe(s_df, use_container_width=True)
+                # WhatsApp Reminders
+                for _, row in s_df.iterrows():
+                    msg = f"डियर पार्टनर, आपका बकाया ₹{row['बकाया']} है। कृपया पेमेंट करें।"
+                    st.markdown(f"**{row['रिटेलर']}** (₹{row['बकाया']}) -> [📲 भेजें](https://wa.me/91{row['मोबाइल']}?text={urllib.parse.quote(msg)})")
             else: st.success("कोई बकाया नहीं है!")
-        except: st.error("एरर: लेजर लोड नहीं हुआ।")
+        except: st.error("एरर")
