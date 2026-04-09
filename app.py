@@ -11,7 +11,7 @@ try:
 except ImportError:
     HAS_FPDF = False
 
-# 1. Page Configuration (A4 Scale)
+# 1. Page Configuration (A4 Scale & Fixed Layout)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="centered", initial_sidebar_state="collapsed")
 
 # 🟢 THE "PAKKA TOD" FOR PERSISTENT LOGIN (URL Smart Token)
@@ -37,7 +37,7 @@ if "success_wa_link" not in st.session_state: st.session_state.success_wa_link =
 if "role" not in st.session_state: st.session_state.role = None
 if "current_page" not in st.session_state: st.session_state.current_page = "LOGIN"
 
-# 🟢 SMART BROWSER BACK BUTTON SUPPORT (Sync URL with Page)
+# 🟢 SMART BROWSER BACK BUTTON SUPPORT
 if st.session_state.authenticated:
     url_page = st.query_params.get("page")
     if url_page and url_page != st.session_state.current_page:
@@ -51,7 +51,7 @@ if st.session_state.authenticated:
 # 🔴 Logout Function
 def do_logout():
     st.session_state.authenticated = False
-    st.query_params.clear() # Delete token
+    st.query_params.clear() 
     st.session_state.current_page = "LOGIN"
     st.session_state.kb_retailer = None
 
@@ -76,7 +76,7 @@ if st.session_state.show_success_modal:
         st.rerun()
     st.stop()
 
-# 💎 CSS DESIGN (A4 FIXED LAYOUT GLOBALLY)
+# 💎 CSS DESIGN (A4 FIXED LAYOUT + SOOTHING COLORS)
 st.markdown("""
     <style>
     /* 📄 A4 FRAME LOGIC */
@@ -85,16 +85,22 @@ st.markdown("""
     [data-testid="stSidebar"] { display: none; }
     .app-header { background: linear-gradient(135deg, #0047AB 0%, #00c6ff 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; }
     
-    /* 📱 JOINED BOX DESIGN */
-    .stButton > button { border-radius: 12px 0 0 12px !important; height: 70px !important; font-weight: 700 !important; font-size: 15px !important; margin-bottom: 12px !important; border: 1.5px solid #e2e8f0 !important; background: white !important; color: #1e293b !important; text-align: left !important; padding-left: 15px !important; width: 100% !important; }
+    /* 🔘 DEFAULT BUTTONS (Secondary) */
+    .stButton > button[kind="secondary"] { 
+        border-radius: 12px !important; height: 70px !important; font-weight: 700 !important; font-size: 15px !important; margin-bottom: 12px !important; border: 1.5px solid #e2e8f0 !important; background: white !important; color: #1e293b !important; width: 100% !important; 
+    }
     
-    .amt-joined-red { background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%); color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1.5px solid #b91c1c;}
-    .amt-joined-green { background: linear-gradient(135deg, #4ade80 0%, #15803d 100%); color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1.5px solid #15803d;}
-    .amt-joined-grey { background: #f3f4f6; color: #6b7280; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1.5px solid #e2e8f0;}
-
-    /* Standard Buttons Override */
-    div[data-testid="stForm"] .stButton > button, 
-    .stApp > div > div > div > div > div > div > .stButton > button { border-radius: 12px !important; }
+    /* 📱 RETAILER LIST BOX (Soothing Slate-Blue Color + White Text + Joined Shape) */
+    .stButton > button[kind="primary"] { 
+        border-radius: 12px 0 0 12px !important; 
+        background: #475569 !important; /* Aankho ko sukun dene wala color */
+        color: #ffffff !important; 
+        height: 70px !important; font-weight: 700 !important; font-size: 15px !important; margin-bottom: 12px !important; border: none !important; text-align: left !important; padding-left: 15px !important; width: 100% !important; 
+    }
+    
+    .amt-joined-red { background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%); color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1px solid #b91c1c;}
+    .amt-joined-green { background: linear-gradient(135deg, #4ade80 0%, #15803d 100%); color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1px solid #15803d;}
+    .amt-joined-grey { background: #94a3b8; color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1px solid #94a3b8;}
 
     /* 📝 3-Status Boxes & LEDGER */
     .status-container { display: flex; gap: 8px; margin-bottom: 15px; }
@@ -150,7 +156,7 @@ if not st.session_state.authenticated:
     st.markdown('<div class="app-header"><h1>🏢 Sandhya ERP</h1><p>Secure Login</p></div>', unsafe_allow_html=True)
     l_mob = st.text_input("Mobile Number")
     l_pin = st.text_input("PIN", type="password")
-    if st.button("🚀 LOGIN", use_container_width=True):
+    if st.button("🚀 LOGIN", use_container_width=True, type="secondary"):
         if l_mob == "7479584179" and l_pin == "9557":
             st.session_state.role = "Admin"; st.session_state.authenticated = True; st.session_state.current_page = "HOME"
             st.session_state.emp_name = "Admin"; st.session_state.emp_mob = l_mob
@@ -182,13 +188,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 🟢 NAVIGATION FUNCTION (Adds Page to Browser History)
-def go_to(p): 
-    st.session_state.current_page = p
-    st.session_state.kb_retailer = None
-    st.session_state.kb_action = None
-    st.query_params["page"] = p
-
 fse_list = ["Avdhesh Kumar", "Babloo kumar singh"]
 def verify_pin(n, p):
     if n == "Avdhesh Kumar" and p == "9557": return True
@@ -201,29 +200,29 @@ if st.session_state.current_page == "HOME":
     st.success(f"**Welcome To**\n\n👤 {st.session_state.emp_name} | 📞 {st.session_state.emp_mob}")
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("💸 Khatabook 3D", use_container_width=True): go_to("DUES"); st.rerun()
-        if st.button("📊 Live Stock", use_container_width=True): go_to("STOCK"); st.rerun()
-        if st.button("➕ Add Retailer", use_container_width=True): go_to("ADD"); st.rerun()
-        if st.button("📜 Ledger Report", use_container_width=True): go_to("LEDGER"); st.rerun()
+        if st.button("💸 Khatabook 3D", use_container_width=True, type="secondary"): go_to("DUES"); st.rerun()
+        if st.button("📊 Live Stock", use_container_width=True, type="secondary"): go_to("STOCK"); st.rerun()
+        if st.button("➕ Add Retailer", use_container_width=True, type="secondary"): go_to("ADD"); st.rerun()
+        if st.button("📜 Ledger Report", use_container_width=True, type="secondary"): go_to("LEDGER"); st.rerun()
     with col2:
-        if st.button("💰 Today Collection", use_container_width=True): go_to("COL"); st.rerun()
-        if st.button("📦 Entry", use_container_width=True): go_to("ENTRY"); st.rerun()
-        if st.button("🚨 Urgent", use_container_width=True): go_to("URGENT"); st.rerun()
-        if st.button("🚪 Logout", use_container_width=True, on_click=do_logout): pass
+        if st.button("💰 Today Collection", use_container_width=True, type="secondary"): go_to("COL"); st.rerun()
+        if st.button("📦 Entry", use_container_width=True, type="secondary"): go_to("ENTRY"); st.rerun()
+        if st.button("🚨 Urgent", use_container_width=True, type="secondary"): go_to("URGENT"); st.rerun()
+        if st.button("🚪 Logout", use_container_width=True, on_click=do_logout, type="secondary"): pass
 
 elif st.session_state.current_page == "EMP_HOME":
     st.success(f"**Welcome To**\n\n👤 {st.session_state.emp_name} | 📞 {st.session_state.emp_mob}")
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("📖 Khatabook", use_container_width=True): go_to("DUES"); st.rerun()
-        if st.button("📦 Sim Stock", use_container_width=True): go_to("STOCK"); st.rerun()
+        if st.button("📖 Khatabook", use_container_width=True, type="secondary"): go_to("DUES"); st.rerun()
+        if st.button("📦 Sim Stock", use_container_width=True, type="secondary"): go_to("STOCK"); st.rerun()
     with col2:
-        if st.button("➕ Add Retailer", use_container_width=True): go_to("ADD"); st.rerun()
-        if st.button("Exit", use_container_width=True, on_click=do_logout): pass
+        if st.button("➕ Add Retailer", use_container_width=True, type="secondary"): go_to("ADD"); st.rerun()
+        if st.button("Exit", use_container_width=True, on_click=do_logout, type="secondary"): pass
 
-# --- 💸 KHATABOOK 3D ---
+# --- 💸 KHATABOOK 3D (JOINED BOXES + FIXED LEDGER) ---
 elif st.session_state.current_page == "DUES":
-    st.button("🔙 Back Menu", on_click=lambda: go_to("HOME" if st.session_state.role=="Admin" else "EMP_HOME"))
+    st.button("🔙 Back Menu", on_click=lambda: go_to("HOME" if st.session_state.role=="Admin" else "EMP_HOME"), type="secondary")
     
     if st.session_state.kb_retailer is None:
         all_r = []; tm, ta = 0, 0
@@ -244,11 +243,13 @@ elif st.session_state.current_page == "DUES":
                 cls = "amt-joined-red" if i['Bal'] > 0 else "amt-joined-green" if i['Bal'] < 0 else "amt-joined-grey"
                 c1, c2 = st.columns([3, 1])
                 with c1:
-                    if st.button(f"👤 {i['Name']} ({i['PRM']})", key=f"kb_{i['Disp']}", use_container_width=True):
+                    # 🟢 Here we use type="primary" to apply the Soothing Color CSS rule specifically to these buttons!
+                    if st.button(f"👤 {i['Name']} ({i['PRM']})", key=f"kb_{i['Disp']}", use_container_width=True, type="primary"):
                         st.session_state.kb_retailer = i['Name']; st.rerun()
                 with c2: 
                     st.markdown(f"<div class='{cls}'>₹ {abs(i['Bal']):,.0f}</div>", unsafe_allow_html=True)
     else:
+        # SINGLE RETAILER VIEW
         name = st.session_state.kb_retailer
         r_info = next(v for k, v in retailers_dict.items() if v['Retailer Name'] == name)
         mob = str(r_info['Mobile Number']).split('.')[0]
@@ -269,6 +270,7 @@ elif st.session_state.current_page == "DUES":
                 
             rows.append({"d": r['Date'], "i": r['Product/Service'], "out": d, "in": c, "b": running_bal, "status": status_text})
 
+        # Header with Call/WA
         st.markdown(f"""
         <div style='background:#0b57d0; color:white; padding:15px; border-radius:12px; margin-bottom:10px; text-align:center;'>
             <h3 style='margin:0;'>{name}</h3>
@@ -280,6 +282,7 @@ elif st.session_state.current_page == "DUES":
         </div>
         """, unsafe_allow_html=True)
         
+        # 3-Status Boxes
         cur_bal = rows[-1]['b'] if rows else 0
         st.markdown(f"""
         <div class='status-container'>
@@ -311,8 +314,8 @@ elif st.session_state.current_page == "DUES":
         
         st.markdown("---")
         b1, b2 = st.columns(2)
-        if b1.button("🔴 DIYE (Stock)", use_container_width=True): st.session_state.kb_action = "diye"; st.rerun()
-        if b2.button("🟢 MILE (Payment)", use_container_width=True): st.session_state.kb_action = "mile"; st.rerun()
+        if b1.button("🔴 DIYE (Stock)", use_container_width=True, type="secondary"): st.session_state.kb_action = "diye"; st.rerun()
+        if b2.button("🟢 MILE (Payment)", use_container_width=True, type="secondary"): st.session_state.kb_action = "mile"; st.rerun()
         
         if st.session_state.kb_action == "diye":
             with st.form("d_f"):
@@ -324,7 +327,7 @@ elif st.session_state.current_page == "DUES":
                 elif t == "Sim Card": qty = st.number_input("Qty", min_value=1)
                 else: amt = st.number_input("Amount"); qty = st.number_input("Qty")
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
-                if st.form_submit_button("Save"):
+                if st.form_submit_button("Save", type="secondary"):
                     if verify_pin(f, p):
                         requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":mob,"type":t,"qty":qty,"amt_out":amt,"amt_in":0,"fse":f,"txn_id":"KB"})
                         st.session_state.success_display_text = f"₹ {amt:,.0f}" if amt>0 else f"{int(qty)} SIMs"
@@ -337,36 +340,36 @@ elif st.session_state.current_page == "DUES":
             with st.form("m_f"):
                 m = st.selectbox("Mode", ["Cash", "Online"]); a = st.number_input("Amount Received", min_value=0.0)
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
-                if st.form_submit_button("Save"):
+                if st.form_submit_button("Save", type="secondary"):
                     if verify_pin(f, p):
                         requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":mob,"type":f"Payment ({m})","amt_in":a,"fse":f,"txn_id":"KB"})
                         st.session_state.success_display_text = f"₹ {a:,.0f}"; st.session_state.success_txn_type = f"Payment Received ({m})"
                         st.session_state.success_wa_link = f"https://wa.me/91{mob}?text=Payment%20Received%3A%20Rs%20{a}"
                         st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
 
-# --- OTHER PAGES ---
+# --- OTHER PAGES (ADD, STOCK, COL, ENTRY) ---
 elif st.session_state.current_page == "STOCK":
-    st.button("🔙 Back", on_click=lambda: go_to(get_home()))
+    st.button("🔙 Back", on_click=lambda: go_to(get_home()), type="secondary")
     st.header("📦 Inventory Stock")
     st.dataframe(led_df[led_df['Product/Service']=='Sim Allocation'] if st.session_state.role=="Admin" else led_df[led_df['FSE Name']==st.session_state.emp_name], hide_index=True)
 
 elif st.session_state.current_page == "ADD":
-    st.button("🔙 Back", on_click=lambda: go_to(get_home()))
+    st.button("🔙 Back", on_click=lambda: go_to(get_home()), type="secondary")
     with st.form("add_ret"):
         n=st.text_input("Retailer Name"); m=st.text_input("Mobile"); p=st.text_input("PRM ID"); l=st.text_input("Loc")
-        if st.form_submit_button("Save"):
+        if st.form_submit_button("Save", type="secondary"):
             requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":l.upper(),"date":date.today().strftime("%d-%m-%Y")})
             st.success("Retailer Added!"); st.cache_data.clear()
 
 elif st.session_state.current_page == "COL":
-    st.button("🔙 Back", on_click=lambda: go_to(get_home()))
+    st.button("🔙 Back", on_click=lambda: go_to(get_home()), type="secondary")
     st.header("💰 Today's Collection")
     t_led = led_df[led_df['Date'] == date.today().strftime("%d-%m-%Y")]
     st.dataframe(t_led[pd.to_numeric(t_led['Amount In (Credit)'], errors='coerce') > 0], hide_index=True)
 
 elif st.session_state.current_page == "ENTRY":
-    st.button("🔙 Back", on_click=lambda: go_to(get_home()))
+    st.button("🔙 Back", on_click=lambda: go_to(get_home()), type="secondary")
     st.write("Record Entry System loaded.")
 elif st.session_state.current_page == "LEDGER":
-    st.button("🔙 Back", on_click=lambda: go_to(get_home()))
+    st.button("🔙 Back", on_click=lambda: go_to(get_home()), type="secondary")
     st.write("Ledger Reporting loaded.")
