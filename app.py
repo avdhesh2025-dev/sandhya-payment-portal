@@ -8,7 +8,7 @@ import time
 # 1. Page Configuration (No Sidebar)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide", initial_sidebar_state="collapsed")
 
-# 💎 Global CSS Design (3D Effects & English UI)
+# 💎 Global CSS Design (3D Effects & Khatabook UI)
 st.markdown("""
     <style>
     .stApp { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -29,7 +29,6 @@ st.markdown("""
     .stDataFrame, .stSelectbox, .stNumberInput, .stTextInput, .stDateInput {
         background-color: white; border-radius: 10px; padding: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
-    /* 3D Wobble Effect for Entry Button */
     .wobble-btn > div > button {
         background-color: #ffffff !important; color: #1a1a1a !important; border: none !important; border-radius: 12px !important;
         font-size: 18px !important; font-weight: 700 !important; box-shadow: 0 6px 0 #d1d9e6 !important;
@@ -37,19 +36,31 @@ st.markdown("""
     }
     .wobble-btn > div > button:hover { top: -3px; box-shadow: 0 9px 0 #d1d9e6 !important; border-left: 6px solid #00c6ff !important; }
     
-    /* 🔥 KHATABOOK STYLE CSS FOR DUES PAGE 🔥 */
+    /* 🔥 KHATABOOK STYLE CSS 🔥 */
     .kb-header-container { display: flex; justify-content: space-between; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;}
     .kb-box { width: 48%; text-align: center; }
     .kb-box h4 { font-size: 15px; color: #6b7280; margin: 0; font-weight: 500; }
     .kb-give { color: #15803d; font-size: 24px; font-weight: bold; margin: 5px 0 0 0; }
     .kb-get { color: #b91c1c; font-size: 24px; font-weight: bold; margin: 5px 0 0 0; }
     .kb-divider { width: 1px; background: #e5e7eb; }
-    /* Streamlit Expander styling to look like Khatabook List */
     .streamlit-expanderHeader { background-color: white; border-radius: 8px; font-size: 16px; font-weight: bold; border: 1px solid #f3f4f6;}
+    
+    /* 📝 KHATABOOK INSIDE LEDGER CSS */
+    .kb-ledger-row { display: flex; justify-content: space-between; border-bottom: 1px solid #f3f4f6; background: white; }
+    .kb-ledger-left { width: 50%; padding: 12px 15px; }
+    .kb-ledger-mid { width: 25%; text-align: right; color: #b91c1c; font-weight: 700; background: #fffcfc; padding: 12px 15px; font-size: 15px; border-left: 1px solid #f9fafb;}
+    .kb-ledger-right { width: 25%; text-align: right; color: #15803d; font-weight: 700; background: #f8faf9; padding: 12px 15px; font-size: 15px; border-left: 1px solid #f9fafb;}
+    .kb-ledger-date { font-size: 12px; color: #6b7280; font-weight: 500;}
+    .kb-ledger-bal { font-size: 11px; color: #9ca3af; margin-top: 2px;}
+    .kb-ledger-item { font-size: 14px; color: #1f2937; margin-top: 6px; font-weight: 600; text-transform: capitalize;}
+    .kb-ledger-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: white; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 15px;}
+    .kb-ledger-header h3 { margin:0; font-size: 16px; color: #374151; font-weight: 600;}
+    .kb-ledger-header h2 { margin:0; font-size: 20px; color: #b91c1c; font-weight: 700;} 
+    .kb-ledger-header h2.green { color: #15803d; }
     </style>
 """, unsafe_allow_html=True)
 
-# 🛑 CONFIGURATION (Google Sheet URL)
+# 🛑 CONFIGURATION
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyH_oGxKbNZQj2azNOR0FgkLyAKxBfaAoE0Yo3DHmRpNOFZczJRayBhPd056SGUVWbxWQ/exec"
 sheet_id = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
 retailers_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Retailers"
@@ -141,7 +152,6 @@ elif st.session_state.current_page == "COLLECTION":
             dues = pd.to_numeric(u_led['Amount Out (Debit)'], errors='coerce').sum() - pd.to_numeric(u_led['Amount In (Credit)'], errors='coerce').sum()
             if dues > 0: total_market_dues += dues
                 
-        # 🟢 SMART FILTER: Only show REAL collections, exclude "Opening Advance"
         today_led = led_df[led_df['Date'] == today_date_str].copy()
         today_led['Amount In (Credit)'] = pd.to_numeric(today_led['Amount In (Credit)'], errors='coerce').fillna(0)
         today_collections = today_led[(today_led['Amount In (Credit)'] > 0) & (~today_led['Product/Service'].astype(str).str.contains('Opening', case=False, na=False))]
@@ -151,14 +161,13 @@ elif st.session_state.current_page == "COLLECTION":
         box1.error(f"### 🚩 Total Market Dues\n# ₹ {total_market_dues:,.2f}")
         box2.success(f"### 📥 Today's Collection\n# ₹ {today_collection_sum:,.2f}")
         
-        # 🟢 Arrow box for details
         if not today_collections.empty:
-            with st.expander("🔽 View Today's Collection Details (Kisne kya entry ki)"):
+            with st.expander("🔽 View Today's Collection Details"):
                 cols = [c for c in ['Retailer Name', 'Product/Service', 'Amount In (Credit)', 'FSE Name'] if c in today_collections.columns]
                 if not cols: cols = today_collections.columns.drop('DateObj', errors='ignore')
                 st.dataframe(today_collections[cols], use_container_width=True, hide_index=True)
         else:
-            with st.expander("🔽 View Today's Collection Details (Kisne kya entry ki)"):
+            with st.expander("🔽 View Today's Collection Details"):
                 st.info("No collections recorded yet for today.")
                 
         st.markdown("<hr>", unsafe_allow_html=True)
@@ -326,7 +335,6 @@ elif st.session_state.current_page == "DUES":
             reason = last_credit['Product/Service'].values[0] if not last_credit.empty else "Advance"
             adv_list.append({"Name": name, "Mobile": mob, "Balance": abs(balance), "Reason": reason})
             
-    # Khatabook Header Boxes
     st.markdown(f'''
         <div class="kb-header-container">
             <div class="kb-box">
@@ -341,24 +349,58 @@ elif st.session_state.current_page == "DUES":
         </div>
     ''', unsafe_allow_html=True)
     
-    # INTERACTIVE KHATABOOK LISTS
     tab1, tab2 = st.tabs(["🔴 Aapko Milenge (Dues)", "🟢 Aapko Dene Hain (Advance)"])
     
     with tab1:
         if not dues_list: st.success("No dues pending!")
         for item in dues_list:
-            # 🟢 Touch to Open Expander (Looks like Khatabook row)
             with st.expander(f"🔴 {item['Name']}  |  ₹ {item['Balance']:,.0f}  |  {item['Mobile']}"):
-                msg = urllib.parse.quote(f"Dear Partner, your pending dues are ₹{item['Balance']}. Please clear your payment. Regards, Sandhya Enterprises.")
-                st.markdown(f"[📲 Send WhatsApp Reminder](https://wa.me/91{item['Mobile']}?text={msg})")
                 
-                st.markdown("### 📝 Ledger (Aapne Diye / Aapko Mile)")
+                # 🟢 NAYA: Header inside expander
+                st.markdown(f'''
+                <div class="kb-ledger-header">
+                    <h3>Aapko Milenge</h3>
+                    <h2>₹ {item['Balance']:,.0f}</h2>
+                </div>
+                ''', unsafe_allow_html=True)
+                
+                # 🟢 NAYA: Ledger HTML Generation
                 u_data = led_df[led_df['Retailer Name'] == item['Name']].copy()
-                show_df = u_data[['Date', 'Product/Service', 'Amount Out (Debit)', 'Amount In (Credit)']].fillna(0)
-                show_df.columns = ['Date', 'Item', 'Aapne Diye', 'Aapko Mile']
-                st.dataframe(show_df, use_container_width=True, hide_index=True)
+                u_data = u_data.sort_values(by='DateObj', ascending=True) # Calculate balance from past to present
                 
-                st.markdown("---")
+                running_bal = 0
+                ledger_html = "<div style='background:white; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; margin-bottom:15px;'>"
+                ledger_html += "<div style='display:flex; font-size:11px; color:#6b7280; font-weight:600; padding:10px 15px; background:#f9fafb; border-bottom:1px solid #e5e7eb;'><div style='width:50%'>ENTRIES</div><div style='width:25%; text-align:right'>AAPNE DIYE</div><div style='width:25%; text-align:right'>AAPKO MILE</div></div>"
+                
+                rows_data = []
+                for _, row in u_data.iterrows():
+                    debit = pd.to_numeric(row['Amount Out (Debit)'], errors='coerce')
+                    credit = pd.to_numeric(row['Amount In (Credit)'], errors='coerce')
+                    if pd.isna(debit): debit = 0
+                    if pd.isna(credit): credit = 0
+                    running_bal += (debit - credit)
+                    rows_data.append({'date': row['Date'], 'item': row['Product/Service'], 'debit': debit, 'credit': credit, 'bal': running_bal})
+                    
+                for r in reversed(rows_data):
+                    d_str = f"₹ {r['debit']:,.0f}" if r['debit'] > 0 else ""
+                    c_str = f"₹ {r['credit']:,.0f}" if r['credit'] > 0 else ""
+                    ledger_html += f'''
+                    <div class="kb-ledger-row">
+                        <div class="kb-ledger-left">
+                            <div class="kb-ledger-date">{r['date']}</div>
+                            <div class="kb-ledger-bal">Bal. ₹ {r['bal']:,.0f}</div>
+                            <div class="kb-ledger-item">{r['item']}</div>
+                        </div>
+                        <div class="kb-ledger-mid">{d_str}</div>
+                        <div class="kb-ledger-right">{c_str}</div>
+                    </div>
+                    '''
+                ledger_html += "</div>"
+                st.markdown(ledger_html, unsafe_allow_html=True)
+                
+                msg = urllib.parse.quote(f"Dear Partner, your pending dues are ₹{item['Balance']}. Please clear your payment. Regards, Sandhya Enterprises.")
+                st.markdown(f"**[📲 Send WhatsApp Reminder](https://wa.me/91{item['Mobile']}?text={msg})**")
+                
                 st.markdown("### ⚡ Add Entry / Collection")
                 with st.form(f"kb_form_dues_{item['Name']}", clear_on_submit=True):
                     col_a, col_b = st.columns(2)
@@ -391,13 +433,47 @@ elif st.session_state.current_page == "DUES":
         if not adv_list: st.info("No advance balances.")
         for item in adv_list:
             with st.expander(f"🟢 {item['Name']}  |  Advance: ₹ {item['Balance']:,.0f}  |  Item: {item['Reason']}"):
-                st.markdown("### 📝 Ledger (Aapne Diye / Aapko Mile)")
-                u_data = led_df[led_df['Retailer Name'] == item['Name']].copy()
-                show_df = u_data[['Date', 'Product/Service', 'Amount Out (Debit)', 'Amount In (Credit)']].fillna(0)
-                show_df.columns = ['Date', 'Item', 'Aapne Diye', 'Aapko Mile']
-                st.dataframe(show_df, use_container_width=True, hide_index=True)
                 
-                st.markdown("---")
+                st.markdown(f'''
+                <div class="kb-ledger-header">
+                    <h3>Aapko Dene Hain</h3>
+                    <h2 class="green">₹ {item['Balance']:,.0f}</h2>
+                </div>
+                ''', unsafe_allow_html=True)
+                
+                u_data = led_df[led_df['Retailer Name'] == item['Name']].copy()
+                u_data = u_data.sort_values(by='DateObj', ascending=True) 
+                
+                running_bal = 0
+                ledger_html = "<div style='background:white; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; margin-bottom:15px;'>"
+                ledger_html += "<div style='display:flex; font-size:11px; color:#6b7280; font-weight:600; padding:10px 15px; background:#f9fafb; border-bottom:1px solid #e5e7eb;'><div style='width:50%'>ENTRIES</div><div style='width:25%; text-align:right'>AAPNE DIYE</div><div style='width:25%; text-align:right'>AAPKO MILE</div></div>"
+                
+                rows_data = []
+                for _, row in u_data.iterrows():
+                    debit = pd.to_numeric(row['Amount Out (Debit)'], errors='coerce')
+                    credit = pd.to_numeric(row['Amount In (Credit)'], errors='coerce')
+                    if pd.isna(debit): debit = 0
+                    if pd.isna(credit): credit = 0
+                    running_bal += (debit - credit)
+                    rows_data.append({'date': row['Date'], 'item': row['Product/Service'], 'debit': debit, 'credit': credit, 'bal': running_bal})
+                    
+                for r in reversed(rows_data):
+                    d_str = f"₹ {r['debit']:,.0f}" if r['debit'] > 0 else ""
+                    c_str = f"₹ {r['credit']:,.0f}" if r['credit'] > 0 else ""
+                    ledger_html += f'''
+                    <div class="kb-ledger-row">
+                        <div class="kb-ledger-left">
+                            <div class="kb-ledger-date">{r['date']}</div>
+                            <div class="kb-ledger-bal">Bal. ₹ {r['bal']:,.0f}</div>
+                            <div class="kb-ledger-item">{r['item']}</div>
+                        </div>
+                        <div class="kb-ledger-mid">{d_str}</div>
+                        <div class="kb-ledger-right">{c_str}</div>
+                    </div>
+                    '''
+                ledger_html += "</div>"
+                st.markdown(ledger_html, unsafe_allow_html=True)
+                
                 st.markdown("### ⚡ Add Entry / Collection")
                 with st.form(f"kb_form_adv_{item['Name']}", clear_on_submit=True):
                     col_a, col_b = st.columns(2)
@@ -462,7 +538,7 @@ elif st.session_state.current_page == "BULK":
                     prog.progress((i+1)/len(df_j))
                 st.success("✅ Done!"); st.cache_data.clear()
 
-# --- 🚨 8. URGENT RECOVERY ---
+# --- 🚨 8. URGENT RECOVERY (SMART FIX) ---
 elif st.session_state.current_page == "URGENT":
     c1, c2 = st.columns(2)
     if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
