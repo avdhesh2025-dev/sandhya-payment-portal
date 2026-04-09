@@ -113,24 +113,19 @@ st.markdown("""
     /* 📱 CENTER LOGIN BOX */
     .login-spacer { margin-top: 18vh; }
 
-    /* 🔘 DEFAULT BUTTONS (Secondary) */
+    /* 🔘 TOUCH-FIXED BUTTONS */
     .stButton > button[kind="secondary"] { 
-        border-radius: 12px !important; height: 70px !important; font-weight: 700 !important; font-size: 15px !important; margin-bottom: 12px !important; border: 1.5px solid #e2e8f0 !important; background: white !important; color: #1e293b !important; width: 100% !important; 
+        border-radius: 12px !important; padding: 20px 10px !important; height: auto !important; font-weight: 700 !important; font-size: 16px !important; border: 1.5px solid #e2e8f0 !important; background: white !important; color: #1e293b !important; width: 100% !important; 
     }
     
     /* 📱 RETAILER LIST BOX (Soothing Slate-Blue Color) */
     .stButton > button[kind="primary"] { 
-        border-radius: 12px 0 0 12px !important; background: #475569 !important; color: #ffffff !important; height: 70px !important; font-weight: 700 !important; font-size: 15px !important; margin-bottom: 12px !important; border: none !important; text-align: left !important; padding-left: 15px !important; width: 100% !important; 
+        border-radius: 12px 0 0 12px !important; background: #475569 !important; color: #ffffff !important; padding: 20px 15px !important; height: auto !important; min-height: 70px !important; font-weight: 700 !important; font-size: 15px !important; border: none !important; text-align: left !important; width: 100% !important; 
     }
     
-    /* EXCEL DOWNLOAD BUTTON (Green) */
-    .stDownloadButton > button {
-        border-radius: 12px !important; background: #15803d !important; color: white !important; height: 70px !important; font-weight: 800 !important; font-size: 16px !important; width: 100% !important; margin-top: 15px !important;
-    }
-    
-    .amt-joined-red { background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%); color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1px solid #b91c1c;}
-    .amt-joined-green { background: linear-gradient(135deg, #4ade80 0%, #15803d 100%); color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1px solid #15803d;}
-    .amt-joined-grey { background: #94a3b8; color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1px solid #94a3b8;}
+    .amt-joined-red { background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%); color: white; min-height: 70px; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; border: 1px solid #b91c1c;}
+    .amt-joined-green { background: linear-gradient(135deg, #4ade80 0%, #15803d 100%); color: white; min-height: 70px; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; border: 1px solid #15803d;}
+    .amt-joined-grey { background: #94a3b8; color: white; min-height: 70px; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; border: 1px solid #94a3b8;}
 
     /* 📝 3-Status Boxes & LEDGER */
     .status-container { display: flex; gap: 8px; margin-bottom: 15px; }
@@ -203,7 +198,6 @@ if not st.session_state.authenticated:
             input.setAttribute('inputmode', 'numeric');
             input.setAttribute('pattern', '[0-9]*');
         });
-        
         let meta = window.parent.document.querySelector('meta[name="viewport"]');
         if (!meta) {
             meta = window.parent.document.createElement('meta');
@@ -303,7 +297,7 @@ elif st.session_state.current_page == "DUES":
                 with c1:
                     st.button(f"👤 {i['Name']} ({i['PRM']})", key=f"kb_{i['Disp']}", use_container_width=True, type="primary", on_click=set_kb_retailer, args=(i['Name'],))
                 with c2: 
-                    st.markdown(f"<div class='{cls}'>₹ {abs(i['Bal']):,.0f}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='height: 100%;'><div class='{cls}'>₹ {abs(i['Bal']):,.0f}</div></div>", unsafe_allow_html=True)
     else:
         name = st.session_state.kb_retailer
         r_info = next(v for k, v in retailers_dict.items() if v['Retailer Name'] == name)
@@ -375,13 +369,11 @@ elif st.session_state.current_page == "DUES":
             </div>
             """, unsafe_allow_html=True)
         
-        # 🟢 EDIT / DELETE FEATURE ADDED HERE
         with st.expander("⚙️ Edit / Delete Entry"):
             if rows:
                 rev_rows = list(reversed(rows[-10:]))
                 entry_opts = [f"{r['d']} | {r['i']} | ₹ {r['out'] if r['out']>0 else r['in']}" for r in rev_rows]
                 sel_e = st.selectbox("Select Entry", entry_opts)
-                
                 col_del, col_edit = st.columns(2)
                 if col_del.button("🗑️ Delete", use_container_width=True):
                     requests.post(WEBHOOK_URL, json={"action":"delete_txn","r_name":name,"details":sel_e})
@@ -397,10 +389,11 @@ elif st.session_state.current_page == "DUES":
         b1.button("🔴 DIYE (Stock)", use_container_width=True, type="secondary", on_click=set_kb_action, args=("diye",))
         b2.button("🟢 MILE (Payment)", use_container_width=True, type="secondary", on_click=set_kb_action, args=("mile",))
         
-        # 🟢 DYNAMIC FORM FIX (Type Selector Outside Form)
+        # 🟢 DYNAMIC FORM + CALCULATOR FIX
         if st.session_state.kb_action == "diye":
             t = st.selectbox("👉 Select Type", ["Etop Transfer", "Sim Card", "JPB V4", "Other"])
             with st.form("d_f"):
+                calc_val = "0"
                 if t == "Etop Transfer":
                     o = st.selectbox("Amount", ["5000", "3000", "2000", "1500", "500", "Manual"])
                     amt = st.number_input("Enter Amount", min_value=0.0) if o == "Manual" else float(o)
@@ -409,18 +402,24 @@ elif st.session_state.current_page == "DUES":
                     qty = st.number_input("Qty", min_value=1)
                     amt = 0
                 elif t == "JPB V4":
-                    amt = st.number_input("Amount (₹)", min_value=0.0)
-                    qty = 0
+                    calc_val = st.text_input("Total Amount (Calculator: Type 624*2)", value="")
+                    qty = st.number_input("Qty", min_value=1)
+                    amt = 0.0
                 else:
                     amt = st.number_input("Amount", min_value=0.0)
                     qty = st.number_input("Qty", min_value=0)
                 
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
                 
-                st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');i.setAttribute('pattern','[0-9]*');});</script>""", height=0, width=0)
+                # JavaScript explicitly only set to 'numeric', removing strict pattern to allow typing '*'
+                st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');});</script>""", height=0, width=0)
 
                 if st.form_submit_button("Save", type="secondary"):
                     if verify_pin(f, p):
+                        if t == "JPB V4":
+                            try: amt = float(eval(str(calc_val).replace('x', '*').replace('X', '*')))
+                            except: amt = 0.0
+                            
                         requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":mob,"type":t,"qty":qty,"amt_out":amt,"amt_in":0,"fse":f,"txn_id":"KB"})
                         st.session_state.success_display_text = f"₹ {amt:,.0f}" if amt>0 else f"{int(qty)} SIMs"
                         st.session_state.success_txn_type = t
@@ -440,7 +439,7 @@ elif st.session_state.current_page == "DUES":
                 m = st.selectbox("Mode", ["Cash", "Online"]); a = st.number_input("Amount Received", min_value=0.0)
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
                 
-                st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');i.setAttribute('pattern','[0-9]*');});</script>""", height=0, width=0)
+                st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');});</script>""", height=0, width=0)
 
                 if st.form_submit_button("Save", type="secondary"):
                     if verify_pin(f, p):
@@ -461,20 +460,45 @@ elif st.session_state.current_page == "DUES":
 elif st.session_state.current_page == "STOCK":
     st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
     st.header("📦 Inventory Stock")
-    if led_df is not None and not led_df.empty and 'Product/Service' in led_df.columns and 'FSE Name' in led_df.columns:
-        if st.session_state.role == "Admin":
-            stock_data = led_df[led_df['Product/Service'] == 'Sim Allocation']
-        else:
-            stock_data = led_df[led_df['FSE Name'] == st.session_state.emp_name]
-        st.dataframe(stock_data, hide_index=True)
+    
+    if st.session_state.role == "Admin":
+        t1, t2 = st.tabs(["📱 FSE Sim Billing", "📦 Main Stock"])
+        with t1:
+            with st.form("bill"):
+                f = st.selectbox("Select FSE", fse_list)
+                q = st.number_input("SIM Qty", min_value=1)
+                ap = st.text_input("Admin PIN", type="password")
+                st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');});</script>""", height=0, width=0)
+                if st.form_submit_button("Bill SIMs", type="secondary"):
+                    if ap == "9557":
+                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":f,"r_mob":"0","type":"Sim Allocation","qty":q,"amt_out":0,"amt_in":0,"fse":"Admin","txn_id":"S"})
+                        st.session_state.success_display_text = f"{int(q)} SIMs"
+                        st.session_state.success_txn_type = "SIM Billed to FSE"
+                        st.session_state.show_success_modal = True
+                        st.cache_data.clear(); st.rerun()
+                    else: st.error("Wrong Admin PIN")
+        with t2:
+            if inv_df is not None and not inv_df.empty: st.dataframe(inv_df, use_container_width=True, hide_index=True)
+            else: st.info("Inventory data not available.")
     else:
-        st.info("Stock data is currently unavailable.")
+        if led_df is not None and not led_df.empty and 'Product/Service' in led_df.columns:
+            q_col = 'Qty' if 'Qty' in led_df.columns else None
+            if q_col:
+                alloc = pd.to_numeric(led_df[(led_df['Retailer Name']==st.session_state.emp_name)&(led_df['Product/Service']=='Sim Allocation')][q_col], errors='coerce').sum()
+                if 'FSE Name' in led_df.columns: dist = pd.to_numeric(led_df[(led_df['FSE Name']==st.session_state.emp_name)&(led_df['Product/Service']=='Sim Card')][q_col], errors='coerce').sum()
+                else: dist = 0
+                st.metric("My SIM Balance", int(alloc - dist))
+                if 'FSE Name' in led_df.columns:
+                    st.write("### SIM Distribution History")
+                    st.dataframe(led_df[(led_df['FSE Name']==st.session_state.emp_name)&(led_df['Product/Service']=='Sim Card')][['Date','Retailer Name', q_col]], hide_index=True)
+            else: st.info("Quantity data not found in Ledger.")
+        else: st.info("Stock history not available.")
 
 elif st.session_state.current_page == "ADD":
     st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
     with st.form("add_ret"):
         n=st.text_input("Retailer Name"); m=st.text_input("Mobile"); p=st.text_input("PRM ID"); l=st.text_input("Loc")
-        st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');i.setAttribute('pattern','[0-9]*');});</script>""", height=0, width=0)
+        st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');});</script>""", height=0, width=0)
         if st.form_submit_button("Save Retailer", type="secondary"):
             requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":l.upper(),"date":date.today().strftime("%d-%m-%Y")})
             st.success("Retailer Added!"); st.cache_data.clear()
@@ -512,20 +536,37 @@ elif st.session_state.current_page == "COL":
 elif st.session_state.current_page == "ENTRY":
     st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
     st.header("📦 Direct Stock/Payment Entry")
+    
+    r_sel = st.selectbox("Select Retailer", list(retailers_dict.keys()))
+    t_type = st.selectbox("Transaction Type", ["Etop Transfer", "Payment Received", "JPB V4", "Sim Card"])
+    
     with st.form("entry_form"):
-        r_sel = st.selectbox("Select Retailer", list(retailers_dict.keys()))
-        t_type = st.selectbox("Transaction Type", ["Etop Transfer", "Payment Received", "JPB V4", "Sim Card"])
-        amt = st.number_input("Amount / Qty", min_value=0.0)
+        calc_val = "0"
+        if t_type == "JPB V4":
+            calc_val = st.text_input("Total Amount (Calculator: type 624*2)", value="")
+            qty = st.number_input("Qty", min_value=1)
+            amt = 0.0
+        elif t_type == "Sim Card":
+            qty = st.number_input("Qty", min_value=1)
+            amt = 0.0
+        else:
+            amt = st.number_input("Amount", min_value=0.0)
+            qty = 0
+            
         f_n = st.selectbox("FSE Name", fse_list)
         f_p = st.text_input("4-Digit PIN", type="password")
         
-        st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');i.setAttribute('pattern','[0-9]*');});</script>""", height=0, width=0)
+        st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');});</script>""", height=0, width=0)
         
         if st.form_submit_button("Save Transaction", type="secondary"):
             if verify_pin(f_n, f_p):
+                if t_type == "JPB V4":
+                    try: amt = float(eval(str(calc_val).replace('x', '*').replace('X', '*')))
+                    except: amt = 0.0
+                    
                 r_info = retailers_dict[r_sel]
-                requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":r_info['Retailer Name'],"r_mob":str(r_info['Mobile Number']).split('.')[0],"type":t_type,"qty":amt if t_type=="Sim Card" else 0,"amt_out":amt if t_type in ["Etop Transfer", "JPB V4"] else 0,"amt_in":amt if t_type=="Payment Received" else 0,"fse":f_n,"txn_id":"E"})
-                st.session_state.success_display_text = f"₹ {amt:,.0f}" if t_type != "Sim Card" else f"{int(amt)} SIMs"
+                requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":r_info['Retailer Name'],"r_mob":str(r_info['Mobile Number']).split('.')[0],"type":t_type,"qty":qty,"amt_out":amt if t_type in ["Etop Transfer", "JPB V4"] else 0,"amt_in":amt if t_type=="Payment Received" else 0,"fse":f_n,"txn_id":"E"})
+                st.session_state.success_display_text = f"₹ {amt:,.0f}" if t_type != "Sim Card" else f"{int(qty)} SIMs"
                 st.session_state.success_txn_type = t_type
                 st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
 
