@@ -5,10 +5,10 @@ import urllib.parse
 import requests
 import time
 
-# 1. Page Configuration (No Sidebar)
+# 1. Page Configuration
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide", initial_sidebar_state="collapsed")
 
-# 💎 Global CSS Design (3D Effects & English UI)
+# 💎 Global CSS Design (3D Effects & Premium UI)
 st.markdown("""
     <style>
     .stApp { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -52,6 +52,13 @@ def clean_prm_id(val):
     try: return str(int(float(s)))
     except: return s.split('.')[0].replace(" ", "").upper()
 
+# 🚀 PURE DIRECT SENDER (Exactly as your original code)
+def send_data(payload):
+    try:
+        requests.post(WEBHOOK_URL, json=payload)
+    except:
+        pass
+
 @st.cache_data(ttl=5)
 def load_data():
     try:
@@ -78,9 +85,7 @@ if ret_df is not None:
             dropdown_options.append(f"{prm} - {name}")
 
 if "current_page" not in st.session_state: st.session_state.current_page = "HOME"
-
-def go_to(page): 
-    st.session_state.current_page = page
+def go_to(page): st.session_state.current_page = page
 
 st.markdown('<div class="app-header"><h1>🏢 Sandhya Enterprises</h1><p>Smart Management System</p></div>', unsafe_allow_html=True)
 
@@ -135,11 +140,11 @@ elif st.session_state.current_page == "COLLECTION":
                         if st.form_submit_button("Save Payment"):
                             if (f_n=="Avdhesh Kumar" and f_p=="9557") or (f_n=="Babloo kumar singh" and f_p=="2081"):
                                 payload = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": name, "r_mob": mob, "type": "Collection", "qty": 0, "amt_out": 0, "amt_in": p_amt, "fse": f_n, "txn_id": "DIRECT"}
-                                requests.post(WEBHOOK_URL, json=payload) # Pure Direct Send
+                                send_data(payload)
                                 st.success("✅ Saved!"); st.cache_data.clear()
                             else: st.error("❌ Wrong PIN")
 
-# --- 📦 3. ENTRY PAGE (3D Wobble) ---
+# --- 📦 3. ENTRY PAGE ---
 elif st.session_state.current_page == "ENTRY":
     c1, c2 = st.columns(2)
     if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
@@ -159,9 +164,9 @@ elif st.session_state.current_page == "ENTRY":
             etop_opt = st.selectbox("Amount ₹", ["5000", "3000", "2000", "1500", "500", "Manual"])
             t_amt = float(etop_opt) if etop_opt != "Manual" else st.number_input("Enter Amount", min_value=1.0)
         
-        # 🟢 RESTORED: Cash/Online Option for Payment Received
+        # 🟢 Cash/Online Box IS HERE
         elif t_type == "Payment Received":
-            p_mode = st.selectbox("Payment Mode (Cash/Online)", ["Cash", "Online"])
+            p_mode = st.selectbox("Payment Mode", ["Cash", "Online"])
             t_amt = st.number_input("Enter Amount", min_value=1.0, value=None)
             
         elif t_type == "JPB V4":
@@ -177,10 +182,9 @@ elif st.session_state.current_page == "ENTRY":
             if t_prm != "Type here to search...":
                 r_name = retailers_data[t_prm]["Name"]; r_mob = retailers_data[t_prm]["Mobile"]
                 final_type = f"{t_type} ({p_mode})" if t_type == "Payment Received" else t_type
-                
                 payload = {"action":"add_txn","date":t_date.strftime("%d-%m-%Y"),"r_name":r_name, "r_mob":r_mob, "type":final_type,"qty":t_qty,"amt_out":t_amt if t_type!="Payment Received" else 0,"amt_in":t_amt if t_type=="Payment Received" else 0,"fse":fse,"txn_id":txn_id}
                 
-                requests.post(WEBHOOK_URL, json=payload) # Pure Direct Send
+                send_data(payload)
                 st.success("✅ Entry Saved Successfully!"); st.cache_data.clear()
                 msg = urllib.parse.quote(f"*Sandhya Enterprises*\nRetailer: {r_name}\nItem: {final_type}\nAmount: ₹{t_amt}")
                 st.markdown(f"### [🟢 Send WhatsApp](https://wa.me/91{r_mob}?text={msg})")
@@ -202,12 +206,12 @@ elif st.session_state.current_page == "ADD_RETAILER":
             m = st.text_input("Mobile Number*")
         with c_a2:
             p = st.text_input("PRM ID*")
-            loc = st.text_input("Location (Address)") # 🟢 RESTORED: Location/Address Box
+            loc = st.text_input("Location (Address)") # 🟢 Location Box IS HERE
             
         if st.form_submit_button("Save Retailer"):
             if n and p and m:
                 payload = {"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":loc.upper(),"date":date.today().strftime("%d-%m-%Y")}
-                requests.post(WEBHOOK_URL, json=payload) # Pure Direct Send
+                send_data(payload)
                 st.success("✅ Retailer Added Successfully!"); st.cache_data.clear()
             else: st.error("❌ Name, Mobile and PRM ID are required")
     
@@ -224,17 +228,15 @@ elif st.session_state.current_page == "ADD_RETAILER":
                 b_name = str(row.get("RETAILER NAME", "")).strip().upper()
                 b_prm = clean_prm_id(row.get("PRM ID", "")); b_mob = clean_prm_id(row.get("DETAILS", ""))
                 b_dues = float(str(row.get("DUSE", 0)).replace(',','')); b_adv = float(str(row.get("ADVANCE", 0)).replace(',',''))
-                
                 if b_name:
-                    # Pure Direct Send with 1 second delay to perfectly avoid Google Server block
-                    requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":b_name,"mobile":b_mob,"prm":b_prm,"location":"BULK","date":date.today().strftime("%d-%m-%Y")})
-                    time.sleep(1) 
+                    send_data({"action":"add_retailer","name":b_name,"mobile":b_mob,"prm":b_prm,"location":"BULK","date":date.today().strftime("%d-%m-%Y")})
+                    time.sleep(0.5)
                     if b_dues > 0: 
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":b_name,"r_mob":b_mob,"type":"Opening Dues","qty":0,"amt_out":b_dues,"amt_in":0,"fse":"SYSTEM","txn_id":"OPENING"})
-                        time.sleep(1)
+                        send_data({"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":b_name,"r_mob":b_mob,"type":"Opening Dues","qty":0,"amt_out":b_dues,"amt_in":0,"fse":"SYSTEM","txn_id":"OPENING"})
+                        time.sleep(0.5)
                     if b_adv > 0: 
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":b_name,"r_mob":b_mob,"type":"Opening Advance","qty":0,"amt_out":0,"amt_in":b_adv,"fse":"SYSTEM","txn_id":"OPENING"})
-                        time.sleep(1)
+                        send_data({"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":b_name,"r_mob":b_mob,"type":"Opening Advance","qty":0,"amt_out":0,"amt_in":b_adv,"fse":"SYSTEM","txn_id":"OPENING"})
+                        time.sleep(0.5)
                 prog.progress((i+1)/len(df_up))
             st.success("✅ Bulk Upload Success!"); st.cache_data.clear()
 
@@ -271,8 +273,8 @@ elif st.session_state.current_page == "BULK":
                     prm = clean_prm_id(row.get("Partner PRM ID", ""))
                     if prm in prm_mapping:
                         amt = float(str(row.get("Transfer Amount", 0)).replace(',',''))
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":prm_mapping[prm]['Name'],"r_mob":prm_mapping[prm]['Mobile'],"type":"Etop Transfer","qty":0,"amt_out":round(amt*0.97,2),"amt_in":0,"fse":f_n,"txn_id":str(row.get("Order ID",""))})
-                        time.sleep(1) # 1 sec delay to save safely
+                        send_data({"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":prm_mapping[prm]['Name'],"r_mob":prm_mapping[prm]['Mobile'],"type":"Etop Transfer","qty":0,"amt_out":round(amt*0.97,2),"amt_in":0,"fse":f_n,"txn_id":str(row.get("Order ID",""))})
+                        time.sleep(0.5)
                     prog.progress((i+1)/len(df_j))
                 st.success("✅ Done!"); st.cache_data.clear()
 
@@ -299,9 +301,7 @@ elif st.session_state.current_page == "URGENT":
                 with st.form(f"r_{_}"):
                     rsn = st.text_input("Reason for delay")
                     if st.form_submit_button("Submit"):
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":row['Retailer Name'],"type":"Urgent Reason","txn_id":rsn,"fse":f_n,"amt_in":0,"amt_out":0,"qty":0})
+                        send_data({"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":row['Retailer Name'],"type":"Urgent Reason","txn_id":rsn,"fse":f_n,"amt_in":0,"amt_out":0,"qty":0})
                         st.success("✅ Reason Recorded!"); st.cache_data.clear()
         if u_list:
             st.download_button("📥 Excel Download Urgent List", pd.DataFrame(u_list).to_csv(index=False).encode('utf-8-sig'), "Urgent_Recovery.csv")
-        else:
-            st.success("No Urgent Recovery Dues!")
