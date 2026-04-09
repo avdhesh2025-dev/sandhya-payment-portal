@@ -18,14 +18,13 @@ st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="centered"
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
     
-    # Auto-Login Check (Agar URL me auth token hai to direct login)
     if "auth" in st.query_params:
         st.session_state.authenticated = True
         st.session_state.role = st.query_params.get("role", "Employee")
         st.session_state.emp_name = st.query_params.get("name", "")
         st.session_state.emp_pin = st.query_params.get("pin", "")
         st.session_state.emp_mob = st.query_params.get("mob", "")
-        st.session_state.current_page = "HOME" if st.session_state.role == "Admin" else "EMP_HOME"
+        st.session_state.current_page = st.query_params.get("page", "HOME" if st.session_state.role == "Admin" else "EMP_HOME")
 
 # 🟢 INITIALIZE OTHER SESSION STATES
 if "emp_mob" not in st.session_state: st.session_state.emp_mob = ""
@@ -38,10 +37,21 @@ if "success_wa_link" not in st.session_state: st.session_state.success_wa_link =
 if "role" not in st.session_state: st.session_state.role = None
 if "current_page" not in st.session_state: st.session_state.current_page = "LOGIN"
 
+# 🟢 SMART BROWSER BACK BUTTON SUPPORT (Sync URL with Page)
+if st.session_state.authenticated:
+    url_page = st.query_params.get("page")
+    if url_page and url_page != st.session_state.current_page:
+        st.session_state.current_page = url_page
+        if url_page in ["HOME", "EMP_HOME"]:
+            st.session_state.kb_retailer = None
+            st.session_state.kb_action = None
+    elif not url_page:
+        st.query_params["page"] = st.session_state.current_page
+
 # 🔴 Logout Function
 def do_logout():
     st.session_state.authenticated = False
-    st.query_params.clear() # Token delete kar dega
+    st.query_params.clear() # Delete token
     st.session_state.current_page = "LOGIN"
     st.session_state.kb_retailer = None
 
@@ -69,33 +79,14 @@ if st.session_state.show_success_modal:
 # 💎 CSS DESIGN (A4 FIXED LAYOUT GLOBALLY)
 st.markdown("""
     <style>
-    /* 📄 A4 FRAME LOGIC (Fixed for ALL Pages) */
-    .main .block-container { 
-        max-width: 480px !important; 
-        padding: 1.5rem !important; 
-        background: white !important; 
-        box-shadow: 0 0 15px rgba(0,0,0,0.1) !important; 
-        min-height: 100vh !important; 
-        margin: 0 auto !important; 
-    }
+    /* 📄 A4 FRAME LOGIC */
+    .main .block-container { max-width: 480px !important; padding: 1.5rem !important; background: white !important; box-shadow: 0 0 15px rgba(0,0,0,0.1) !important; min-height: 100vh !important; margin: 0 auto !important; }
     .stApp { background-color: #e2e8f0; }
     [data-testid="stSidebar"] { display: none; }
     .app-header { background: linear-gradient(135deg, #0047AB 0%, #00c6ff 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; }
     
     /* 📱 JOINED BOX DESIGN */
-    .stButton > button { 
-        border-radius: 12px 0 0 12px !important; 
-        height: 70px !important; 
-        font-weight: 700 !important; 
-        font-size: 15px !important; 
-        margin-bottom: 12px !important; 
-        border: 1.5px solid #e2e8f0 !important; 
-        background: white !important; 
-        color: #1e293b !important;
-        text-align: left !important;
-        padding-left: 15px !important;
-        width: 100% !important;
-    }
+    .stButton > button { border-radius: 12px 0 0 12px !important; height: 70px !important; font-weight: 700 !important; font-size: 15px !important; margin-bottom: 12px !important; border: 1.5px solid #e2e8f0 !important; background: white !important; color: #1e293b !important; text-align: left !important; padding-left: 15px !important; width: 100% !important; }
     
     .amt-joined-red { background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%); color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1.5px solid #b91c1c;}
     .amt-joined-green { background: linear-gradient(135deg, #4ade80 0%, #15803d 100%); color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1.5px solid #15803d;}
@@ -103,18 +94,14 @@ st.markdown("""
 
     /* Standard Buttons Override */
     div[data-testid="stForm"] .stButton > button, 
-    .stApp > div > div > div > div > div > div > .stButton > button {
-        border-radius: 12px !important;
-    }
+    .stApp > div > div > div > div > div > div > .stButton > button { border-radius: 12px !important; }
 
-    /* 📝 3-Status Boxes */
+    /* 📝 3-Status Boxes & LEDGER */
     .status-container { display: flex; gap: 8px; margin-bottom: 15px; }
     .status-box { flex: 1; padding: 10px; border-radius: 10px; text-align: center; color: white; font-weight: 700; font-size: 14px; }
     .bg-dues { background: #b91c1c; }
     .bg-adv { background: #15803d; }
     .bg-none { background: #6b7280; }
-
-    /* LEDGER CARD */
     .ledger-card { background: white; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); display: flex; justify-content: space-between; align-items: flex-start;}
     .kb-header-container { display: flex; justify-content: space-around; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-bottom: 15px; }
     .kb-box { width: 45%; text-align: center; }
@@ -123,7 +110,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 🛑 DATA CONNECTION & CONFIG
+# 🛑 DATA CONNECTION
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyH_oGxKbNZQj2azNOR0FgkLyAKxBfaAoE0Yo3DHmRpNOFZczJRayBhPd056SGUVWbxWQ/exec"
 sheet_id = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
 retailers_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Retailers"
@@ -166,14 +153,13 @@ if not st.session_state.authenticated:
     if st.button("🚀 LOGIN", use_container_width=True):
         if l_mob == "7479584179" and l_pin == "9557":
             st.session_state.role = "Admin"; st.session_state.authenticated = True; st.session_state.current_page = "HOME"
-            st.session_state.emp_name = "Admin"
-            st.session_state.emp_mob = l_mob
-            st.query_params["auth"] = "true"; st.query_params["role"] = "Admin"; st.query_params["pin"] = l_pin; st.query_params["mob"] = l_mob
+            st.session_state.emp_name = "Admin"; st.session_state.emp_mob = l_mob
+            st.query_params["auth"] = "true"; st.query_params["role"] = "Admin"; st.query_params["pin"] = l_pin; st.query_params["mob"] = l_mob; st.query_params["page"] = "HOME"
             st.rerun()
         elif l_mob == "7254972081" and l_pin == "2081":
             st.session_state.role = "Employee"; st.session_state.emp_name = "Babloo kumar singh"; st.session_state.authenticated = True; st.session_state.current_page = "EMP_HOME"
             st.session_state.emp_mob = l_mob
-            st.query_params["auth"] = "true"; st.query_params["role"] = "Employee"; st.query_params["name"] = "Babloo kumar singh"; st.query_params["pin"] = l_pin; st.query_params["mob"] = l_mob
+            st.query_params["auth"] = "true"; st.query_params["role"] = "Employee"; st.query_params["name"] = "Babloo kumar singh"; st.query_params["pin"] = l_pin; st.query_params["mob"] = l_mob; st.query_params["page"] = "EMP_HOME"
             st.rerun()
         elif ret_df is not None:
             emps = ret_df[ret_df['Location'].astype(str).str.upper() == 'EMPLOYEE']
@@ -181,12 +167,12 @@ if not st.session_state.authenticated:
                 if str(r.get("Mobile Number")).split('.')[0] == l_mob and str(r.get("PRM ID")).replace("EMP_","") == l_pin:
                     st.session_state.role = "Employee"; st.session_state.emp_name = r["Retailer Name"]; st.session_state.emp_pin = l_pin; st.session_state.authenticated = True; st.session_state.current_page = "EMP_HOME"
                     st.session_state.emp_mob = l_mob
-                    st.query_params["auth"] = "true"; st.query_params["role"] = "Employee"; st.query_params["name"] = r["Retailer Name"]; st.query_params["pin"] = l_pin; st.query_params["mob"] = l_mob
+                    st.query_params["auth"] = "true"; st.query_params["role"] = "Employee"; st.query_params["name"] = r["Retailer Name"]; st.query_params["pin"] = l_pin; st.query_params["mob"] = l_mob; st.query_params["page"] = "EMP_HOME"
                     st.rerun()
         st.error("Invalid Login Details")
     st.stop()
 
-# 🟢 MAIN APP HEADER (Always visible after login)
+# 🟢 MAIN APP HEADER
 st.markdown("""
 <div class="app-header">
     <h1 style="font-size: 26px; margin-bottom: 5px;">🏢 SANDHYA ENTERPRISES</h1>
@@ -196,7 +182,13 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-def go_to(p): st.session_state.current_page = p; st.session_state.kb_retailer = None; st.session_state.kb_action = None
+# 🟢 NAVIGATION FUNCTION (Adds Page to Browser History)
+def go_to(p): 
+    st.session_state.current_page = p
+    st.session_state.kb_retailer = None
+    st.session_state.kb_action = None
+    st.query_params["page"] = p
+
 fse_list = ["Avdhesh Kumar", "Babloo kumar singh"]
 def verify_pin(n, p):
     if n == "Avdhesh Kumar" and p == "9557": return True
@@ -229,7 +221,7 @@ elif st.session_state.current_page == "EMP_HOME":
         if st.button("➕ Add Retailer", use_container_width=True): go_to("ADD"); st.rerun()
         if st.button("Exit", use_container_width=True, on_click=do_logout): pass
 
-# --- 💸 KHATABOOK 3D (JOINED BOXES + FIXED LEDGER) ---
+# --- 💸 KHATABOOK 3D ---
 elif st.session_state.current_page == "DUES":
     st.button("🔙 Back Menu", on_click=lambda: go_to("HOME" if st.session_state.role=="Admin" else "EMP_HOME"))
     
@@ -257,7 +249,6 @@ elif st.session_state.current_page == "DUES":
                 with c2: 
                     st.markdown(f"<div class='{cls}'>₹ {abs(i['Bal']):,.0f}</div>", unsafe_allow_html=True)
     else:
-        # SINGLE RETAILER VIEW
         name = st.session_state.kb_retailer
         r_info = next(v for k, v in retailers_dict.items() if v['Retailer Name'] == name)
         mob = str(r_info['Mobile Number']).split('.')[0]
@@ -278,7 +269,6 @@ elif st.session_state.current_page == "DUES":
                 
             rows.append({"d": r['Date'], "i": r['Product/Service'], "out": d, "in": c, "b": running_bal, "status": status_text})
 
-        # Header with Call/WA
         st.markdown(f"""
         <div style='background:#0b57d0; color:white; padding:15px; border-radius:12px; margin-bottom:10px; text-align:center;'>
             <h3 style='margin:0;'>{name}</h3>
@@ -290,7 +280,6 @@ elif st.session_state.current_page == "DUES":
         </div>
         """, unsafe_allow_html=True)
         
-        # 3-Status Boxes
         cur_bal = rows[-1]['b'] if rows else 0
         st.markdown(f"""
         <div class='status-container'>
