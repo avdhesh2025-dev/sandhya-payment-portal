@@ -281,12 +281,18 @@ elif st.session_state.current_page == "STOCK":
     if c1.button("🔙 Back Menu", use_container_width=True): go_to(get_home()); st.rerun()
     if c2.button("🔄 Refresh", use_container_width=True): st.cache_data.clear(); st.rerun()
     
-    # Identify Qty Column
+    # 🟢 SMART COLUMN FINDER FOR QTY AND FSE
     q_col = None
     if led_df is not None:
         for c in ['Qty', 'Quantity', 'QTY', 'quantity']:
             if c in led_df.columns:
                 q_col = c; break
+                
+    fse_col = None
+    if led_df is not None:
+        for c in ['FSE Name', 'FSE', 'fse', 'Fse Name']:
+            if c in led_df.columns:
+                fse_col = c; break
 
     if st.session_state.role == "Admin":
         st.header("📊 Inventory & FSE Sim Billing")
@@ -316,7 +322,9 @@ elif st.session_state.current_page == "STOCK":
                 fse_stock_data = []
                 for fse_n in fse_list:
                     alloc = pd.to_numeric(led_df[(led_df['Retailer Name'] == fse_n) & (led_df['Product/Service'] == 'Sim Allocation')][q_col], errors='coerce').sum()
-                    dist = pd.to_numeric(led_df[(led_df['FSE Name'] == fse_n) & (led_df['Product/Service'] == 'Sim Card')][q_col], errors='coerce').sum()
+                    dist = 0
+                    if fse_col: # SAFELY CHECK FSE COLUMN TO PREVENT KEYERROR
+                        dist = pd.to_numeric(led_df[(led_df[fse_col] == fse_n) & (led_df['Product/Service'] == 'Sim Card')][q_col], errors='coerce').sum()
                     fse_stock_data.append({"FSE Name": fse_n, "Total Billed": int(alloc), "Distributed": int(dist), "Current Balance": int(alloc - dist)})
                 st.dataframe(pd.DataFrame(fse_stock_data), use_container_width=True, hide_index=True)
             else:
@@ -330,7 +338,9 @@ elif st.session_state.current_page == "STOCK":
         emp_name = st.session_state.emp_name
         if q_col and led_df is not None:
             alloc = pd.to_numeric(led_df[(led_df['Retailer Name'] == emp_name) & (led_df['Product/Service'] == 'Sim Allocation')][q_col], errors='coerce').sum()
-            dist = pd.to_numeric(led_df[(led_df['FSE Name'] == emp_name) & (led_df['Product/Service'] == 'Sim Card')][q_col], errors='coerce').sum()
+            dist = 0
+            if fse_col: # SAFELY CHECK FSE COLUMN TO PREVENT KEYERROR
+                dist = pd.to_numeric(led_df[(led_df[fse_col] == emp_name) & (led_df['Product/Service'] == 'Sim Card')][q_col], errors='coerce').sum()
             cur_stock = alloc - dist
             
             st.markdown(f'''
@@ -373,7 +383,7 @@ elif st.session_state.current_page == "COLLECTION":
         
         if not today_collections.empty:
             with st.expander("🔽 View Today's Collection Details"):
-                cols = [c for c in ['Retailer Name', 'Product/Service', 'Amount In (Credit)', 'FSE Name'] if c in today_collections.columns]
+                cols = [c for c in ['Retailer Name', 'Product/Service', 'Amount In (Credit)', 'FSE Name', 'FSE'] if c in today_collections.columns]
                 if not cols: cols = today_collections.columns.drop('DateObj', errors='ignore')
                 st.dataframe(today_collections[cols], use_container_width=True, hide_index=True)
         else:
@@ -540,7 +550,6 @@ elif st.session_state.current_page == "DUES":
             
             if balance > 0: total_milenge += balance
             elif balance < 0: total_dene_hain += abs(balance)
-                
             all_retailers_list.append({"Name": name, "Mobile": mob, "Balance": balance})
             
         def sort_retailers(r):
