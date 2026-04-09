@@ -51,7 +51,6 @@ st.markdown("""
         background: #ffffff;
         border: 1px solid #eaeaea;
         border-radius: 12px;
-        /* 💎 Super 3D Box Effect 💎 */
         box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         padding: 25px 15px;
         transition: all 0.2s ease;
@@ -60,24 +59,13 @@ st.markdown("""
         justify-content: center;
         align-items: center;
     }
-    /* Vertical Divider for Khatabook list */
-    .kb-divider {
-        width: 1px;
-        height: 80px;
-        background: #e5e7eb;
-    }
-    /* 3D Box Hover effect for list */
-    .kb-box:hover {
-        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-        transform: translateY(-3px);
-    }
-
-    /* Professional typography for 3D Boxes */
+    .kb-divider { width: 1px; height: 80px; background: #e5e7eb; }
+    .kb-box:hover { box-shadow: 0 10px 25px rgba(0,0,0,0.2); transform: translateY(-3px); }
     .kb-box h4 { font-size: 14px; color: #6b7280; margin: 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;}
     .kb-give { color: #15803d; font-size: 24px; font-weight: bold; margin: 8px 0 0 0; }
     .kb-get { color: #b91c1c; font-size: 24px; font-weight: bold; margin: 8px 0 0 0; }
 
-    /* 📝 KHATABOOK INSIDE LEDGER CSS (Professional timeline look) */
+    /* 📝 KHATABOOK INSIDE LEDGER CSS */
     .kb-ledger-row { display: flex; justify-content: space-between; border-bottom: 1px solid #f3f4f6; background: white; align-items: center;}
     .kb-ledger-left { width: 40%; padding: 12px 15px; }
     .kb-ledger-mid { width: 30%; text-align: right; color: #b91c1c; font-weight: 700; background: #fff5f5; padding: 12px 15px; font-size: 16px; border-left: 1px solid #f9fafb; height: 100%;}
@@ -86,13 +74,29 @@ st.markdown("""
     .kb-ledger-bal { font-size: 11px; color: #9ca3af; margin-bottom: 4px;}
     .kb-ledger-item { font-size: 15px; color: #1f2937; font-weight: 600; text-transform: capitalize;}
     
-    /* Khatabook list name clickable effect */
+    /* 💎 RETAILER LIST 3D CARD CSS 💎 */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        border-radius: 12px !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.06) !important;
+        background-color: #ffffff !important;
+        border: 1px solid #eaeaea !important;
+        padding: 5px 10px !important;
+        margin-bottom: 10px !important;
+        transition: 0.3s;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+        box-shadow: 0 8px 20px rgba(0,0,0,0.12) !important;
+        transform: translateY(-2px);
+        border-color: #0b57d0 !important;
+    }
+    
+    /* Clickable Button styling inside the Card */
     div[data-testid="stTabs"] .stButton > button {
         height: auto !important; min-height: 20px !important;
         background: transparent !important; border: none !important;
         box-shadow: none !important; color: #1f2937 !important;
         font-size: 16px !important; font-weight: 700 !important;
-        padding: 0 !important; margin: 5px 0 -5px 0 !important;
+        padding: 0 !important; margin: 0 !important;
         justify-content: flex-start !important;
     }
     div[data-testid="stTabs"] .stButton > button:hover { color: #0b57d0 !important; }
@@ -167,7 +171,7 @@ if st.session_state.current_page == "HOME":
     with col2:
         if st.button("💰 Today's Collection", use_container_width=True): go_to("COLLECTION"); st.rerun()
         if st.button("📦 Stock / Payment Entry", use_container_width=True): go_to("ENTRY"); st.rerun()
-        if st.button("💸 Khatabook (3D)", use_container_width=True): go_to("DUES"); st.rerun()
+        if st.button("💸 Khatabook (Dues)", use_container_width=True): go_to("DUES"); st.rerun()
         if st.button("🚨 Urgent Recovery", use_container_width=True): go_to("URGENT"); st.rerun()
 
 # --- 📊 1. STOCK ---
@@ -195,7 +199,6 @@ elif st.session_state.current_page == "COLLECTION":
             dues = pd.to_numeric(u_led['Amount Out (Debit)'], errors='coerce').sum() - pd.to_numeric(u_led['Amount In (Credit)'], errors='coerce').sum()
             if dues > 0: total_market_dues += dues
                 
-        # 🟢 SMART FILTER: Only show REAL collections, exclude "Opening Advance" or "Opening Dues"
         today_led = led_df[led_df['Date'] == today_date_str].copy()
         today_led['Amount In (Credit)'] = pd.to_numeric(today_led['Amount In (Credit)'], errors='coerce').fillna(0)
         today_collections = today_led[(today_led['Amount In (Credit)'] > 0) & (~today_led['Product/Service'].astype(str).str.contains('Opening', case=False, na=False))]
@@ -205,14 +208,13 @@ elif st.session_state.current_page == "COLLECTION":
         box1.error(f"### 🚩 Total Market Dues\n# ₹ {total_market_dues:,.2f}")
         box2.success(f"### 📥 Today's Collection\n# ₹ {today_collection_sum:,.2f}")
         
-        # 🟢 Arrow box for details
         if not today_collections.empty:
-            with st.expander("🔽 View Today's Collection Details (Kisne kya entry ki)"):
+            with st.expander("🔽 View Today's Collection Details"):
                 cols = [c for c in ['Retailer Name', 'Product/Service', 'Amount In (Credit)', 'FSE Name'] if c in today_collections.columns]
                 if not cols: cols = today_collections.columns.drop('DateObj', errors='ignore')
                 st.dataframe(today_collections[cols], use_container_width=True, hide_index=True)
         else:
-            with st.expander("🔽 View Today's Collection Details (Kisne kya entry ki)"):
+            with st.expander("🔽 View Today's Collection Details"):
                 st.info("No collections recorded yet for today.")
                 
         st.markdown("<hr>", unsafe_allow_html=True)
@@ -347,16 +349,16 @@ elif st.session_state.current_page == "LEDGER":
         st.dataframe(f_led.drop(columns=['DateObj']), use_container_width=True, hide_index=True)
         st.download_button("📥 Excel Download", f_led.to_csv(index=False).encode('utf-8-sig'), f"{r_name}_Ledger.csv")
 
-# --- 💸 6. Dues (3D BOX ISOLATED UI 🔥) ---
+# --- 💸 6. DUES REMINDERS (🔥 SUPER 3D KHATABOOK UI 🔥) ---
 elif st.session_state.current_page == "DUES":
     
-    # CASE 1: SHOW KHATABOOK LIST (Click name for ledger)
+    # CASE 1: SHOW LIST OF RETAILERS IN 3D CARDS
     if st.session_state.kb_retailer is None:
         c1, c2 = st.columns(2)
         if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
         if c2.button("🔄 Refresh", use_container_width=True): st.cache_data.clear(); st.rerun()
         
-        st.header("📖 Khatabook (Touch Name)")
+        st.header("📖 Khatabook")
         
         total_dene_hain = 0; total_milenge = 0
         dues_list = []; adv_list = []
@@ -375,7 +377,7 @@ elif st.session_state.current_page == "DUES":
                 total_dene_hain += abs(balance)
                 adv_list.append({"Name": name, "Mobile": mob, "Balance": abs(balance)})
                 
-        # 💎 KHATABOOK 3D BOX HEADER 💎
+        # Top Header Boxes
         st.markdown(f'''
             <div class="kb-header-container">
                 <div class="kb-box">
@@ -395,33 +397,33 @@ elif st.session_state.current_page == "DUES":
         with tab1:
             if not dues_list: st.success("No dues pending!")
             for item in dues_list:
-                col1, col2 = st.columns([3, 2])
-                with col1: 
-                    # 📱 Name is the clickable button to enter ledger
-                    if st.button(f"{item['Name']}", key=f"btn_dues_{item['Name']}", use_container_width=True):
-                        st.session_state.kb_retailer = item['Name']
-                        st.rerun()
-                    st.markdown(f"<div style='font-size:13px;color:#6b7280;margin-top:-5px;margin-bottom:5px;'>{item['Mobile']} • Pending</div>", unsafe_allow_html=True)
-                with col2: 
-                    msg = urllib.parse.quote(f"Dear Partner, your pending dues are ₹{item['Balance']}. Please clear your payment. Regards, Sandhya Enterprises.")
-                    st.markdown(f"<div style='text-align:right; margin-top:5px;'><div style='font-size:16px;font-weight:bold;color:#b91c1c;'>₹ {item['Balance']:,.0f}</div><a href='https://wa.me/91{item['Mobile']}?text={msg}' target='_blank' style='font-size:12px;color:#2563eb;text-decoration:none;font-weight:bold;'>REMIND KARAYEIN ></a></div>", unsafe_allow_html=True)
-                st.markdown("<hr style='margin:0;border:none;border-bottom:1px solid #f3f4f6;'>", unsafe_allow_html=True)
+                # 🟢 NAYA: 3D Box Container for each row
+                with st.container(border=True):
+                    col1, col2 = st.columns([3, 2])
+                    with col1: 
+                        if st.button(f"{item['Name']}", key=f"btn_dues_{item['Name']}", use_container_width=True):
+                            st.session_state.kb_retailer = item['Name']
+                            st.rerun()
+                        st.markdown(f"<div style='font-size:13px;color:#6b7280;margin-top:-5px;'>{item['Mobile']} • Pending</div>", unsafe_allow_html=True)
+                    with col2: 
+                        msg = urllib.parse.quote(f"Dear Partner, your pending dues are ₹{item['Balance']}. Please clear your payment. Regards, Sandhya Enterprises.")
+                        st.markdown(f"<div style='text-align:right;'><div style='font-size:18px;font-weight:bold;color:#b91c1c;'>₹ {item['Balance']:,.0f}</div><a href='https://wa.me/91{item['Mobile']}?text={msg}' target='_blank' style='font-size:12px;color:#2563eb;text-decoration:none;font-weight:bold;'>REMIND KARAYEIN ></a></div>", unsafe_allow_html=True)
                 
         with tab2:
             if not adv_list: st.info("No advance balances.")
             for item in adv_list:
-                col1, col2 = st.columns([3, 2])
-                with col1: 
-                    # 📱 Name is the clickable button to enter ledger
-                    if st.button(f"{item['Name']}", key=f"btn_adv_{item['Name']}", use_container_width=True):
-                        st.session_state.kb_retailer = item['Name']
-                        st.rerun()
-                    st.markdown(f"<div style='font-size:13px;color:#6b7280;margin-top:-5px;margin-bottom:5px;'>{item['Mobile']} • Advance</div>", unsafe_allow_html=True)
-                with col2: 
-                    st.markdown(f"<div style='text-align:right; margin-top:5px;'><div style='font-size:16px;font-weight:bold;color:#15803d;'>₹ {item['Balance']:,.0f}</div></div>", unsafe_allow_html=True)
-                st.markdown("<hr style='margin:0;border:none;border-bottom:1px solid #f3f4f6;'>", unsafe_allow_html=True)
+                # 🟢 NAYA: 3D Box Container for each row
+                with st.container(border=True):
+                    col1, col2 = st.columns([3, 2])
+                    with col1: 
+                        if st.button(f"{item['Name']}", key=f"btn_adv_{item['Name']}", use_container_width=True):
+                            st.session_state.kb_retailer = item['Name']
+                            st.rerun()
+                        st.markdown(f"<div style='font-size:13px;color:#6b7280;margin-top:-5px;'>{item['Mobile']} • Advance</div>", unsafe_allow_html=True)
+                    with col2: 
+                        st.markdown(f"<div style='text-align:right;'><div style='font-size:18px;font-weight:bold;color:#15803d;'>₹ {item['Balance']:,.0f}</div></div>", unsafe_allow_html=True)
 
-    # CASE 2: SHOW SINGLE RETAILER KHATABOOK LEDGER VIEW (Sidhan & Professional 3D)
+    # CASE 2: SHOW SINGLE RETAILER KHATABOOK LEDGER VIEW
     else:
         kb_name = st.session_state.kb_retailer
         kb_mob = ""
@@ -434,7 +436,7 @@ elif st.session_state.current_page == "DUES":
             st.session_state.kb_action = None
             st.rerun()
             
-        # Khatabook Style Blue Header (Same location box preserved)
+        # Khatabook Style Blue Header
         st.markdown(f"""
         <div style="background-color: #0b57d0; padding: 15px; border-radius: 8px; display: flex; align-items: center; margin-bottom: 15px; margin-top: 15px;">
             <div style="width: 45px; height: 45px; border-radius: 50%; background-color: white; color: #0b57d0; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 20px; margin-right: 15px;">{kb_name[:2].upper()}</div>
@@ -450,7 +452,7 @@ elif st.session_state.current_page == "DUES":
         c = pd.to_numeric(u_data['Amount In (Credit)'], errors='coerce').sum()
         balance = d - c
         
-        # 🟢 NAYA: Professional Sidhan & 3D Box for Single Summary
+        # Big Summary Box
         if balance >= 0:
             st.markdown(f'''
             <div style="display: flex; justify-content: center; padding: 10px 0; margin-bottom: 15px;">
@@ -486,7 +488,6 @@ elif st.session_state.current_page == "DUES":
             running_bal += (debit - credit)
             rows_data.append({'date': row['Date'], 'item': row['Product/Service'], 'debit': debit, 'credit': credit, 'bal': running_bal})
             
-        # Khatabook shows newest entries first
         for r in reversed(rows_data):
             d_str = f"₹ {r['debit']:,.0f}" if r['debit'] > 0 else ""
             c_str = f"₹ {r['credit']:,.0f}" if r['credit'] > 0 else ""
