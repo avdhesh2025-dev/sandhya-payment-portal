@@ -120,7 +120,31 @@ elif st.session_state.current_page == "COLLECTION":
     if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
     if c2.button("🔄 Refresh", use_container_width=True): st.cache_data.clear(); st.rerun()
     st.header("💸 Today's Collection")
+    
     if ret_df is not None and led_df is not None:
+        
+        # 🟢 NEW: Calculation for Total Dues and Today's Collection Boxes
+        total_market_dues = 0
+        today_date_str = date.today().strftime("%d-%m-%Y")
+        
+        for _, row in ret_df.iterrows():
+            name = row["Retailer Name"]
+            u_led = led_df[led_df['Retailer Name'] == name]
+            dues = pd.to_numeric(u_led['Amount Out (Debit)'], errors='coerce').sum() - pd.to_numeric(u_led['Amount In (Credit)'], errors='coerce').sum()
+            if dues > 0:
+                total_market_dues += dues
+                
+        # Get Today's Total Collection
+        today_led = led_df[led_df['Date'] == today_date_str]
+        today_collection = pd.to_numeric(today_led['Amount In (Credit)'], errors='coerce').sum()
+        
+        # 🟢 NEW: Displaying the Boxes
+        box1, box2 = st.columns(2)
+        box1.error(f"### 🚩 Total Market Dues\n# ₹ {total_market_dues:,.2f}")
+        box2.success(f"### 📥 Today's Collection\n# ₹ {today_collection:,.2f}")
+        st.markdown("<hr>", unsafe_allow_html=True)
+        
+        # Existing Retailer List Logic
         for _, row in ret_df.iterrows():
             name, mob = row["Retailer Name"], str(row["Mobile Number"]).split('.')[0]
             u_led = led_df[led_df['Retailer Name'] == name]
@@ -247,7 +271,7 @@ elif st.session_state.current_page == "LEDGER":
         st.dataframe(f_led.drop(columns=['DateObj']), use_container_width=True, hide_index=True)
         st.download_button("📥 Excel Download", f_led.to_csv(index=False).encode('utf-8-sig'), f"{r_name}_Ledger.csv")
 
-# --- 💸 6. DUES REMINDERS ---
+# --- 💸 6. DUES REMINDERS (100% ORIGINAL RESTORED) ---
 elif st.session_state.current_page == "DUES":
     c1, c2 = st.columns(2)
     if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
