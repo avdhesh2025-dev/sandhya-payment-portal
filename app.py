@@ -14,7 +14,7 @@ except ImportError:
 # 1. Page Configuration (A4 Scale & Fixed Layout)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="centered", initial_sidebar_state="collapsed")
 
-# 🟢 FUNCTIONS DEFINED AT THE TOP (To prevent NameError)
+# 🟢 NAVIGATION FUNCTIONS
 def go_to(p): 
     st.session_state.current_page = p
     st.session_state.kb_retailer = None
@@ -45,6 +45,7 @@ def verify_pin(n, p):
 # 🟢 PERSISTENT LOGIN (URL Smart Token)
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
+    
     if "auth" in st.query_params:
         st.session_state.authenticated = True
         st.session_state.role = st.query_params.get("role", "Employee")
@@ -118,7 +119,7 @@ st.markdown("""
         border-radius: 12px !important; height: 70px !important; font-weight: 700 !important; font-size: 15px !important; margin-bottom: 12px !important; border: 1.5px solid #e2e8f0 !important; background: white !important; color: #1e293b !important; width: 100% !important; 
     }
     
-    /* 📱 RETAILER LIST BOX (Soothing Slate-Blue Color) */
+    /* 📱 RETAILER LIST BOX (Soothing Slate-Blue Color + White Text + Joined Shape) */
     .stButton > button[kind="primary"] { 
         border-radius: 12px 0 0 12px !important; background: #475569 !important; color: #ffffff !important; height: 70px !important; font-weight: 700 !important; font-size: 15px !important; margin-bottom: 12px !important; border: none !important; text-align: left !important; padding-left: 15px !important; width: 100% !important; 
     }
@@ -272,7 +273,6 @@ elif st.session_state.current_page == "EMP_HOME":
     with col1:
         st.button("📖 Khatabook", use_container_width=True, type="secondary", on_click=go_to, args=("DUES",))
         st.button("📦 Sim Stock", use_container_width=True, type="secondary", on_click=go_to, args=("STOCK",))
-        # 🟢 NEW BUTTON FOR EMPLOYEE: TODAY COLLECTION
         st.button("💰 Today Collection", use_container_width=True, type="secondary", on_click=go_to, args=("COL",))
     with col2:
         st.button("➕ Add Retailer", use_container_width=True, type="secondary", on_click=go_to, args=("ADD",))
@@ -411,17 +411,15 @@ elif st.session_state.current_page == "STOCK":
     st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
     st.header("📦 Inventory Stock")
     
-    if led_df is not None and not led_df.empty:
-        if 'Product/Service' in led_df.columns and 'FSE Name' in led_df.columns:
-            if st.session_state.role == "Admin":
-                stock_data = led_df[led_df['Product/Service'] == 'Sim Allocation']
-            else:
-                stock_data = led_df[led_df['FSE Name'] == st.session_state.emp_name]
-            st.dataframe(stock_data, hide_index=True)
+    # 🟢 SAFE CHECK FOR STOCK
+    if led_df is not None and not led_df.empty and 'Product/Service' in led_df.columns and 'FSE Name' in led_df.columns:
+        if st.session_state.role == "Admin":
+            stock_data = led_df[led_df['Product/Service'] == 'Sim Allocation']
         else:
-            st.info("Stock data format is currently unavailable.")
+            stock_data = led_df[led_df['FSE Name'] == st.session_state.emp_name]
+        st.dataframe(stock_data, hide_index=True)
     else:
-        st.info("No Stock Data Available.")
+        st.info("Stock data is currently unavailable.")
 
 elif st.session_state.current_page == "ADD":
     st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
@@ -432,7 +430,7 @@ elif st.session_state.current_page == "ADD":
             requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":l.upper(),"date":date.today().strftime("%d-%m-%Y")})
             st.success("Retailer Added!"); st.cache_data.clear()
 
-# 🟢 NEW: EXCEL DOWNLOAD TODAY COLLECTION
+# 🟢 EXCEL DOWNLOAD TODAY COLLECTION (With Safe Checks)
 elif st.session_state.current_page == "COL":
     st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
     st.header("💰 Today's Collection")
@@ -441,23 +439,25 @@ elif st.session_state.current_page == "COL":
         t_led = led_df[led_df['Date'] == date.today().strftime("%d-%m-%Y")].copy()
         t_led['Amount In (Credit)'] = pd.to_numeric(t_led['Amount In (Credit)'], errors='coerce').fillna(0)
         
-        # Filter for collection data (Amount > 0)
         coll_df = t_led[t_led['Amount In (Credit)'] > 0]
         
-        # If it's an employee, show only their collections
-        if st.session_state.role == "Employee":
+        # Safe check for Employee view
+        if st.session_state.role == "Employee" and 'FSE Name' in coll_df.columns:
             coll_df = coll_df[coll_df['FSE Name'] == st.session_state.emp_name]
             
         if not coll_df.empty:
-            # Rename and format for professional view
-            disp_df = coll_df[['Retailer Name', 'Amount In (Credit)', 'Product/Service', 'FSE Name']].copy()
-            disp_df.columns = ['Retailer Name', 'Amount (₹)', 'Payment Mode', 'Received By']
+            cols_to_get = ['Retailer Name', 'Amount In (Credit)', 'Product/Service']
+            disp_cols = ['Retailer Name', 'Amount (₹)', 'Payment Mode']
+            if 'FSE Name' in coll_df.columns:
+                cols_to_get.append('FSE Name')
+                disp_cols.append('Received By')
+                
+            disp_df = coll_df[cols_to_get].copy()
+            disp_df.columns = disp_cols
             
-            # Show Data on screen
             st.dataframe(disp_df, hide_index=True)
             st.write(f"**Total Collected Today: ₹ {disp_df['Amount (₹)'].sum():,.0f}**")
             
-            # EXCEL (CSV) DOWNLOAD BUTTON
             csv = disp_df.to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="📥 Download Excel (CSV)",
