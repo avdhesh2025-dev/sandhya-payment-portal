@@ -11,7 +11,7 @@ try:
 except ImportError:
     HAS_FPDF = False
 
-# 1. Page Configuration
+# 1. Page Configuration (A4 Scale)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="centered", initial_sidebar_state="collapsed")
 
 # 🟢 THE "PAKKA TOD" FOR PERSISTENT LOGIN (URL Smart Token)
@@ -24,9 +24,11 @@ if "authenticated" not in st.session_state:
         st.session_state.role = st.query_params.get("role", "Employee")
         st.session_state.emp_name = st.query_params.get("name", "")
         st.session_state.emp_pin = st.query_params.get("pin", "")
+        st.session_state.emp_mob = st.query_params.get("mob", "")
         st.session_state.current_page = "HOME" if st.session_state.role == "Admin" else "EMP_HOME"
 
 # 🟢 INITIALIZE OTHER SESSION STATES
+if "emp_mob" not in st.session_state: st.session_state.emp_mob = ""
 if "kb_retailer" not in st.session_state: st.session_state.kb_retailer = None
 if "kb_action" not in st.session_state: st.session_state.kb_action = None
 if "show_success_modal" not in st.session_state: st.session_state.show_success_modal = False
@@ -165,22 +167,34 @@ if not st.session_state.authenticated:
         if l_mob == "7479584179" and l_pin == "9557":
             st.session_state.role = "Admin"; st.session_state.authenticated = True; st.session_state.current_page = "HOME"
             st.session_state.emp_name = "Admin"
-            # Setting URL Token for Persistent Login
-            st.query_params["auth"] = "true"; st.query_params["role"] = "Admin"; st.query_params["pin"] = l_pin
+            st.session_state.emp_mob = l_mob
+            st.query_params["auth"] = "true"; st.query_params["role"] = "Admin"; st.query_params["pin"] = l_pin; st.query_params["mob"] = l_mob
             st.rerun()
         elif l_mob == "7254972081" and l_pin == "2081":
             st.session_state.role = "Employee"; st.session_state.emp_name = "Babloo kumar singh"; st.session_state.authenticated = True; st.session_state.current_page = "EMP_HOME"
-            st.query_params["auth"] = "true"; st.query_params["role"] = "Employee"; st.query_params["name"] = "Babloo kumar singh"; st.query_params["pin"] = l_pin
+            st.session_state.emp_mob = l_mob
+            st.query_params["auth"] = "true"; st.query_params["role"] = "Employee"; st.query_params["name"] = "Babloo kumar singh"; st.query_params["pin"] = l_pin; st.query_params["mob"] = l_mob
             st.rerun()
         elif ret_df is not None:
             emps = ret_df[ret_df['Location'].astype(str).str.upper() == 'EMPLOYEE']
             for _, r in emps.iterrows():
                 if str(r.get("Mobile Number")).split('.')[0] == l_mob and str(r.get("PRM ID")).replace("EMP_","") == l_pin:
                     st.session_state.role = "Employee"; st.session_state.emp_name = r["Retailer Name"]; st.session_state.emp_pin = l_pin; st.session_state.authenticated = True; st.session_state.current_page = "EMP_HOME"
-                    st.query_params["auth"] = "true"; st.query_params["role"] = "Employee"; st.query_params["name"] = r["Retailer Name"]; st.query_params["pin"] = l_pin
+                    st.session_state.emp_mob = l_mob
+                    st.query_params["auth"] = "true"; st.query_params["role"] = "Employee"; st.query_params["name"] = r["Retailer Name"]; st.query_params["pin"] = l_pin; st.query_params["mob"] = l_mob
                     st.rerun()
         st.error("Invalid Login Details")
     st.stop()
+
+# 🟢 MAIN APP HEADER (Always visible after login)
+st.markdown("""
+<div class="app-header">
+    <h1 style="font-size: 26px; margin-bottom: 5px;">🏢 SANDHYA ENTERPRISES</h1>
+    <p style="margin: 2px 0px; font-size: 14px;">Register Office, Rosera Rod Meghpatti</p>
+    <p style="margin: 2px 0px; font-size: 14px;">Email: smp.sandhya02@gmail.com</p>
+    <p style="margin: 2px 0px; font-size: 14px;">📞 7479584179</p>
+</div>
+""", unsafe_allow_html=True)
 
 def go_to(p): st.session_state.current_page = p; st.session_state.kb_retailer = None; st.session_state.kb_action = None
 fse_list = ["Avdhesh Kumar", "Babloo kumar singh"]
@@ -192,7 +206,7 @@ def verify_pin(n, p):
 
 # --- DASHBOARDS ---
 if st.session_state.current_page == "HOME":
-    st.markdown('<div class="app-header"><h3>Admin Dashboard</h3></div>', unsafe_allow_html=True)
+    st.success(f"**Welcome To**\n\n👤 {st.session_state.emp_name} | 📞 {st.session_state.emp_mob}")
     col1, col2 = st.columns(2)
     with col1:
         if st.button("💸 Khatabook 3D", use_container_width=True): go_to("DUES"); st.rerun()
@@ -206,7 +220,7 @@ if st.session_state.current_page == "HOME":
         if st.button("🚪 Logout", use_container_width=True, on_click=do_logout): pass
 
 elif st.session_state.current_page == "EMP_HOME":
-    st.info(f"👤 {st.session_state.emp_name}")
+    st.success(f"**Welcome To**\n\n👤 {st.session_state.emp_name} | 📞 {st.session_state.emp_mob}")
     col1, col2 = st.columns(2)
     with col1:
         if st.button("📖 Khatabook", use_container_width=True): go_to("DUES"); st.rerun()
@@ -249,7 +263,6 @@ elif st.session_state.current_page == "DUES":
         mob = str(r_info['Mobile Number']).split('.')[0]
         prm = str(r_info.get('PRM ID','')).split('.')[0]
         
-        # 🟢 LEDGER CALCULATION FIX
         u_led = led_df[led_df['Retailer Name'] == name].sort_values('DateObj')
         running_bal = 0; rows = []
         for _, r in u_led.iterrows():
@@ -324,7 +337,7 @@ elif st.session_state.current_page == "DUES":
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
                 if st.form_submit_button("Save"):
                     if verify_pin(f, p):
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"type":t,"qty":qty,"amt_out":amt,"amt_in":0,"fse":f,"txn_id":"KB"})
+                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":mob,"type":t,"qty":qty,"amt_out":amt,"amt_in":0,"fse":f,"txn_id":"KB"})
                         st.session_state.success_display_text = f"₹ {amt:,.0f}" if amt>0 else f"{int(qty)} SIMs"
                         st.session_state.success_txn_type = t
                         msg = urllib.parse.quote(f"*Sandhya Enterprises*\n{t} Done\nAmt: Rs {amt if amt>0 else qty}")
@@ -337,12 +350,12 @@ elif st.session_state.current_page == "DUES":
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
                 if st.form_submit_button("Save"):
                     if verify_pin(f, p):
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"type":f"Payment ({m})","amt_in":a,"fse":f,"txn_id":"KB"})
+                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":mob,"type":f"Payment ({m})","amt_in":a,"fse":f,"txn_id":"KB"})
                         st.session_state.success_display_text = f"₹ {a:,.0f}"; st.session_state.success_txn_type = f"Payment Received ({m})"
                         st.session_state.success_wa_link = f"https://wa.me/91{mob}?text=Payment%20Received%3A%20Rs%20{a}"
                         st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
 
-# --- OTHER PAGES (ADD, STOCK, COL, ENTRY) ---
+# --- OTHER PAGES ---
 elif st.session_state.current_page == "STOCK":
     st.button("🔙 Back", on_click=lambda: go_to(get_home()))
     st.header("📦 Inventory Stock")
