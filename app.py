@@ -14,10 +14,31 @@ except ImportError:
 # 1. Page Configuration (A4 Scale & Fixed Layout)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="centered", initial_sidebar_state="collapsed")
 
+# 🟢 NAVIGATION FUNCTIONS (100% Working Touch Setup)
+def go_to(p): 
+    st.session_state.current_page = p
+    st.session_state.kb_retailer = None
+    st.session_state.kb_action = None
+    st.query_params["page"] = p
+
+def get_home():
+    return "HOME" if st.session_state.get("role") == "Admin" else "EMP_HOME"
+
+def do_logout():
+    st.session_state.authenticated = False
+    st.query_params.clear() 
+    st.session_state.current_page = "LOGIN"
+    st.session_state.kb_retailer = None
+
+def verify_pin(n, p):
+    if n == "Avdhesh Kumar" and p == "9557": return True
+    if n == "Babloo kumar singh" and p == "2081": return True
+    if st.session_state.get("role") == "Employee" and p == st.session_state.get("emp_pin"): return True
+    return False
+
 # 🟢 THE "PAKKA TOD" FOR PERSISTENT LOGIN (URL Smart Token)
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
-    
     if "auth" in st.query_params:
         st.session_state.authenticated = True
         st.session_state.role = st.query_params.get("role", "Employee")
@@ -48,13 +69,6 @@ if st.session_state.authenticated:
     elif not url_page:
         st.query_params["page"] = st.session_state.current_page
 
-# 🔴 Logout Function
-def do_logout():
-    st.session_state.authenticated = False
-    st.query_params.clear() 
-    st.session_state.current_page = "LOGIN"
-    st.session_state.kb_retailer = None
-
 # 💎 FULL SCREEN SUCCESS POPUP
 if st.session_state.show_success_modal:
     st.markdown('<audio autoplay style="display:none;"><source src="https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3" type="audio/mpeg"></audio>', unsafe_allow_html=True)
@@ -76,7 +90,7 @@ if st.session_state.show_success_modal:
         st.rerun()
     st.stop()
 
-# 💎 CSS DESIGN (A4 FIXED LAYOUT + SOOTHING COLORS + ANTI-ZOOM)
+# 💎 CSS DESIGN (A4 FIXED LAYOUT + ANTI-ZOOM + TOUCH FIX)
 st.markdown("""
     <style>
     /* 🚫 PREVENT AUTO-ZOOM ON MOBILE */
@@ -91,24 +105,40 @@ st.markdown("""
     .app-header { background: linear-gradient(135deg, #0047AB 0%, #00c6ff 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; }
     
     /* 📱 CENTER LOGIN BOX */
-    .login-spacer { margin-top: 18vh; }
+    .login-spacer { margin-top: 15vh; }
 
-    /* 🔘 DEFAULT BUTTONS (Secondary) */
+    /* 🔘 TOUCH-FIXED BUTTONS (Natural Padding avoids click dead-zones) */
     .stButton > button[kind="secondary"] { 
-        border-radius: 12px !important; height: 70px !important; font-weight: 700 !important; font-size: 15px !important; margin-bottom: 12px !important; border: 1.5px solid #e2e8f0 !important; background: white !important; color: #1e293b !important; width: 100% !important; 
+        border-radius: 12px !important; 
+        padding: 20px 10px !important; 
+        height: auto !important; 
+        font-weight: 700 !important; 
+        font-size: 16px !important; 
+        border: 1.5px solid #e2e8f0 !important; 
+        background: white !important; 
+        color: #1e293b !important; 
+        width: 100% !important; 
     }
     
-    /* 📱 RETAILER LIST BOX (Soothing Slate-Blue Color + White Text + Joined Shape) */
+    /* 📱 RETAILER LIST BOX (Soothing Slate-Blue Color) */
     .stButton > button[kind="primary"] { 
         border-radius: 12px 0 0 12px !important; 
         background: #475569 !important; 
         color: #ffffff !important; 
-        height: 70px !important; font-weight: 700 !important; font-size: 15px !important; margin-bottom: 12px !important; border: none !important; text-align: left !important; padding-left: 15px !important; width: 100% !important; 
+        padding: 20px 15px !important;
+        height: auto !important; 
+        min-height: 70px !important;
+        font-weight: 700 !important; 
+        font-size: 15px !important; 
+        border: none !important; 
+        text-align: left !important; 
+        width: 100% !important; 
     }
     
-    .amt-joined-red { background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%); color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1px solid #b91c1c;}
-    .amt-joined-green { background: linear-gradient(135deg, #4ade80 0%, #15803d 100%); color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1px solid #15803d;}
-    .amt-joined-grey { background: #94a3b8; color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1px solid #94a3b8;}
+    /* JOINED AMOUNT BOXES */
+    .amt-joined-red { background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%); color: white; min-height: 70px; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; border: 1px solid #b91c1c;}
+    .amt-joined-green { background: linear-gradient(135deg, #4ade80 0%, #15803d 100%); color: white; min-height: 70px; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; border: 1px solid #15803d;}
+    .amt-joined-grey { background: #94a3b8; color: white; min-height: 70px; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; border: 1px solid #94a3b8;}
 
     /* 📝 3-Status Boxes & LEDGER */
     .status-container { display: flex; gap: 8px; margin-bottom: 15px; }
@@ -136,7 +166,12 @@ def create_pdf(r_name, r_mob, bal, r_data):
     pdf.add_page()
     pdf.set_font("Arial", 'B', 18); pdf.cell(0, 10, "Sandhya Enterprises", ln=True, align='C')
     pdf.set_font("Arial", 'B', 11); pdf.cell(0, 6, "Jio Authorized Distributor", ln=True, align='C')
-    pdf.line(10, 35, 200, 35); pdf.ln(10)
+    pdf.set_font("Arial", '', 9)
+    pdf.cell(0, 5, "Register office: Rosera Road, Meghpatti, Samastipur, Bihar 848117", ln=True, align='C')
+    pdf.cell(0, 5, "GSTIN: 10GQZPK8313P1Z1 | PAN: GQZPK8313P", ln=True, align='C')
+    pdf.cell(0, 5, "Email: smp.sandhya02@gmail.com | Contact: 7479584179", ln=True, align='C')
+    pdf.line(10, 45, 200, 45); pdf.ln(10)
+    
     pdf.set_font("Arial", 'B', 12); pdf.cell(100, 8, f"Retailer: {r_name}"); pdf.cell(0, 8, f"Bal: Rs {bal:,.2f}", ln=True, align='R')
     pdf.ln(5)
     pdf.set_font("Arial", 'B', 9); pdf.cell(25, 8, "Date", 1); pdf.cell(75, 8, "Particulars", 1); pdf.cell(30, 8, "Diye", 1); pdf.cell(30, 8, "Mile", 1); pdf.cell(30, 8, "Bal", 1); pdf.ln()
@@ -219,49 +254,39 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-def go_to(p): st.session_state.current_page = p; st.session_state.kb_retailer = None; st.session_state.kb_action = None
-def set_kb_retailer(name): st.session_state.kb_retailer = name
-def set_kb_action(act): st.session_state.kb_action = act
-def get_home(): return "HOME" if st.session_state.get("role") == "Admin" else "EMP_HOME"
-
 fse_list = ["Avdhesh Kumar", "Babloo kumar singh"]
 if ret_df is not None and "Location" in ret_df.columns:
     emp_names = ret_df[ret_df['Location'].astype(str).str.upper() == 'EMPLOYEE']['Retailer Name'].tolist()
     fse_list = list(set(fse_list + emp_names))
-def verify_pin(n, p):
-    if n == "Avdhesh Kumar" and p == "9557": return True
-    if n == "Babloo kumar singh" and p == "2081": return True
-    if st.session_state.role == "Employee" and p == st.session_state.emp_pin: return True
-    return False
 
 # --- DASHBOARDS ---
 if st.session_state.current_page == "HOME":
     st.success(f"**Welcome To**\n\n👤 {st.session_state.emp_name} | 📞 {st.session_state.emp_mob}")
     col1, col2 = st.columns(2)
     with col1:
-        st.button("💸 Khatabook 3D", use_container_width=True, type="secondary", on_click=go_to, args=("DUES",))
-        st.button("📊 Live Stock", use_container_width=True, type="secondary", on_click=go_to, args=("STOCK",))
-        st.button("➕ Add Retailer", use_container_width=True, type="secondary", on_click=go_to, args=("ADD",))
-        st.button("📜 Ledger Report", use_container_width=True, type="secondary", on_click=go_to, args=("LEDGER",))
+        if st.button("💸 Khatabook 3D", use_container_width=True, type="secondary"): go_to("DUES"); st.rerun()
+        if st.button("📊 Live Stock", use_container_width=True, type="secondary"): go_to("STOCK"); st.rerun()
+        if st.button("➕ Add Retailer", use_container_width=True, type="secondary"): go_to("ADD"); st.rerun()
+        if st.button("📜 Ledger Report", use_container_width=True, type="secondary"): go_to("LEDGER"); st.rerun()
     with col2:
-        st.button("💰 Today Collection", use_container_width=True, type="secondary", on_click=go_to, args=("COL",))
-        st.button("📦 Entry", use_container_width=True, type="secondary", on_click=go_to, args=("ENTRY",))
-        st.button("🚨 Urgent", use_container_width=True, type="secondary", on_click=go_to, args=("URGENT",))
-        st.button("🚪 Logout", use_container_width=True, type="secondary", on_click=do_logout)
+        if st.button("💰 Today Collection", use_container_width=True, type="secondary"): go_to("COL"); st.rerun()
+        if st.button("📦 Entry", use_container_width=True, type="secondary"): go_to("ENTRY"); st.rerun()
+        if st.button("🚨 Urgent", use_container_width=True, type="secondary"): go_to("URGENT"); st.rerun()
+        if st.button("🚪 Logout", use_container_width=True, type="secondary"): do_logout(); st.rerun()
 
 elif st.session_state.current_page == "EMP_HOME":
     st.success(f"**Welcome To**\n\n👤 {st.session_state.emp_name} | 📞 {st.session_state.emp_mob}")
     col1, col2 = st.columns(2)
     with col1:
-        st.button("📖 Khatabook", use_container_width=True, type="secondary", on_click=go_to, args=("DUES",))
-        st.button("📦 Sim Stock", use_container_width=True, type="secondary", on_click=go_to, args=("STOCK",))
+        if st.button("📖 Khatabook", use_container_width=True, type="secondary"): go_to("DUES"); st.rerun()
+        if st.button("📦 Sim Stock", use_container_width=True, type="secondary"): go_to("STOCK"); st.rerun()
     with col2:
-        st.button("➕ Add Retailer", use_container_width=True, type="secondary", on_click=go_to, args=("ADD",))
-        st.button("Exit", use_container_width=True, type="secondary", on_click=do_logout)
+        if st.button("➕ Add Retailer", use_container_width=True, type="secondary"): go_to("ADD"); st.rerun()
+        if st.button("Exit", use_container_width=True, type="secondary"): do_logout(); st.rerun()
 
 # --- 💸 KHATABOOK 3D ---
 elif st.session_state.current_page == "DUES":
-    st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
+    if st.button("🔙 Back Menu", type="secondary"): go_to(get_home()); st.rerun()
     
     if st.session_state.kb_retailer is None:
         all_r = []; tm, ta = 0, 0
@@ -282,9 +307,10 @@ elif st.session_state.current_page == "DUES":
                 cls = "amt-joined-red" if i['Bal'] > 0 else "amt-joined-green" if i['Bal'] < 0 else "amt-joined-grey"
                 c1, c2 = st.columns([3, 1])
                 with c1:
-                    st.button(f"👤 {i['Name']} ({i['PRM']})", key=f"kb_{i['Disp']}", use_container_width=True, type="primary", on_click=set_kb_retailer, args=(i['Name'],))
+                    if st.button(f"👤 {i['Name']} ({i['PRM']})", key=f"kb_{i['Disp']}", use_container_width=True, type="primary"):
+                        st.session_state.kb_retailer = i['Name']; st.rerun()
                 with c2: 
-                    st.markdown(f"<div class='{cls}'>₹ {abs(i['Bal']):,.0f}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='height: 100%;'><div class='{cls}'>₹ {abs(i['Bal']):,.0f}</div></div>", unsafe_allow_html=True)
     else:
         name = st.session_state.kb_retailer
         r_info = next(v for k, v in retailers_dict.items() if v['Retailer Name'] == name)
@@ -348,8 +374,8 @@ elif st.session_state.current_page == "DUES":
         
         st.markdown("---")
         b1, b2 = st.columns(2)
-        b1.button("🔴 DIYE (Stock)", use_container_width=True, type="secondary", on_click=set_kb_action, args=("diye",))
-        b2.button("🟢 MILE (Payment)", use_container_width=True, type="secondary", on_click=set_kb_action, args=("mile",))
+        if b1.button("🔴 DIYE (Stock)", use_container_width=True, type="secondary"): st.session_state.kb_action = "diye"; st.rerun()
+        if b2.button("🟢 MILE (Payment)", use_container_width=True, type="secondary"): st.session_state.kb_action = "mile"; st.rerun()
         
         if st.session_state.kb_action == "diye":
             with st.form("d_f"):
@@ -389,10 +415,9 @@ elif st.session_state.current_page == "DUES":
 
 # --- OTHER PAGES ---
 elif st.session_state.current_page == "STOCK":
-    st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
+    if st.button("🔙 Back", type="secondary"): go_to(get_home()); st.rerun()
     st.header("📦 Inventory Stock")
     
-    # 🟢 SAFE CHECK FOR KEYERROR IN STOCK PAGE
     if led_df is not None and not led_df.empty:
         if 'Product/Service' in led_df.columns and 'FSE Name' in led_df.columns:
             if st.session_state.role == "Admin":
@@ -406,7 +431,7 @@ elif st.session_state.current_page == "STOCK":
         st.info("No Stock Data Available.")
 
 elif st.session_state.current_page == "ADD":
-    st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
+    if st.button("🔙 Back", type="secondary"): go_to(get_home()); st.rerun()
     with st.form("add_ret"):
         n=st.text_input("Retailer Name"); m=st.text_input("Mobile"); p=st.text_input("PRM ID"); l=st.text_input("Loc")
         st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');i.setAttribute('pattern','[0-9]*');});</script>""", height=0, width=0)
@@ -415,10 +440,8 @@ elif st.session_state.current_page == "ADD":
             st.success("Retailer Added!"); st.cache_data.clear()
 
 elif st.session_state.current_page == "COL":
-    st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
+    if st.button("🔙 Back", type="secondary"): go_to(get_home()); st.rerun()
     st.header("💰 Today's Collection")
-    
-    # 🟢 SAFE CHECK FOR KEYERROR IN COLLECTION PAGE
     if led_df is not None and not led_df.empty and 'Date' in led_df.columns and 'Amount In (Credit)' in led_df.columns:
         t_led = led_df[led_df['Date'] == date.today().strftime("%d-%m-%Y")]
         st.dataframe(t_led[pd.to_numeric(t_led['Amount In (Credit)'], errors='coerce') > 0], hide_index=True)
@@ -426,5 +449,5 @@ elif st.session_state.current_page == "COL":
         st.info("No collection data available today.")
 
 elif st.session_state.current_page in ["ENTRY", "LEDGER", "URGENT"]:
-    st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
+    if st.button("🔙 Back", type="secondary"): go_to(get_home()); st.rerun()
     st.write(f"{st.session_state.current_page} System loaded.")
