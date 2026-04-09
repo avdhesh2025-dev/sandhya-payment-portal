@@ -325,13 +325,25 @@ elif st.session_state.current_page == "DUES":
                 
             rows.append({"d": r['Date'], "i": r['Product/Service'], "out": d, "in": c, "b": running_bal, "status": status_text})
 
+        # 🟢 NEW WHATSAPP REMINDER MESSAGE FORMAT
+        wa_msg = f"*Retailer:* {name} ({prm})\n"
+        wa_msg += f"*Aapka dues hai:* ₹ {abs(running_bal):,.0f}\n"
+        wa_msg += "*Aaj hi online ya cash de kar apna dues clear kare.*\n\n"
+        wa_msg += "*Last 5 Transactions:*\n"
+        for r in rows[-5:]:
+            amt_str = f"Diye (-): ₹{r['out']:,.0f}" if r['out']>0 else f"Mile (+): ₹{r['in']:,.0f}" if r['in']>0 else "₹0"
+            wa_msg += f"🗓 {r['d']} | {r['i']} | {amt_str}\n"
+        wa_msg += "\nRegards,\n*SANDHYA ENTERPRISES*\nAVDHESH KUMAR\n📞 7479584179"
+        
+        encoded_wa_msg = urllib.parse.quote(wa_msg)
+
         st.markdown(f"""
         <div style='background:#0b57d0; color:white; padding:15px; border-radius:12px; margin-bottom:10px; text-align:center;'>
             <h3 style='margin:0;'>{name}</h3>
             <p style='margin:5px 0;'>PRM ID: {prm} | {mob}</p>
             <div style='display:flex; justify-content:space-around; margin-top:10px;'>
                 <a href='tel:{mob}' style='background:white; color:#0b57d0; padding:8px 20px; border-radius:8px; text-decoration:none; font-weight:800; border:1px solid #e2e8f0;'>📞 CALL</a>
-                <a href='https://wa.me/91{mob}?text=Namaste%2C%20Sandhya%20ERP%20Reminder%3A%20Balance%20Rs%20{abs(running_bal)}' style='background:#25D366; color:white; padding:8px 20px; border-radius:8px; text-decoration:none; font-weight:800; border:1px solid #16a34a;'>📲 WA</a>
+                <a href='https://wa.me/91{mob}?text={encoded_wa_msg}' style='background:#25D366; color:white; padding:8px 20px; border-radius:8px; text-decoration:none; font-weight:800; border:1px solid #16a34a;'>📲 WA</a>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -411,15 +423,17 @@ elif st.session_state.current_page == "STOCK":
     st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
     st.header("📦 Inventory Stock")
     
-    # 🟢 SAFE CHECK FOR STOCK
-    if led_df is not None and not led_df.empty and 'Product/Service' in led_df.columns and 'FSE Name' in led_df.columns:
-        if st.session_state.role == "Admin":
-            stock_data = led_df[led_df['Product/Service'] == 'Sim Allocation']
+    if led_df is not None and not led_df.empty:
+        if 'Product/Service' in led_df.columns and 'FSE Name' in led_df.columns:
+            if st.session_state.role == "Admin":
+                stock_data = led_df[led_df['Product/Service'] == 'Sim Allocation']
+            else:
+                stock_data = led_df[led_df['FSE Name'] == st.session_state.emp_name]
+            st.dataframe(stock_data, hide_index=True)
         else:
-            stock_data = led_df[led_df['FSE Name'] == st.session_state.emp_name]
-        st.dataframe(stock_data, hide_index=True)
+            st.info("Stock data format is currently unavailable.")
     else:
-        st.info("Stock data is currently unavailable.")
+        st.info("No Stock Data Available.")
 
 elif st.session_state.current_page == "ADD":
     st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
@@ -430,7 +444,6 @@ elif st.session_state.current_page == "ADD":
             requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":l.upper(),"date":date.today().strftime("%d-%m-%Y")})
             st.success("Retailer Added!"); st.cache_data.clear()
 
-# 🟢 EXCEL DOWNLOAD TODAY COLLECTION (With Safe Checks)
 elif st.session_state.current_page == "COL":
     st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
     st.header("💰 Today's Collection")
@@ -441,7 +454,6 @@ elif st.session_state.current_page == "COL":
         
         coll_df = t_led[t_led['Amount In (Credit)'] > 0]
         
-        # Safe check for Employee view
         if st.session_state.role == "Employee" and 'FSE Name' in coll_df.columns:
             coll_df = coll_df[coll_df['FSE Name'] == st.session_state.emp_name]
             
