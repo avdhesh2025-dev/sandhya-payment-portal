@@ -247,7 +247,7 @@ elif st.session_state.current_page == "LEDGER":
         st.dataframe(f_led.drop(columns=['DateObj']), use_container_width=True, hide_index=True)
         st.download_button("📥 Excel Download", f_led.to_csv(index=False).encode('utf-8-sig'), f"{r_name}_Ledger.csv")
 
-# --- 💸 6. DUES REMINDERS (100% ORIGINAL RESTORED) ---
+# --- 💸 6. DUES REMINDERS ---
 elif st.session_state.current_page == "DUES":
     c1, c2 = st.columns(2)
     if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
@@ -278,7 +278,7 @@ elif st.session_state.current_page == "BULK":
     c1, c2 = st.columns(2)
     if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
     if c2.button("🔄 Refresh", use_container_width=True): st.cache_data.clear(); st.rerun()
-    st.header("📂 Jio Bulk Etop (3% Margin Deduct)")
+    st.header("📂 Jio Bulk Etop (Auto-Amount Match)")
     up_j = st.file_uploader("Upload Jio Export Excel", type=["xlsx","csv"])
     if up_j:
         df_j = pd.read_excel(up_j) if up_j.name.endswith('xlsx') else pd.read_csv(up_j)
@@ -293,7 +293,18 @@ elif st.session_state.current_page == "BULK":
                     prm = clean_prm_id(row.get("Partner PRM ID", ""))
                     if prm in prm_mapping:
                         amt = float(str(row.get("Transfer Amount", 0)).replace(',',''))
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":prm_mapping[prm]['Name'],"r_mob":prm_mapping[prm]['Mobile'],"type":"Etop Transfer","qty":0,"amt_out":round(amt*0.97,2),"amt_in":0,"fse":f_n,"txn_id":str(row.get("Order ID",""))})
+                        
+                        # 🟢 NEW CUSTOM AMOUNT LOGIC
+                        if amt == 5150: final_amt = 5000
+                        elif amt == 3090: final_amt = 3000
+                        elif amt == 2060: final_amt = 2000
+                        elif amt == 1545: final_amt = 1500
+                        elif amt == 100: final_amt = 100
+                        elif amt == 200: final_amt = 200
+                        elif amt == 500: final_amt = 500
+                        else: final_amt = amt # Default fallback
+
+                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":prm_mapping[prm]['Name'],"r_mob":prm_mapping[prm]['Mobile'],"type":"Etop Transfer","qty":0,"amt_out":final_amt,"amt_in":0,"fse":f_n,"txn_id":str(row.get("Order ID",""))})
                         time.sleep(0.5)
                     prog.progress((i+1)/len(df_j))
                 st.success("✅ Done!"); st.cache_data.clear()
