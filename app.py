@@ -122,8 +122,6 @@ elif st.session_state.current_page == "COLLECTION":
     st.header("💸 Today's Collection")
     
     if ret_df is not None and led_df is not None:
-        
-        # 🟢 NEW: Calculation for Total Dues and Today's Collection Boxes
         total_market_dues = 0
         today_date_str = date.today().strftime("%d-%m-%Y")
         
@@ -134,17 +132,30 @@ elif st.session_state.current_page == "COLLECTION":
             if dues > 0:
                 total_market_dues += dues
                 
-        # Get Today's Total Collection
-        today_led = led_df[led_df['Date'] == today_date_str]
-        today_collection = pd.to_numeric(today_led['Amount In (Credit)'], errors='coerce').sum()
+        # Calculate Today's Total Collection
+        today_led = led_df[led_df['Date'] == today_date_str].copy()
+        today_led['Amount In (Credit)'] = pd.to_numeric(today_led['Amount In (Credit)'], errors='coerce').fillna(0)
+        today_collections = today_led[today_led['Amount In (Credit)'] > 0]
+        today_collection_sum = today_collections['Amount In (Credit)'].sum()
         
-        # 🟢 NEW: Displaying the Boxes
+        # Display the Boxes
         box1, box2 = st.columns(2)
         box1.error(f"### 🚩 Total Market Dues\n# ₹ {total_market_dues:,.2f}")
-        box2.success(f"### 📥 Today's Collection\n# ₹ {today_collection:,.2f}")
+        box2.success(f"### 📥 Today's Collection\n# ₹ {today_collection_sum:,.2f}")
+        
+        # 🟢 NEW: Expandable Arrow for Today's Collection Details
+        if not today_collections.empty:
+            with st.expander("🔽 View Today's Collection Details (Kisne kya entry ki)"):
+                cols = [c for c in ['Retailer Name', 'Product/Service', 'Amount In (Credit)', 'FSE Name'] if c in today_collections.columns]
+                if not cols: cols = today_collections.columns.drop('DateObj', errors='ignore')
+                st.dataframe(today_collections[cols], use_container_width=True, hide_index=True)
+        else:
+            with st.expander("🔽 View Today's Collection Details (Kisne kya entry ki)"):
+                st.info("No collections recorded yet for today.")
+                
         st.markdown("<hr>", unsafe_allow_html=True)
         
-        # Existing Retailer List Logic
+        # Retailer List for new collections
         for _, row in ret_df.iterrows():
             name, mob = row["Retailer Name"], str(row["Mobile Number"]).split('.')[0]
             u_led = led_df[led_df['Retailer Name'] == name]
@@ -271,23 +282,35 @@ elif st.session_state.current_page == "LEDGER":
         st.dataframe(f_led.drop(columns=['DateObj']), use_container_width=True, hide_index=True)
         st.download_button("📥 Excel Download", f_led.to_csv(index=False).encode('utf-8-sig'), f"{r_name}_Ledger.csv")
 
-# --- 💸 6. DUES REMINDERS (100% ORIGINAL RESTORED) ---
+# --- 💸 6. DUES & ADVANCE LIST ---
 elif st.session_state.current_page == "DUES":
     c1, c2 = st.columns(2)
     if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
     if c2.button("🔄 Refresh", use_container_width=True): st.cache_data.clear(); st.rerun()
     
-    st.header("💰 Dues Collection List (Bulk SMS)")
-    if st.button("🔄 Check All Dues", use_container_width=True):
-        summary = []
+    st.header("💰 Dues & Advance List")
+    if st.button("🔄 Check Market Balance", use_container_width=True):
+        dues_summary = []
+        adv_summary = []
+        
         for key, val in retailers_data.items():
             name = val["Name"]
-            u_data = led_df[led_df['Retailer Name'] == name]
+            u_data = led_df[led_df['Retailer Name'] == name].copy()
             d = pd.to_numeric(u_data['Amount Out (Debit)'], errors='coerce').sum()
             c = pd.to_numeric(u_data['Amount In (Credit)'], errors='coerce').sum()
-            if (d - c) > 0: summary.append({"Retailer": name, "Mobile": val["Mobile"], "Dues": d - c})
+            balance = d - c
+            
+            if balance > 0: 
+                dues_summary.append({"Retailer": name, "Mobile": val["Mobile"], "Dues": balance})
+            elif balance < 0: # 🟢 NEW: Extra Paisa (Advance) Check
+                # Find last credit reason (kya chij ka)
+                last_credit = u_data[pd.to_numeric(u_data['Amount In (Credit)'], errors='coerce') > 0].tail(1)
+                reason = last_credit['Product/Service'].values[0] if not last_credit.empty else "Advance"
+                adv_summary.append({"Retailer": name, "Mobile": val["Mobile"], "Advance Balance": abs(balance), "Reason/Item": reason})
         
-        s_df = pd.DataFrame(summary)
+        # 1. Show Dues (Wassuli)
+        st.subheader("🚩 Pending Dues List")
+        s_df = pd.DataFrame(dues_summary)
         if not s_df.empty:
             st.error(f"💸 Total Market Dues: ₹{s_df['Dues'].sum()}")
             st.dataframe(s_df, use_container_width=True, hide_index=True)
@@ -296,6 +319,17 @@ elif st.session_state.current_page == "DUES":
                 st.markdown(f"**{row['Retailer']}** (₹{row['Dues']}) -> [📲 Send Reminder](https://wa.me/91{row['Mobile']}?text={urllib.parse.quote(msg)})")
         else: 
             st.success("✅ No dues pending!")
+            
+        st.markdown("<hr>", unsafe_allow_html=True)
+        
+        # 2. 🟢 NEW: Show Advance Balances
+        st.subheader("🌟 Retailers in Advance (Kiske paas extra jama hai)")
+        a_df = pd.DataFrame(adv_summary)
+        if not a_df.empty:
+            st.success(f"💰 Total Advance in Market: ₹{a_df['Advance Balance'].sum()}")
+            st.dataframe(a_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No advance balances found.")
 
 # --- 📂 7. BULK ENTRY (JIO ETOP) ---
 elif st.session_state.current_page == "BULK":
@@ -318,7 +352,6 @@ elif st.session_state.current_page == "BULK":
                     if prm in prm_mapping:
                         amt = float(str(row.get("Transfer Amount", 0)).replace(',',''))
                         
-                        # 🟢 NEW CUSTOM AMOUNT LOGIC
                         if amt == 5150: final_amt = 5000
                         elif amt == 3090: final_amt = 3000
                         elif amt == 2060: final_amt = 2000
