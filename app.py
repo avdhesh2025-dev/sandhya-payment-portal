@@ -14,15 +14,18 @@ except ImportError:
 # 1. Page Configuration (A4 Scale & Fixed Layout)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="centered", initial_sidebar_state="collapsed")
 
-# 🟢 NAVIGATION FUNCTIONS (100% Working Touch Setup)
+# 🟢 FUNCTIONS DEFINED AT THE TOP (To prevent NameError)
 def go_to(p): 
     st.session_state.current_page = p
     st.session_state.kb_retailer = None
     st.session_state.kb_action = None
     st.query_params["page"] = p
 
-def get_home():
-    return "HOME" if st.session_state.get("role") == "Admin" else "EMP_HOME"
+def set_kb_retailer(name):
+    st.session_state.kb_retailer = name
+
+def set_kb_action(act):
+    st.session_state.kb_action = act
 
 def do_logout():
     st.session_state.authenticated = False
@@ -30,13 +33,16 @@ def do_logout():
     st.session_state.current_page = "LOGIN"
     st.session_state.kb_retailer = None
 
+def get_home():
+    return "HOME" if st.session_state.get("role") == "Admin" else "EMP_HOME"
+
 def verify_pin(n, p):
     if n == "Avdhesh Kumar" and p == "9557": return True
     if n == "Babloo kumar singh" and p == "2081": return True
     if st.session_state.get("role") == "Employee" and p == st.session_state.get("emp_pin"): return True
     return False
 
-# 🟢 THE "PAKKA TOD" FOR PERSISTENT LOGIN (URL Smart Token)
+# 🟢 PERSISTENT LOGIN (URL Smart Token)
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
     if "auth" in st.query_params:
@@ -90,7 +96,7 @@ if st.session_state.show_success_modal:
         st.rerun()
     st.stop()
 
-# 💎 CSS DESIGN (A4 FIXED LAYOUT + ANTI-ZOOM + TOUCH FIX)
+# 💎 CSS DESIGN (A4 FIXED LAYOUT + SOOTHING COLORS + ANTI-ZOOM)
 st.markdown("""
     <style>
     /* 🚫 PREVENT AUTO-ZOOM ON MOBILE */
@@ -105,40 +111,26 @@ st.markdown("""
     .app-header { background: linear-gradient(135deg, #0047AB 0%, #00c6ff 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; }
     
     /* 📱 CENTER LOGIN BOX */
-    .login-spacer { margin-top: 15vh; }
+    .login-spacer { margin-top: 18vh; }
 
-    /* 🔘 TOUCH-FIXED BUTTONS (Natural Padding avoids click dead-zones) */
+    /* 🔘 DEFAULT BUTTONS (Secondary) */
     .stButton > button[kind="secondary"] { 
-        border-radius: 12px !important; 
-        padding: 20px 10px !important; 
-        height: auto !important; 
-        font-weight: 700 !important; 
-        font-size: 16px !important; 
-        border: 1.5px solid #e2e8f0 !important; 
-        background: white !important; 
-        color: #1e293b !important; 
-        width: 100% !important; 
+        border-radius: 12px !important; height: 70px !important; font-weight: 700 !important; font-size: 15px !important; margin-bottom: 12px !important; border: 1.5px solid #e2e8f0 !important; background: white !important; color: #1e293b !important; width: 100% !important; 
     }
     
     /* 📱 RETAILER LIST BOX (Soothing Slate-Blue Color) */
     .stButton > button[kind="primary"] { 
-        border-radius: 12px 0 0 12px !important; 
-        background: #475569 !important; 
-        color: #ffffff !important; 
-        padding: 20px 15px !important;
-        height: auto !important; 
-        min-height: 70px !important;
-        font-weight: 700 !important; 
-        font-size: 15px !important; 
-        border: none !important; 
-        text-align: left !important; 
-        width: 100% !important; 
+        border-radius: 12px 0 0 12px !important; background: #475569 !important; color: #ffffff !important; height: 70px !important; font-weight: 700 !important; font-size: 15px !important; margin-bottom: 12px !important; border: none !important; text-align: left !important; padding-left: 15px !important; width: 100% !important; 
     }
     
-    /* JOINED AMOUNT BOXES */
-    .amt-joined-red { background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%); color: white; min-height: 70px; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; border: 1px solid #b91c1c;}
-    .amt-joined-green { background: linear-gradient(135deg, #4ade80 0%, #15803d 100%); color: white; min-height: 70px; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; border: 1px solid #15803d;}
-    .amt-joined-grey { background: #94a3b8; color: white; min-height: 70px; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; border: 1px solid #94a3b8;}
+    /* EXCEL DOWNLOAD BUTTON (Green) */
+    .stDownloadButton > button {
+        border-radius: 12px !important; background: #15803d !important; color: white !important; height: 70px !important; font-weight: 800 !important; font-size: 16px !important; width: 100% !important; margin-top: 15px !important;
+    }
+    
+    .amt-joined-red { background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%); color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1px solid #b91c1c;}
+    .amt-joined-green { background: linear-gradient(135deg, #4ade80 0%, #15803d 100%); color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1px solid #15803d;}
+    .amt-joined-grey { background: #94a3b8; color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1px solid #94a3b8;}
 
     /* 📝 3-Status Boxes & LEDGER */
     .status-container { display: flex; gap: 8px; margin-bottom: 15px; }
@@ -264,29 +256,31 @@ if st.session_state.current_page == "HOME":
     st.success(f"**Welcome To**\n\n👤 {st.session_state.emp_name} | 📞 {st.session_state.emp_mob}")
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("💸 Khatabook 3D", use_container_width=True, type="secondary"): go_to("DUES"); st.rerun()
-        if st.button("📊 Live Stock", use_container_width=True, type="secondary"): go_to("STOCK"); st.rerun()
-        if st.button("➕ Add Retailer", use_container_width=True, type="secondary"): go_to("ADD"); st.rerun()
-        if st.button("📜 Ledger Report", use_container_width=True, type="secondary"): go_to("LEDGER"); st.rerun()
+        st.button("💸 Khatabook 3D", use_container_width=True, type="secondary", on_click=go_to, args=("DUES",))
+        st.button("📊 Live Stock", use_container_width=True, type="secondary", on_click=go_to, args=("STOCK",))
+        st.button("➕ Add Retailer", use_container_width=True, type="secondary", on_click=go_to, args=("ADD",))
+        st.button("📜 Ledger Report", use_container_width=True, type="secondary", on_click=go_to, args=("LEDGER",))
     with col2:
-        if st.button("💰 Today Collection", use_container_width=True, type="secondary"): go_to("COL"); st.rerun()
-        if st.button("📦 Entry", use_container_width=True, type="secondary"): go_to("ENTRY"); st.rerun()
-        if st.button("🚨 Urgent", use_container_width=True, type="secondary"): go_to("URGENT"); st.rerun()
-        if st.button("🚪 Logout", use_container_width=True, type="secondary"): do_logout(); st.rerun()
+        st.button("💰 Today Collection", use_container_width=True, type="secondary", on_click=go_to, args=("COL",))
+        st.button("📦 Entry", use_container_width=True, type="secondary", on_click=go_to, args=("ENTRY",))
+        st.button("🚨 Urgent", use_container_width=True, type="secondary", on_click=go_to, args=("URGENT",))
+        st.button("🚪 Logout", use_container_width=True, type="secondary", on_click=do_logout)
 
 elif st.session_state.current_page == "EMP_HOME":
     st.success(f"**Welcome To**\n\n👤 {st.session_state.emp_name} | 📞 {st.session_state.emp_mob}")
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("📖 Khatabook", use_container_width=True, type="secondary"): go_to("DUES"); st.rerun()
-        if st.button("📦 Sim Stock", use_container_width=True, type="secondary"): go_to("STOCK"); st.rerun()
+        st.button("📖 Khatabook", use_container_width=True, type="secondary", on_click=go_to, args=("DUES",))
+        st.button("📦 Sim Stock", use_container_width=True, type="secondary", on_click=go_to, args=("STOCK",))
+        # 🟢 NEW BUTTON FOR EMPLOYEE: TODAY COLLECTION
+        st.button("💰 Today Collection", use_container_width=True, type="secondary", on_click=go_to, args=("COL",))
     with col2:
-        if st.button("➕ Add Retailer", use_container_width=True, type="secondary"): go_to("ADD"); st.rerun()
-        if st.button("Exit", use_container_width=True, type="secondary"): do_logout(); st.rerun()
+        st.button("➕ Add Retailer", use_container_width=True, type="secondary", on_click=go_to, args=("ADD",))
+        st.button("Exit", use_container_width=True, type="secondary", on_click=do_logout)
 
 # --- 💸 KHATABOOK 3D ---
 elif st.session_state.current_page == "DUES":
-    if st.button("🔙 Back Menu", type="secondary"): go_to(get_home()); st.rerun()
+    st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
     
     if st.session_state.kb_retailer is None:
         all_r = []; tm, ta = 0, 0
@@ -307,10 +301,9 @@ elif st.session_state.current_page == "DUES":
                 cls = "amt-joined-red" if i['Bal'] > 0 else "amt-joined-green" if i['Bal'] < 0 else "amt-joined-grey"
                 c1, c2 = st.columns([3, 1])
                 with c1:
-                    if st.button(f"👤 {i['Name']} ({i['PRM']})", key=f"kb_{i['Disp']}", use_container_width=True, type="primary"):
-                        st.session_state.kb_retailer = i['Name']; st.rerun()
+                    st.button(f"👤 {i['Name']} ({i['PRM']})", key=f"kb_{i['Disp']}", use_container_width=True, type="primary", on_click=set_kb_retailer, args=(i['Name'],))
                 with c2: 
-                    st.markdown(f"<div style='height: 100%;'><div class='{cls}'>₹ {abs(i['Bal']):,.0f}</div></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='{cls}'>₹ {abs(i['Bal']):,.0f}</div>", unsafe_allow_html=True)
     else:
         name = st.session_state.kb_retailer
         r_info = next(v for k, v in retailers_dict.items() if v['Retailer Name'] == name)
@@ -374,8 +367,8 @@ elif st.session_state.current_page == "DUES":
         
         st.markdown("---")
         b1, b2 = st.columns(2)
-        if b1.button("🔴 DIYE (Stock)", use_container_width=True, type="secondary"): st.session_state.kb_action = "diye"; st.rerun()
-        if b2.button("🟢 MILE (Payment)", use_container_width=True, type="secondary"): st.session_state.kb_action = "mile"; st.rerun()
+        b1.button("🔴 DIYE (Stock)", use_container_width=True, type="secondary", on_click=set_kb_action, args=("diye",))
+        b2.button("🟢 MILE (Payment)", use_container_width=True, type="secondary", on_click=set_kb_action, args=("mile",))
         
         if st.session_state.kb_action == "diye":
             with st.form("d_f"):
@@ -415,7 +408,7 @@ elif st.session_state.current_page == "DUES":
 
 # --- OTHER PAGES ---
 elif st.session_state.current_page == "STOCK":
-    if st.button("🔙 Back", type="secondary"): go_to(get_home()); st.rerun()
+    st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
     st.header("📦 Inventory Stock")
     
     if led_df is not None and not led_df.empty:
@@ -431,7 +424,7 @@ elif st.session_state.current_page == "STOCK":
         st.info("No Stock Data Available.")
 
 elif st.session_state.current_page == "ADD":
-    if st.button("🔙 Back", type="secondary"): go_to(get_home()); st.rerun()
+    st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
     with st.form("add_ret"):
         n=st.text_input("Retailer Name"); m=st.text_input("Mobile"); p=st.text_input("PRM ID"); l=st.text_input("Loc")
         st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');i.setAttribute('pattern','[0-9]*');});</script>""", height=0, width=0)
@@ -439,15 +432,45 @@ elif st.session_state.current_page == "ADD":
             requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":l.upper(),"date":date.today().strftime("%d-%m-%Y")})
             st.success("Retailer Added!"); st.cache_data.clear()
 
+# 🟢 NEW: EXCEL DOWNLOAD TODAY COLLECTION
 elif st.session_state.current_page == "COL":
-    if st.button("🔙 Back", type="secondary"): go_to(get_home()); st.rerun()
+    st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
     st.header("💰 Today's Collection")
+    
     if led_df is not None and not led_df.empty and 'Date' in led_df.columns and 'Amount In (Credit)' in led_df.columns:
-        t_led = led_df[led_df['Date'] == date.today().strftime("%d-%m-%Y")]
-        st.dataframe(t_led[pd.to_numeric(t_led['Amount In (Credit)'], errors='coerce') > 0], hide_index=True)
+        t_led = led_df[led_df['Date'] == date.today().strftime("%d-%m-%Y")].copy()
+        t_led['Amount In (Credit)'] = pd.to_numeric(t_led['Amount In (Credit)'], errors='coerce').fillna(0)
+        
+        # Filter for collection data (Amount > 0)
+        coll_df = t_led[t_led['Amount In (Credit)'] > 0]
+        
+        # If it's an employee, show only their collections
+        if st.session_state.role == "Employee":
+            coll_df = coll_df[coll_df['FSE Name'] == st.session_state.emp_name]
+            
+        if not coll_df.empty:
+            # Rename and format for professional view
+            disp_df = coll_df[['Retailer Name', 'Amount In (Credit)', 'Product/Service', 'FSE Name']].copy()
+            disp_df.columns = ['Retailer Name', 'Amount (₹)', 'Payment Mode', 'Received By']
+            
+            # Show Data on screen
+            st.dataframe(disp_df, hide_index=True)
+            st.write(f"**Total Collected Today: ₹ {disp_df['Amount (₹)'].sum():,.0f}**")
+            
+            # EXCEL (CSV) DOWNLOAD BUTTON
+            csv = disp_df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download Excel (CSV)",
+                data=csv,
+                file_name=f"Today_Collection_{date.today().strftime('%d-%m-%Y')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        else:
+            st.info("No collection data available today for your account.")
     else:
         st.info("No collection data available today.")
 
 elif st.session_state.current_page in ["ENTRY", "LEDGER", "URGENT"]:
-    if st.button("🔙 Back", type="secondary"): go_to(get_home()); st.rerun()
+    st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
     st.write(f"{st.session_state.current_page} System loaded.")
