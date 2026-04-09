@@ -14,35 +14,7 @@ except ImportError:
 # 1. Page Configuration (A4 Scale & Fixed Layout)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="centered", initial_sidebar_state="collapsed")
 
-# 🟢 FUNCTIONS DEFINED AT THE TOP (To prevent NameError)
-def go_to(p): 
-    st.session_state.current_page = p
-    st.session_state.kb_retailer = None
-    st.session_state.kb_action = None
-    st.query_params["page"] = p
-
-def set_kb_retailer(name):
-    st.session_state.kb_retailer = name
-
-def set_kb_action(act):
-    st.session_state.kb_action = act
-
-def do_logout():
-    st.session_state.authenticated = False
-    st.query_params.clear() 
-    st.session_state.current_page = "LOGIN"
-    st.session_state.kb_retailer = None
-
-def get_home():
-    return "HOME" if st.session_state.get("role") == "Admin" else "EMP_HOME"
-
-def verify_pin(n, p):
-    if n == "Avdhesh Kumar" and p == "9557": return True
-    if n == "Babloo kumar singh" and p == "2081": return True
-    if st.session_state.get("role") == "Employee" and p == st.session_state.get("emp_pin"): return True
-    return False
-
-# 🟢 PERSISTENT LOGIN (URL Smart Token)
+# 🟢 THE "PAKKA TOD" FOR PERSISTENT LOGIN (URL Smart Token)
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
     
@@ -75,6 +47,13 @@ if st.session_state.authenticated:
             st.session_state.kb_action = None
     elif not url_page:
         st.query_params["page"] = st.session_state.current_page
+
+# 🔴 Logout Function
+def do_logout():
+    st.session_state.authenticated = False
+    st.query_params.clear() 
+    st.session_state.current_page = "LOGIN"
+    st.session_state.kb_retailer = None
 
 # 💎 FULL SCREEN SUCCESS POPUP
 if st.session_state.show_success_modal:
@@ -155,15 +134,9 @@ def create_pdf(r_name, r_mob, bal, r_data):
     if not HAS_FPDF: return None
     pdf = FPDF()
     pdf.add_page()
-    # 🟢 PDF COMPANY DETAILS ADDED
     pdf.set_font("Arial", 'B', 18); pdf.cell(0, 10, "Sandhya Enterprises", ln=True, align='C')
     pdf.set_font("Arial", 'B', 11); pdf.cell(0, 6, "Jio Authorized Distributor", ln=True, align='C')
-    pdf.set_font("Arial", '', 9)
-    pdf.cell(0, 5, "Register office: Rosera Road, Meghpatti, Samastipur, Bihar 848117", ln=True, align='C')
-    pdf.cell(0, 5, "GSTIN: 10GQZPK8313P1Z1 | PAN: GQZPK8313P", ln=True, align='C')
-    pdf.cell(0, 5, "Email: smp.sandhya02@gmail.com | Contact: 7479584179", ln=True, align='C')
-    pdf.line(10, 45, 200, 45); pdf.ln(10)
-    
+    pdf.line(10, 35, 200, 35); pdf.ln(10)
     pdf.set_font("Arial", 'B', 12); pdf.cell(100, 8, f"Retailer: {r_name}"); pdf.cell(0, 8, f"Bal: Rs {bal:,.2f}", ln=True, align='R')
     pdf.ln(5)
     pdf.set_font("Arial", 'B', 9); pdf.cell(25, 8, "Date", 1); pdf.cell(75, 8, "Particulars", 1); pdf.cell(30, 8, "Diye", 1); pdf.cell(30, 8, "Mile", 1); pdf.cell(30, 8, "Bal", 1); pdf.ln()
@@ -246,10 +219,20 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+def go_to(p): st.session_state.current_page = p; st.session_state.kb_retailer = None; st.session_state.kb_action = None
+def set_kb_retailer(name): st.session_state.kb_retailer = name
+def set_kb_action(act): st.session_state.kb_action = act
+def get_home(): return "HOME" if st.session_state.get("role") == "Admin" else "EMP_HOME"
+
 fse_list = ["Avdhesh Kumar", "Babloo kumar singh"]
 if ret_df is not None and "Location" in ret_df.columns:
     emp_names = ret_df[ret_df['Location'].astype(str).str.upper() == 'EMPLOYEE']['Retailer Name'].tolist()
     fse_list = list(set(fse_list + emp_names))
+def verify_pin(n, p):
+    if n == "Avdhesh Kumar" and p == "9557": return True
+    if n == "Babloo kumar singh" and p == "2081": return True
+    if st.session_state.role == "Employee" and p == st.session_state.emp_pin: return True
+    return False
 
 # --- DASHBOARDS ---
 if st.session_state.current_page == "HOME":
@@ -408,7 +391,19 @@ elif st.session_state.current_page == "DUES":
 elif st.session_state.current_page == "STOCK":
     st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
     st.header("📦 Inventory Stock")
-    st.dataframe(led_df[led_df['Product/Service']=='Sim Allocation'] if st.session_state.role=="Admin" else led_df[led_df['FSE Name']==st.session_state.emp_name], hide_index=True)
+    
+    # 🟢 SAFE CHECK FOR KEYERROR IN STOCK PAGE
+    if led_df is not None and not led_df.empty:
+        if 'Product/Service' in led_df.columns and 'FSE Name' in led_df.columns:
+            if st.session_state.role == "Admin":
+                stock_data = led_df[led_df['Product/Service'] == 'Sim Allocation']
+            else:
+                stock_data = led_df[led_df['FSE Name'] == st.session_state.emp_name]
+            st.dataframe(stock_data, hide_index=True)
+        else:
+            st.info("Stock data format is currently unavailable.")
+    else:
+        st.info("No Stock Data Available.")
 
 elif st.session_state.current_page == "ADD":
     st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
@@ -422,8 +417,13 @@ elif st.session_state.current_page == "ADD":
 elif st.session_state.current_page == "COL":
     st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
     st.header("💰 Today's Collection")
-    t_led = led_df[led_df['Date'] == date.today().strftime("%d-%m-%Y")]
-    st.dataframe(t_led[pd.to_numeric(t_led['Amount In (Credit)'], errors='coerce') > 0], hide_index=True)
+    
+    # 🟢 SAFE CHECK FOR KEYERROR IN COLLECTION PAGE
+    if led_df is not None and not led_df.empty and 'Date' in led_df.columns and 'Amount In (Credit)' in led_df.columns:
+        t_led = led_df[led_df['Date'] == date.today().strftime("%d-%m-%Y")]
+        st.dataframe(t_led[pd.to_numeric(t_led['Amount In (Credit)'], errors='coerce') > 0], hide_index=True)
+    else:
+        st.info("No collection data available today.")
 
 elif st.session_state.current_page in ["ENTRY", "LEDGER", "URGENT"]:
     st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
