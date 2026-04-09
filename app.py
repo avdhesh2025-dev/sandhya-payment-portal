@@ -132,20 +132,15 @@ elif st.session_state.current_page == "COLLECTION":
             if dues > 0:
                 total_market_dues += dues
                 
-        # 🟢 SMART FILTER: Calculate Today's Total Collection (Exclude 'Opening Advance' or 'Opening Dues')
         today_led = led_df[led_df['Date'] == today_date_str].copy()
         today_led['Amount In (Credit)'] = pd.to_numeric(today_led['Amount In (Credit)'], errors='coerce').fillna(0)
-        
-        # Only keep rows where Amount > 0 AND it is NOT an 'Opening' entry
         today_collections = today_led[(today_led['Amount In (Credit)'] > 0) & (~today_led['Product/Service'].astype(str).str.contains('Opening', case=False, na=False))]
         today_collection_sum = today_collections['Amount In (Credit)'].sum()
         
-        # Display the Boxes
         box1, box2 = st.columns(2)
         box1.error(f"### 🚩 Total Market Dues\n# ₹ {total_market_dues:,.2f}")
         box2.success(f"### 📥 Today's Collection\n# ₹ {today_collection_sum:,.2f}")
         
-        # Expandable Arrow for Today's Collection Details
         if not today_collections.empty:
             with st.expander("🔽 View Today's Collection Details (Kisne kya entry ki)"):
                 cols = [c for c in ['Retailer Name', 'Product/Service', 'Amount In (Credit)', 'FSE Name'] if c in today_collections.columns]
@@ -157,7 +152,6 @@ elif st.session_state.current_page == "COLLECTION":
                 
         st.markdown("<hr>", unsafe_allow_html=True)
         
-        # Retailer List for new collections
         for _, row in ret_df.iterrows():
             name, mob = row["Retailer Name"], str(row["Mobile Number"]).split('.')[0]
             u_led = led_df[led_df['Retailer Name'] == name]
@@ -167,12 +161,16 @@ elif st.session_state.current_page == "COLLECTION":
                     st.markdown(f"### [📞 Call](tel:{mob})")
                     with st.form(f"col_{_}"):
                         p_amt = st.number_input("Amount", min_value=1.0)
+                        # 🟢 NAYA OPTION ADD KIYA GAYA HAI: Cash / Online
+                        p_mode = st.selectbox("Payment Mode", ["Cash", "Online"], key=f"mode_{_}")
                         f_n = st.selectbox("FSE", ["Avdhesh Kumar", "Babloo kumar singh"], key=f"fse_{_}")
                         f_p = st.text_input("PIN", type="password", key=f"pin_{_}")
                         if st.form_submit_button("Save"):
                             if (f_n=="Avdhesh Kumar" and f_p=="9557") or (f_n=="Babloo kumar singh" and f_p=="2081"):
-                                payload = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": name, "r_mob": mob, "type": "Collection", "qty": 0, "amt_out": 0, "amt_in": p_amt, "fse": f_n, "txn_id": "DIRECT"}
-                                requests.post(WEBHOOK_URL, json=payload)
+                                # Type me ab Collection (Cash) ya Collection (Online) likha jayega
+                                payload = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": name, "r_mob": mob, "type": f"Collection ({p_mode})", "qty": 0, "amt_out": 0, "amt_in": p_amt, "fse": f_n, "txn_id": "DIRECT"}
+                                try: requests.post(WEBHOOK_URL, json=payload)
+                                except: pass
                                 st.success("✅ Saved!"); st.cache_data.clear()
                             else: st.error("❌ Wrong PIN")
 
@@ -215,7 +213,8 @@ elif st.session_state.current_page == "ENTRY":
                 final_type = f"{t_type} ({p_mode})" if t_type == "Payment Received" else t_type
                 payload = {"action":"add_txn","date":t_date.strftime("%d-%m-%Y"),"r_name":r_name, "r_mob":r_mob, "type":final_type,"qty":t_qty,"amt_out":t_amt if t_type!="Payment Received" else 0,"amt_in":t_amt if t_type=="Payment Received" else 0,"fse":fse,"txn_id":txn_id}
                 
-                requests.post(WEBHOOK_URL, json=payload)
+                try: requests.post(WEBHOOK_URL, json=payload)
+                except: pass
                 st.success("✅ Entry Saved Successfully!"); st.cache_data.clear()
                 msg = urllib.parse.quote(f"*Sandhya Enterprises*\nRetailer: {r_name}\nItem: {final_type}\nAmount: ₹{t_amt}")
                 st.markdown(f"### [🟢 Send WhatsApp](https://wa.me/91{r_mob}?text={msg})")
@@ -242,7 +241,8 @@ elif st.session_state.current_page == "ADD_RETAILER":
         if st.form_submit_button("Save Retailer"):
             if n and p and m:
                 payload = {"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":loc.upper(),"date":date.today().strftime("%d-%m-%Y")}
-                requests.post(WEBHOOK_URL, json=payload)
+                try: requests.post(WEBHOOK_URL, json=payload)
+                except: pass
                 st.success("✅ Retailer Added Successfully!"); st.cache_data.clear()
             else: st.error("❌ Name, Mobile and PRM ID are required")
     
@@ -260,13 +260,16 @@ elif st.session_state.current_page == "ADD_RETAILER":
                 b_prm = clean_prm_id(row.get("PRM ID", "")); b_mob = clean_prm_id(row.get("DETAILS", ""))
                 b_dues = float(str(row.get("DUSE", 0)).replace(',','')); b_adv = float(str(row.get("ADVANCE", 0)).replace(',',''))
                 if b_name:
-                    requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":b_name,"mobile":b_mob,"prm":b_prm,"location":"BULK","date":date.today().strftime("%d-%m-%Y")})
+                    try: requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":b_name,"mobile":b_mob,"prm":b_prm,"location":"BULK","date":date.today().strftime("%d-%m-%Y")})
+                    except: pass
                     time.sleep(0.5)
                     if b_dues > 0: 
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":b_name,"r_mob":b_mob,"type":"Opening Dues","qty":0,"amt_out":b_dues,"amt_in":0,"fse":"SYSTEM","txn_id":"OPENING"})
+                        try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":b_name,"r_mob":b_mob,"type":"Opening Dues","qty":0,"amt_out":b_dues,"amt_in":0,"fse":"SYSTEM","txn_id":"OPENING"})
+                        except: pass
                         time.sleep(0.5)
                     if b_adv > 0: 
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":b_name,"r_mob":b_mob,"type":"Opening Advance","qty":0,"amt_out":0,"amt_in":b_adv,"fse":"SYSTEM","txn_id":"OPENING"})
+                        try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":b_name,"r_mob":b_mob,"type":"Opening Advance","qty":0,"amt_out":0,"amt_in":b_adv,"fse":"SYSTEM","txn_id":"OPENING"})
+                        except: pass
                         time.sleep(0.5)
                 prog.progress((i+1)/len(df_up))
             st.success("✅ Bulk Upload Success!"); st.cache_data.clear()
@@ -284,7 +287,7 @@ elif st.session_state.current_page == "LEDGER":
         st.dataframe(f_led.drop(columns=['DateObj']), use_container_width=True, hide_index=True)
         st.download_button("📥 Excel Download", f_led.to_csv(index=False).encode('utf-8-sig'), f"{r_name}_Ledger.csv")
 
-# --- 💸 6. DUES & ADVANCE LIST ---
+# --- 💸 6. DUES REMINDERS ---
 elif st.session_state.current_page == "DUES":
     c1, c2 = st.columns(2)
     if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
@@ -304,14 +307,12 @@ elif st.session_state.current_page == "DUES":
             
             if balance > 0: 
                 dues_summary.append({"Retailer": name, "Mobile": val["Mobile"], "Dues": balance})
-            elif balance < 0: # 🟢 NEW: Advance Balance Check (Negative Dues)
-                # Find out the reason for this advance (last credited item)
+            elif balance < 0: 
                 last_credit = u_data[pd.to_numeric(u_data['Amount In (Credit)'], errors='coerce') > 0].tail(1)
                 reason = last_credit['Product/Service'].values[0] if not last_credit.empty else "Advance"
-                adv_summary.append({"Retailer": name, "Mobile": val["Mobile"], "Advance": abs(balance), "Reason/Item": reason})
+                adv_summary.append({"Retailer": name, "Mobile": val["Mobile"], "Advance Balance": abs(balance), "Reason/Item": reason})
         
-        # 1. Dues Table (Wassuli)
-        st.subheader("🚩 Pending Dues List (Wassuli)")
+        st.subheader("🚩 Pending Dues List")
         s_df = pd.DataFrame(dues_summary)
         if not s_df.empty:
             st.error(f"💸 Total Market Dues: ₹{s_df['Dues'].sum()}")
@@ -324,11 +325,10 @@ elif st.session_state.current_page == "DUES":
             
         st.markdown("<hr>", unsafe_allow_html=True)
         
-        # 2. Advance Table (Extra Jama Paisa)
-        st.subheader("🌟 Advance List (Kiske paas extra jama hai)")
+        st.subheader("🌟 Retailers in Advance (Kiske paas extra jama hai)")
         a_df = pd.DataFrame(adv_summary)
         if not a_df.empty:
-            st.success(f"💰 Total Advance in Market: ₹{a_df['Advance'].sum()}")
+            st.success(f"💰 Total Advance in Market: ₹{a_df['Advance Balance'].sum()}")
             st.dataframe(a_df, use_container_width=True, hide_index=True)
         else:
             st.info("No advance balances found.")
@@ -361,9 +361,10 @@ elif st.session_state.current_page == "BULK":
                         elif amt == 100: final_amt = 100
                         elif amt == 200: final_amt = 200
                         elif amt == 500: final_amt = 500
-                        else: final_amt = amt # Default fallback
+                        else: final_amt = amt 
 
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":prm_mapping[prm]['Name'],"r_mob":prm_mapping[prm]['Mobile'],"type":"Etop Transfer","qty":0,"amt_out":final_amt,"amt_in":0,"fse":f_n,"txn_id":str(row.get("Order ID",""))})
+                        try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":prm_mapping[prm]['Name'],"r_mob":prm_mapping[prm]['Mobile'],"type":"Etop Transfer","qty":0,"amt_out":final_amt,"amt_in":0,"fse":f_n,"txn_id":str(row.get("Order ID",""))})
+                        except: pass
                         time.sleep(0.5)
                     prog.progress((i+1)/len(df_j))
                 st.success("✅ Done!"); st.cache_data.clear()
@@ -408,7 +409,8 @@ elif st.session_state.current_page == "URGENT":
                     with st.form(f"r_{name}"):
                         rsn = st.text_input("Reason for delay")
                         if st.form_submit_button("Submit Reason"):
-                            requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"type":f"Urgent Alert: {rsn}","txn_id":"URGENT","fse":f_n,"amt_in":0,"amt_out":0,"qty":0})
+                            try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"type":f"Urgent Alert: {rsn}","txn_id":"URGENT","fse":f_n,"amt_in":0,"amt_out":0,"qty":0})
+                            except: pass
                             st.success("✅ Reason Recorded!"); st.cache_data.clear()
                             
         if u_list:
