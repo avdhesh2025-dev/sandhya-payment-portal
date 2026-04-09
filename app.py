@@ -195,7 +195,7 @@ def load_data():
         inv = pd.read_csv(f"{inventory_csv}&cb={cb}").dropna(how="all").fillna("")
         led = pd.read_csv(f"{ledger_csv}&cb={cb}").dropna(how="all").fillna("")
         
-        # 🟢 SUPER SAFE-GUARD: Inject missing columns globally so KeyError NEVER happens
+        # 🟢 SUPER SAFE-GUARD to prevent KeyErrors
         expected_cols = ['Date', 'Retailer Name', 'Product/Service', 'Amount Out (Debit)', 'Amount In (Credit)', 'Qty', 'FSE Name']
         for col in expected_cols:
             if col not in led.columns:
@@ -331,8 +331,21 @@ elif st.session_state.current_page == "DUES":
             if running_bal > 0: status_text = f"🚩 Dues: ₹{running_bal:,.0f}"
             elif running_bal < 0: status_text = f"✅ Adv: ₹{abs(running_bal):,.0f}"
             else: status_text = "⚪ Settled: ₹0"
+            
+            # 🟢 SMART DISPLAY: Inject details into Product/Service string for UI ONLY
+            prod = str(r.get('Product/Service', ''))
+            qty_val = pd.to_numeric(r.get('Qty', 0), errors='coerce')
+            if pd.notnull(qty_val) and qty_val > 0:
+                if prod in ["JPB V4", "Other"]:
+                    if d > 0:
+                        per_pc = d / qty_val
+                        prod = f"{prod} (Qty: {int(qty_val)} @ ₹{per_pc:,.0f}/pc)"
+                    else:
+                        prod = f"{prod} (Qty: {int(qty_val)})"
+                elif prod == "Sim Card":
+                    prod = f"{prod} (Qty: {int(qty_val)})"
                 
-            rows.append({"d": r['Date'], "i": r['Product/Service'], "out": d, "in": c, "b": running_bal, "status": status_text})
+            rows.append({"d": r['Date'], "i": prod, "out": d, "in": c, "b": running_bal, "status": status_text})
 
         wa_msg = f"*Retailer:* {name} ({prm})\n"
         wa_msg += f"*Aapka dues hai:* ₹ {abs(running_bal):,.0f}\n"
@@ -387,7 +400,7 @@ elif st.session_state.current_page == "DUES":
         with st.expander("⚙️ Edit / Delete Entry"):
             if rows:
                 rev_rows = list(reversed(rows[-10:]))
-                entry_opts = [f"{r['d']} | {r['i']} | ₹ {r['out'] if r['out']>0 else r['in']}" for r in rev_rows]
+                entry_opts = [f"{r['d']} | {str(r['i']).split(' (')[0]} | ₹ {r['out'] if r['out']>0 else r['in']}" for r in rev_rows]
                 sel_e = st.selectbox("Select Entry", entry_opts)
                 col_del, col_edit = st.columns(2)
                 if col_del.button("🗑️ Delete", use_container_width=True):
@@ -404,11 +417,9 @@ elif st.session_state.current_page == "DUES":
         b1.button("🔴 DIYE (Stock)", use_container_width=True, type="secondary", on_click=set_kb_action, args=("diye",))
         b2.button("🟢 MILE (Payment)", use_container_width=True, type="secondary", on_click=set_kb_action, args=("mile",))
         
-        # 🟢 DYNAMIC FORM + CALCULATOR FIX (Standard Keyboard Allowed)
         if st.session_state.kb_action == "diye":
             t = st.selectbox("👉 Select Type", ["Etop Transfer", "Sim Card", "JPB V4", "Other"])
             with st.form("d_f"):
-                calc_val = "0"
                 if t == "Etop Transfer":
                     o = st.selectbox("Amount", ["5000", "3000", "2000", "1500", "500", "Manual"])
                     input_amt = st.number_input("Enter Amount", min_value=0.0) if o == "Manual" else float(o)
@@ -416,35 +427,37 @@ elif st.session_state.current_page == "DUES":
                 elif t == "Sim Card":
                     input_qty = st.number_input("Qty", min_value=1)
                     input_amt = 0.0
-                elif t == "JPB V4":
+                else:
+                    # 🟢 CALCULATOR FIX: Standard input keys allowed.
                     calc_val = st.text_input("Total Amount (Calculator: Type 624*2)", value="")
                     input_qty = st.number_input("Qty", min_value=1, value=1)
                     input_amt = 0.0
-                else:
-                    input_amt = st.number_input("Amount", min_value=0.0)
-                    input_qty = st.number_input("Qty", min_value=0)
                 
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
 
                 if st.form_submit_button("Save", type="secondary"):
                     if verify_pin(f, p):
-                        if t == "JPB V4":
+                        if t in ["JPB V4", "Other"]:
                             try: final_amt = float(eval(str(calc_val).replace('x', '*').replace('X', '*')))
                             except: final_amt = 0.0
-                        elif t in ["Other"]:
-                            final_amt = input_amt * input_qty
+                            detail_str = f"{t} (Qty: {int(input_qty)} @ ₹{(final_amt/input_qty if input_qty>0 else 0):,.0f}/pc)"
+                        elif t == "Sim Card":
+                            final_amt = 0
+                            detail_str = f"{t} (Qty: {int(input_qty)})"
                         else:
                             final_amt = input_amt
+                            detail_str = t
                             
+                        # Saving transaction strictly as "JPB V4" in DB, but showing detailed msg in WA
                         requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":mob,"type":t,"qty":input_qty,"amt_out":final_amt,"amt_in":0,"fse":f,"txn_id":"KB"})
                         st.session_state.success_display_text = f"₹ {final_amt:,.0f}" if final_amt>0 else f"{int(input_qty)} SIMs"
-                        st.session_state.success_txn_type = t
+                        st.session_state.success_txn_type = detail_str
                         
                         msg = f"*Retailer:* {name} ({prm})\n"
                         msg += f"*Aapka dues hai:* ₹ {abs(cur_bal + final_amt):,.0f}\n"
                         msg += "*Aaj hi online ya cash de kar apna dues clear kare.*\n\n"
                         msg += "*Recent Transaction:*\n"
-                        msg += f"🗓 {date.today().strftime('%d-%m-%Y')} | {t} | Diye (-): ₹{final_amt if final_amt>0 else input_qty}\n\n"
+                        msg += f"🗓 {date.today().strftime('%d-%m-%Y')} | {detail_str} | Diye (-): ₹{final_amt if final_amt>0 else input_qty}\n\n"
                         msg += "Regards,\n*SANDHYA ENTERPRISES*\nAVDHESH KUMAR\n📞 7479584179"
                         
                         st.session_state.success_wa_link = f"https://wa.me/91{mob}?text={urllib.parse.quote(msg)}"
@@ -454,8 +467,6 @@ elif st.session_state.current_page == "DUES":
             with st.form("m_f"):
                 m = st.selectbox("Mode", ["Cash", "Online"]); a = st.number_input("Amount Received", min_value=0.0)
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
-                
-                st.components.v1.html("""<script>window.parent.document.querySelectorAll('input[type="password"], input[type="number"]').forEach(i=>{i.setAttribute('inputmode','numeric');});</script>""", height=0, width=0)
 
                 if st.form_submit_button("Save", type="secondary"):
                     if verify_pin(f, p):
@@ -496,7 +507,6 @@ elif st.session_state.current_page == "STOCK":
                 f = st.selectbox("Select FSE", fse_list)
                 q = st.number_input("SIM Qty", min_value=1)
                 ap = st.text_input("Admin PIN", type="password")
-                st.components.v1.html("""<script>window.parent.document.querySelectorAll('input[type="password"], input[type="number"]').forEach(i=>{i.setAttribute('inputmode','numeric');});</script>""", height=0, width=0)
                 if st.form_submit_button("Bill SIMs", type="secondary"):
                     if ap == "9557":
                         requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":f,"r_mob":"0","type":"Sim Allocation","qty":q,"amt_out":0,"amt_in":0,"fse":"Admin","txn_id":"S"})
@@ -513,7 +523,6 @@ elif st.session_state.current_page == "STOCK":
             if inv_df is not None and not inv_df.empty: st.dataframe(inv_df, use_container_width=True, hide_index=True)
             else: st.info("Inventory data not available.")
     else:
-        # 🟢 FSE DYNAMIC STOCK LOGIC
         alloc = pd.to_numeric(led_df[(led_df['Retailer Name']==st.session_state.emp_name)&(led_df['Product/Service']=='Sim Allocation')]['Qty'], errors='coerce').sum()
         dist = pd.to_numeric(led_df[(led_df['FSE Name']==st.session_state.emp_name)&(led_df['Product/Service']=='Sim Card')]['Qty'], errors='coerce').sum()
         cur_bal = int(alloc - dist)
@@ -535,7 +544,6 @@ elif st.session_state.current_page == "ADD":
     st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
     with st.form("add_ret"):
         n=st.text_input("Retailer Name"); m=st.text_input("Mobile"); p=st.text_input("PRM ID"); l=st.text_input("Loc")
-        st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');});</script>""", height=0, width=0)
         if st.form_submit_button("Save Retailer", type="secondary"):
             requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":l.upper(),"date":date.today().strftime("%d-%m-%Y")})
             st.success("Retailer Added!"); st.cache_data.clear()
@@ -548,14 +556,22 @@ elif st.session_state.current_page == "COL":
     t_led['Amount In (Credit)'] = pd.to_numeric(t_led['Amount In (Credit)'], errors='coerce').fillna(0)
     coll_df = t_led[t_led['Amount In (Credit)'] > 0]
     
-    if st.session_state.role == "Employee":
+    if st.session_state.role == "Employee" and 'FSE Name' in coll_df.columns:
         coll_df = coll_df[coll_df['FSE Name'] == st.session_state.emp_name]
         
     if not coll_df.empty:
-        disp_df = coll_df[['Retailer Name', 'Amount In (Credit)', 'Product/Service', 'FSE Name']].copy()
-        disp_df.columns = ['Retailer Name', 'Amount (₹)', 'Payment Mode', 'Received By']
+        cols_to_get = ['Retailer Name', 'Amount In (Credit)', 'Product/Service']
+        disp_cols = ['Retailer Name', 'Amount (₹)', 'Payment Mode']
+        if 'FSE Name' in coll_df.columns:
+            cols_to_get.append('FSE Name')
+            disp_cols.append('Received By')
+            
+        disp_df = coll_df[cols_to_get].copy()
+        disp_df.columns = disp_cols
+        
         st.dataframe(disp_df, hide_index=True)
         st.write(f"**Total Collected Today: ₹ {disp_df['Amount (₹)'].sum():,.0f}**")
+        
         csv = disp_df.to_csv(index=False).encode('utf-8')
         st.download_button(label="📥 Download Excel (CSV)", data=csv, file_name=f"Today_Collection_{date.today().strftime('%d-%m-%Y')}.csv", mime="text/csv", use_container_width=True)
     else:
@@ -601,13 +617,29 @@ elif st.session_state.current_page == "ENTRY":
                 st.session_state.success_txn_type = t_type
                 st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
 
+# 🟢 SMART LEDGER REPORT FIX (Now shows detailed Qty formatting)
 elif st.session_state.current_page == "LEDGER":
     st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
     st.header("📜 Ledger Report")
     sel = st.selectbox("Choose Retailer", list(retailers_dict.keys()))
     if sel:
         r_name = sel.split(" (")[0]
-        st.dataframe(led_df[led_df['Retailer Name'] == r_name].sort_values('DateObj', ascending=False), hide_index=True)
+        disp_df = led_df[led_df['Retailer Name'] == r_name].sort_values('DateObj', ascending=False).copy()
+        
+        def format_prod(row):
+            p = str(row.get('Product/Service', ''))
+            q = pd.to_numeric(row.get('Qty', 0), errors='coerce')
+            d_amt = pd.to_numeric(row.get('Amount Out (Debit)', 0), errors='coerce')
+            if pd.notnull(q) and q > 0:
+                if p in ['JPB V4', 'Other'] and pd.notnull(d_amt) and d_amt > 0:
+                    return f"{p} (Qty: {int(q)} @ ₹{(d_amt/q):,.0f}/pc)"
+                elif p == 'Sim Card':
+                    return f"{p} (Qty: {int(q)})"
+            return p
+            
+        if not disp_df.empty:
+            disp_df['Product/Service'] = disp_df.apply(format_prod, axis=1)
+        st.dataframe(disp_df, hide_index=True)
 
 elif st.session_state.current_page == "URGENT":
     st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
