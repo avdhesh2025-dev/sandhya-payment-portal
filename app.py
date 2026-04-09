@@ -15,24 +15,23 @@ except ImportError:
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide", initial_sidebar_state="collapsed")
 
 # 🟢 SESSION STATES FOR FULL SCREEN SUCCESS POPUP & SOUND 🟢
-if "show_success_modal" not in st.session_state:
-    st.session_state.show_success_modal = False
-if "success_display_text" not in st.session_state:
-    st.session_state.success_display_text = ""
-if "success_wa_link" not in st.session_state:
-    st.session_state.success_wa_link = ""
+if "show_success_modal" not in st.session_state: st.session_state.show_success_modal = False
+if "success_display_text" not in st.session_state: st.session_state.success_display_text = ""
+if "success_txn_type" not in st.session_state: st.session_state.success_txn_type = ""
+if "success_wa_link" not in st.session_state: st.session_state.success_wa_link = ""
 
 # 💎 FULL SCREEN SUCCESS OVERLAY (Halts the app until closed) 💎
 if st.session_state.show_success_modal:
     # Play Professional Sound
     st.markdown('<audio autoplay style="display:none;"><source src="https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3" type="audio/mpeg"></audio>', unsafe_allow_html=True)
     
-    # Giant Success UI
+    # Giant Success UI (PhonePe / Paytm Style)
     st.markdown(f"""
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 20px; border: 2px solid #86efac; padding: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.15); margin-top: 20px;">
-        <div style="font-size: 100px; color: #16a34a; margin-bottom: 10px; animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;">✅</div>
-        <div style="font-size: 32px; font-weight: 800; color: #166534; margin-bottom: 10px; text-align: center;">Transaction Successful!</div>
-        <div style="font-size: 56px; font-weight: 900; color: #0b57d0; margin-bottom: 30px; text-align: center;">{st.session_state.success_display_text}</div>
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 55vh; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 20px; border: 2px solid #86efac; padding: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.15); margin-top: 20px;">
+        <div style="font-size: 90px; color: #16a34a; margin-bottom: 5px; animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;">✅</div>
+        <div style="font-size: 28px; font-weight: 800; color: #166534; margin-bottom: 10px; text-align: center;">Transaction Successful!</div>
+        <div style="font-size: 50px; font-weight: 900; color: #0b57d0; margin-bottom: 5px; text-align: center;">{st.session_state.success_display_text}</div>
+        <div style="font-size: 18px; font-weight: 700; color: #4b5563; margin-bottom: 25px; text-align: center; text-transform: uppercase; letter-spacing: 1px; background: #e5e7eb; padding: 5px 15px; border-radius: 20px;">{st.session_state.success_txn_type}</div>
     </div>
     <style>
     @keyframes pop {{
@@ -45,14 +44,15 @@ if st.session_state.show_success_modal:
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # 🟢 Auto WhatsApp Link Generator on Success Screen
+    # 🟢 WhatsApp Link Generator on Success Screen
     if st.session_state.success_wa_link:
-        st.markdown(f"<div style='text-align:center; margin-bottom: 20px;'><a href='{st.session_state.success_wa_link}' target='_blank' style='display:inline-block; padding:15px 30px; background-color:#25D366; color:white; font-size:20px; font-weight:800; border-radius:30px; text-decoration:none; box-shadow: 0 4px 10px rgba(37,211,102,0.4);'>📲 Send WhatsApp Receipt</a></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='text-align:center; margin-bottom: 20px;'><a href='{st.session_state.success_wa_link}' target='_blank' style='display:inline-block; padding:15px 30px; background-color:#25D366; color:white; font-size:18px; font-weight:800; border-radius:30px; text-decoration:none; box-shadow: 0 4px 10px rgba(37,211,102,0.4);'>📲 Send WhatsApp Receipt</a></div>", unsafe_allow_html=True)
         
     c1, c2, c3 = st.columns([1, 2, 1])
     if c2.button("❌ CLOSE & CONTINUE", use_container_width=True):
         st.session_state.show_success_modal = False
         st.session_state.success_wa_link = ""
+        st.session_state.success_txn_type = ""
         st.rerun()
     st.stop() # 🛑 This halts the rest of the app from rendering until user clicks close!
 
@@ -264,6 +264,7 @@ if st.session_state.current_page == "LOGIN":
                     try: requests.post(WEBHOOK_URL, json=payload)
                     except: pass
                     st.session_state.success_display_text = "ID Created"
+                    st.session_state.success_txn_type = "New Registration"
                     st.session_state.show_success_modal = True
                     st.cache_data.clear()
                     st.rerun()
@@ -343,6 +344,7 @@ elif st.session_state.current_page == "STOCK":
                             try: requests.post(WEBHOOK_URL, json=payload)
                             except: pass
                             st.session_state.success_display_text = f"{int(sim_qty)} SIMs Billed"
+                            st.session_state.success_txn_type = "Sim Allocation"
                             st.session_state.show_success_modal = True
                             st.cache_data.clear(); st.rerun()
                         else:
@@ -441,8 +443,13 @@ elif st.session_state.current_page == "COLLECTION":
                                 payload = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": name, "r_mob": mob, "type": f"Collection ({p_mode})", "qty": 0, "amt_out": 0, "amt_in": p_amt, "fse": f_n, "txn_id": "DIRECT"}
                                 try: requests.post(WEBHOOK_URL, json=payload)
                                 except: pass
+                                
                                 st.session_state.success_display_text = f"₹ {p_amt:,.0f}"
+                                st.session_state.success_txn_type = f"Collection ({p_mode})"
+                                msg = urllib.parse.quote(f"*Sandhya Enterprises*\nRetailer: {name}\nItem: Collection ({p_mode})\nAmount: ₹{p_amt}")
+                                st.session_state.success_wa_link = f"https://wa.me/91{mob}?text={msg}"
                                 st.session_state.show_success_modal = True
+                                
                                 st.cache_data.clear(); st.rerun()
                             else: st.error("❌ Wrong PIN")
 
@@ -491,10 +498,10 @@ elif st.session_state.current_page == "ENTRY":
                 try: requests.post(WEBHOOK_URL, json=payload)
                 except: pass
                 
-                # Setup Topup Modal Data
                 disp_val = f"₹ {t_amt:,.0f}" if t_amt > 0 else f"{int(t_qty)} SIM(s)"
                 st.session_state.success_display_text = disp_val
-                msg = urllib.parse.quote(f"*Sandhya Enterprises*\nRetailer: {r_name}\nItem: {final_type}\nAmount: ₹{t_amt if t_amt > 0 else t_qty}")
+                st.session_state.success_txn_type = final_type
+                msg = urllib.parse.quote(f"*Sandhya Enterprises*\nRetailer: {r_name}\nItem: {final_type}\nAmount: {disp_val}")
                 st.session_state.success_wa_link = f"https://wa.me/91{r_mob}?text={msg}"
                 st.session_state.show_success_modal = True
                 
@@ -525,6 +532,7 @@ elif st.session_state.current_page == "ADD_RETAILER":
                 try: requests.post(WEBHOOK_URL, json=payload)
                 except: pass
                 st.session_state.success_display_text = "Retailer Added"
+                st.session_state.success_txn_type = "New Registration"
                 st.session_state.show_success_modal = True
                 st.cache_data.clear(); st.rerun()
             else: st.error("❌ Name, Mobile and PRM ID are required")
@@ -556,6 +564,7 @@ elif st.session_state.current_page == "ADD_RETAILER":
                         time.sleep(0.5)
                 prog.progress((i+1)/len(df_up))
             st.session_state.success_display_text = "Bulk Upload Done"
+            st.session_state.success_txn_type = "Data Import"
             st.session_state.show_success_modal = True
             st.cache_data.clear(); st.rerun()
 
@@ -629,6 +638,8 @@ elif st.session_state.current_page == "DUES":
             filtered_list = all_retailers_list
             
         st.markdown("<br>", unsafe_allow_html=True)
+        
+        if not filtered_list: st.info("No matching customers found.")
         
         for item in filtered_list:
             bal = item['Balance']
@@ -720,31 +731,6 @@ elif st.session_state.current_page == "DUES":
             running_bal += (debit - credit)
             rows_data.append({'date': row['Date'], 'item': row['Product/Service'], 'debit': debit, 'credit': credit, 'bal': running_bal})
             
-        stmt_text = f"*Sandhya Enterprises - Ledger*\n👤 Retailer: {kb_name}\n"
-        if balance > 0: stmt_text += f"💰 Total Dues: ₹{balance:,.0f}\n\n*Recent Entries:*\n"
-        elif balance < 0: stmt_text += f"💰 Total Advance: ₹{abs(balance):,.0f}\n\n*Recent Entries:*\n"
-        else: stmt_text += f"💰 Settled Balance: ₹0\n\n*Recent Entries:*\n"
-        
-        for r in rows_data[-5:]:
-            act_str = f" Diye: {r['debit']:.0f}" if r['debit'] > 0 else (f" Mile: {r['credit']:.0f}" if r['credit'] > 0 else "")
-            stmt_text += f"• {r['date']} | {r['item']} |{act_str} | Bal: ₹{r['bal']:,.0f}\n"
-            
-        stmt_text += "\nPlease clear your dues. Regards, Sandhya Enterprises."
-        wa_link = f"https://wa.me/91{kb_mob}?text={urllib.parse.quote(stmt_text)}"
-        
-        st.markdown(f"<div style='text-align:center; margin-bottom:15px;'><a href='{wa_link}' target='_blank' style='display:inline-block; padding:10px 20px; background-color:#eff6ff; color:#0b57d0; font-weight:700; border-radius:20px; text-decoration:none; border:1px solid #bfdbfe; box-shadow: 0 2px 5px rgba(0,0,0,0.05);'>📲 Send WhatsApp Reminder (With Ledger)</a></div>", unsafe_allow_html=True)
-        
-        dl_col1, dl_col2 = st.columns(2)
-        with dl_col1:
-            if not HAS_FPDF:
-                st.warning("⚠️ PDF banane ke liye requirements.txt me `fpdf` add karein.")
-            else:
-                pdf_bytes = create_pdf(kb_name, kb_mob, balance, rows_data)
-                if pdf_bytes:
-                    st.download_button(label="📄 Download PDF Ledger", data=pdf_bytes, file_name=f"{kb_name}_Ledger.pdf", mime="application/pdf", use_container_width=True)
-        with dl_col2:
-            st.download_button("📥 Download Excel Ledger", u_data[['Date', 'Product/Service', 'Amount Out (Debit)', 'Amount In (Credit)']].to_csv(index=False).encode('utf-8-sig'), f"{kb_name}_Ledger.csv", use_container_width=True)
-
         for r in reversed(rows_data):
             d_str = f"₹ {r['debit']:,.0f}" if r['debit'] > 0 else ""
             c_str = f"₹ {r['credit']:,.0f}" if r['credit'] > 0 else ""
@@ -784,10 +770,13 @@ elif st.session_state.current_page == "DUES":
                         try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":kb_name,"r_mob":kb_mob,"type":t_type,"qty":t_qty,"amt_out":t_amt,"amt_in":0,"fse":f_n,"txn_id":txn_id})
                         except: pass
                         
-                        # Set Full-Screen Success Modal
                         disp_val = f"₹ {t_amt:,.0f}" if t_amt > 0 else f"{int(t_qty)} SIM(s)"
                         st.session_state.success_display_text = disp_val
+                        st.session_state.success_txn_type = t_type
+                        msg = urllib.parse.quote(f"*Sandhya Enterprises*\nRetailer: {kb_name}\nItem: {t_type}\nAmount: {disp_val}")
+                        st.session_state.success_wa_link = f"https://wa.me/91{kb_mob}?text={msg}"
                         st.session_state.show_success_modal = True
+                        
                         st.cache_data.clear(); st.session_state.kb_action = None; st.rerun()
                     else: st.error("❌ Wrong PIN")
                     
@@ -803,12 +792,16 @@ elif st.session_state.current_page == "DUES":
                 
                 if st.form_submit_button("Save Entry", use_container_width=True):
                     if verify_pin(f_n, f_p):
-                        try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":kb_name,"r_mob":kb_mob,"type":f"Payment Received ({p_mode})","qty":0,"amt_out":0,"amt_in":t_amt,"fse":f_n,"txn_id":txn_id})
+                        final_type = f"Payment Received ({p_mode})"
+                        try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":kb_name,"r_mob":kb_mob,"type":final_type,"qty":0,"amt_out":0,"amt_in":t_amt,"fse":f_n,"txn_id":txn_id})
                         except: pass
                         
-                        # Set Full-Screen Success Modal
                         st.session_state.success_display_text = f"₹ {t_amt:,.0f}"
+                        st.session_state.success_txn_type = final_type
+                        msg = urllib.parse.quote(f"*Sandhya Enterprises*\nRetailer: {kb_name}\nItem: {final_type}\nAmount: ₹{t_amt}")
+                        st.session_state.success_wa_link = f"https://wa.me/91{kb_mob}?text={msg}"
                         st.session_state.show_success_modal = True
+                        
                         st.cache_data.clear(); st.session_state.kb_action = None; st.rerun()
                     else: st.error("❌ Wrong PIN")
 
@@ -847,6 +840,7 @@ elif st.session_state.current_page == "BULK":
                         time.sleep(0.5)
                     prog.progress((i+1)/len(df_j))
                 st.session_state.success_display_text = "Bulk Upload Done"
+                st.session_state.success_txn_type = "Excel Import"
                 st.session_state.show_success_modal = True
                 st.cache_data.clear(); st.rerun()
 
@@ -893,6 +887,7 @@ elif st.session_state.current_page == "URGENT":
                             try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"type":f"Urgent Alert: {rsn}","txn_id":"URGENT","fse":f_n,"amt_in":0,"amt_out":0,"qty":0})
                             except: pass
                             st.session_state.success_display_text = "Reason Recorded"
+                            st.session_state.success_txn_type = "Urgent Recovery Alert"
                             st.session_state.show_success_modal = True
                             st.cache_data.clear(); st.rerun()
                             
