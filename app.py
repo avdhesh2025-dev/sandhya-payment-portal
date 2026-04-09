@@ -135,7 +135,8 @@ elif st.session_state.current_page == "COLLECTION":
                         if st.form_submit_button("Save"):
                             if (f_n=="Avdhesh Kumar" and f_p=="9557") or (f_n=="Babloo kumar singh" and f_p=="2081"):
                                 payload = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": name, "r_mob": mob, "type": "Collection", "qty": 0, "amt_out": 0, "amt_in": p_amt, "fse": f_n, "txn_id": "DIRECT"}
-                                requests.post(WEBHOOK_URL, json=payload)
+                                try: requests.post(WEBHOOK_URL, json=payload)
+                                except: pass
                                 st.success("✅ Saved!"); st.cache_data.clear()
                             else: st.error("❌ Wrong PIN")
 
@@ -178,7 +179,8 @@ elif st.session_state.current_page == "ENTRY":
                 final_type = f"{t_type} ({p_mode})" if t_type == "Payment Received" else t_type
                 payload = {"action":"add_txn","date":t_date.strftime("%d-%m-%Y"),"r_name":r_name, "r_mob":r_mob, "type":final_type,"qty":t_qty,"amt_out":t_amt if t_type!="Payment Received" else 0,"amt_in":t_amt if t_type=="Payment Received" else 0,"fse":fse,"txn_id":txn_id}
                 
-                requests.post(WEBHOOK_URL, json=payload)
+                try: requests.post(WEBHOOK_URL, json=payload)
+                except: pass
                 st.success("✅ Entry Saved Successfully!"); st.cache_data.clear()
                 msg = urllib.parse.quote(f"*Sandhya Enterprises*\nRetailer: {r_name}\nItem: {final_type}\nAmount: ₹{t_amt}")
                 st.markdown(f"### [🟢 Send WhatsApp](https://wa.me/91{r_mob}?text={msg})")
@@ -205,7 +207,8 @@ elif st.session_state.current_page == "ADD_RETAILER":
         if st.form_submit_button("Save Retailer"):
             if n and p and m:
                 payload = {"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":loc.upper(),"date":date.today().strftime("%d-%m-%Y")}
-                requests.post(WEBHOOK_URL, json=payload)
+                try: requests.post(WEBHOOK_URL, json=payload)
+                except: pass
                 st.success("✅ Retailer Added Successfully!"); st.cache_data.clear()
             else: st.error("❌ Name, Mobile and PRM ID are required")
     
@@ -223,13 +226,16 @@ elif st.session_state.current_page == "ADD_RETAILER":
                 b_prm = clean_prm_id(row.get("PRM ID", "")); b_mob = clean_prm_id(row.get("DETAILS", ""))
                 b_dues = float(str(row.get("DUSE", 0)).replace(',','')); b_adv = float(str(row.get("ADVANCE", 0)).replace(',',''))
                 if b_name:
-                    requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":b_name,"mobile":b_mob,"prm":b_prm,"location":"BULK","date":date.today().strftime("%d-%m-%Y")})
+                    try: requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":b_name,"mobile":b_mob,"prm":b_prm,"location":"BULK","date":date.today().strftime("%d-%m-%Y")})
+                    except: pass
                     time.sleep(0.5)
                     if b_dues > 0: 
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":b_name,"r_mob":b_mob,"type":"Opening Dues","qty":0,"amt_out":b_dues,"amt_in":0,"fse":"SYSTEM","txn_id":"OPENING"})
+                        try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":b_name,"r_mob":b_mob,"type":"Opening Dues","qty":0,"amt_out":b_dues,"amt_in":0,"fse":"SYSTEM","txn_id":"OPENING"})
+                        except: pass
                         time.sleep(0.5)
                     if b_adv > 0: 
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":b_name,"r_mob":b_mob,"type":"Opening Advance","qty":0,"amt_out":0,"amt_in":b_adv,"fse":"SYSTEM","txn_id":"OPENING"})
+                        try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":b_name,"r_mob":b_mob,"type":"Opening Advance","qty":0,"amt_out":0,"amt_in":b_adv,"fse":"SYSTEM","txn_id":"OPENING"})
+                        except: pass
                         time.sleep(0.5)
                 prog.progress((i+1)/len(df_up))
             st.success("✅ Bulk Upload Success!"); st.cache_data.clear()
@@ -247,7 +253,7 @@ elif st.session_state.current_page == "LEDGER":
         st.dataframe(f_led.drop(columns=['DateObj']), use_container_width=True, hide_index=True)
         st.download_button("📥 Excel Download", f_led.to_csv(index=False).encode('utf-8-sig'), f"{r_name}_Ledger.csv")
 
-# --- 💸 6. DUES REMINDERS (100% ORIGINAL RESTORED) ---
+# --- 💸 6. DUES REMINDERS ---
 elif st.session_state.current_page == "DUES":
     c1, c2 = st.columns(2)
     if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
@@ -293,12 +299,13 @@ elif st.session_state.current_page == "BULK":
                     prm = clean_prm_id(row.get("Partner PRM ID", ""))
                     if prm in prm_mapping:
                         amt = float(str(row.get("Transfer Amount", 0)).replace(',',''))
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":prm_mapping[prm]['Name'],"r_mob":prm_mapping[prm]['Mobile'],"type":"Etop Transfer","qty":0,"amt_out":round(amt*0.97,2),"amt_in":0,"fse":f_n,"txn_id":str(row.get("Order ID",""))})
+                        try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":prm_mapping[prm]['Name'],"r_mob":prm_mapping[prm]['Mobile'],"type":"Etop Transfer","qty":0,"amt_out":round(amt*0.97,2),"amt_in":0,"fse":f_n,"txn_id":str(row.get("Order ID",""))})
+                        except: pass
                         time.sleep(0.5)
                     prog.progress((i+1)/len(df_j))
                 st.success("✅ Done!"); st.cache_data.clear()
 
-# --- 🚨 8. URGENT RECOVERY (SMART FIX) ---
+# --- 🚨 8. URGENT RECOVERY ---
 elif st.session_state.current_page == "URGENT":
     c1, c2 = st.columns(2)
     if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
@@ -311,7 +318,6 @@ elif st.session_state.current_page == "URGENT":
         now = datetime.now()
         u_list = []
         
-        # Smart Logic: Pehle check karo ki Retailer par koi DUES baki hai ya nahi
         for key, val in retailers_data.items():
             name = val["Name"]
             u_data = led_df[led_df['Retailer Name'] == name]
@@ -320,15 +326,11 @@ elif st.session_state.current_page == "URGENT":
             net_dues = total_debit - total_credit
             
             if net_dues > 0:
-                is_urgent = False
-                u_reason = ""
-                u_date = ""
-                
-                # Agar DUES hai, tab check karo ki konsa purana bill nahi bhara
+                is_urgent = False; u_reason = ""; u_date = ""
                 for _, row in u_data.iterrows():
                     r_date = row['DateObj']
                     if pd.notnull(r_date):
-                        row_text = str(row.values) # Data nikalne ka 100% safe tarika
+                        row_text = str(row.values)
                         if "Etop" in row_text and (now - r_date) > timedelta(hours=24):
                             is_urgent = True; u_reason = "Etop > 24 Hrs"; u_date = row['Date']; break
                         elif "JPB" in row_text and (now - r_date) > timedelta(days=15):
@@ -340,7 +342,8 @@ elif st.session_state.current_page == "URGENT":
                     with st.form(f"r_{name}"):
                         rsn = st.text_input("Reason for delay")
                         if st.form_submit_button("Submit Reason"):
-                            requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"type":f"Urgent Alert: {rsn}","txn_id":"URGENT","fse":f_n,"amt_in":0,"amt_out":0,"qty":0})
+                            try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"type":f"Urgent Alert: {rsn}","txn_id":"URGENT","fse":f_n,"amt_in":0,"amt_out":0,"qty":0})
+                            except: pass
                             st.success("✅ Reason Recorded!"); st.cache_data.clear()
                             
         if u_list:
