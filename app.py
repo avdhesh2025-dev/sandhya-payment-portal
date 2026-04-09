@@ -14,7 +14,7 @@ except ImportError:
 # 1. Page Configuration (A4 Scale & Fixed Layout)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="centered", initial_sidebar_state="collapsed")
 
-# 🟢 NAVIGATION CALLBACK FUNCTIONS (बटन ना खुलने की समस्या का पक्का इलाज)
+# 🟢 FUNCTIONS DEFINED AT THE TOP (To prevent NameError)
 def go_to(p): 
     st.session_state.current_page = p
     st.session_state.kb_retailer = None
@@ -35,6 +35,12 @@ def do_logout():
 
 def get_home():
     return "HOME" if st.session_state.get("role") == "Admin" else "EMP_HOME"
+
+def verify_pin(n, p):
+    if n == "Avdhesh Kumar" and p == "9557": return True
+    if n == "Babloo kumar singh" and p == "2081": return True
+    if st.session_state.get("role") == "Employee" and p == st.session_state.get("emp_pin"): return True
+    return False
 
 # 🟢 PERSISTENT LOGIN (URL Smart Token)
 if "authenticated" not in st.session_state:
@@ -149,9 +155,15 @@ def create_pdf(r_name, r_mob, bal, r_data):
     if not HAS_FPDF: return None
     pdf = FPDF()
     pdf.add_page()
+    # 🟢 PDF COMPANY DETAILS ADDED
     pdf.set_font("Arial", 'B', 18); pdf.cell(0, 10, "Sandhya Enterprises", ln=True, align='C')
     pdf.set_font("Arial", 'B', 11); pdf.cell(0, 6, "Jio Authorized Distributor", ln=True, align='C')
-    pdf.line(10, 35, 200, 35); pdf.ln(10)
+    pdf.set_font("Arial", '', 9)
+    pdf.cell(0, 5, "Register office: Rosera Road, Meghpatti, Samastipur, Bihar 848117", ln=True, align='C')
+    pdf.cell(0, 5, "GSTIN: 10GQZPK8313P1Z1 | PAN: GQZPK8313P", ln=True, align='C')
+    pdf.cell(0, 5, "Email: smp.sandhya02@gmail.com | Contact: 7479584179", ln=True, align='C')
+    pdf.line(10, 45, 200, 45); pdf.ln(10)
+    
     pdf.set_font("Arial", 'B', 12); pdf.cell(100, 8, f"Retailer: {r_name}"); pdf.cell(0, 8, f"Bal: Rs {bal:,.2f}", ln=True, align='R')
     pdf.ln(5)
     pdf.set_font("Arial", 'B', 9); pdf.cell(25, 8, "Date", 1); pdf.cell(75, 8, "Particulars", 1); pdf.cell(30, 8, "Diye", 1); pdf.cell(30, 8, "Mile", 1); pdf.cell(30, 8, "Bal", 1); pdf.ln()
