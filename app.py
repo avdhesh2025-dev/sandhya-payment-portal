@@ -432,8 +432,7 @@ elif st.session_state.current_page == "DUES":
                             st.rerun()
                         st.markdown(f"<div style='font-size:13px;color:#6b7280;margin-top:-5px;'>{item['Mobile']} • Pending</div>", unsafe_allow_html=True)
                     with col2: 
-                        msg = urllib.parse.quote(f"Dear Partner, your pending dues are ₹{item['Balance']}. Please clear your payment. Regards, Sandhya Enterprises.")
-                        st.markdown(f"<div style='text-align:right;'><div style='font-size:18px;font-weight:bold;color:#b91c1c;'>₹ {item['Balance']:,.0f}</div><a href='https://wa.me/91{item['Mobile']}?text={msg}' target='_blank' style='font-size:12px;color:#2563eb;text-decoration:none;font-weight:bold;'>REMIND KARAYEIN ></a></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='text-align:right;'><div style='font-size:18px;font-weight:bold;color:#b91c1c;'>₹ {item['Balance']:,.0f}</div></div>", unsafe_allow_html=True)
                 
         with tab2:
             if not adv_list: st.info("No advance balances.")
@@ -509,13 +508,32 @@ elif st.session_state.current_page == "DUES":
             running_bal += (debit - credit)
             rows_data.append({'date': row['Date'], 'item': row['Product/Service'], 'debit': debit, 'credit': credit, 'bal': running_bal})
             
-        # 🟢 PDF LEDGER GENERATION
-        if not HAS_FPDF:
-            st.warning("⚠️ PDF बनाने के लिए Streamlit Cloud (requirements.txt) में `fpdf` ऐड करें।")
-        else:
-            pdf_bytes = create_pdf(kb_name, kb_mob, balance, rows_data)
-            if pdf_bytes:
-                st.download_button(label="📄 Download PDF Ledger (WhatsApp के लिए)", data=pdf_bytes, file_name=f"{kb_name}_Ledger.pdf", mime="application/pdf", use_container_width=True)
+        # 🟢 Text Statement with last 5 entries for WhatsApp
+        stmt_text = f"*Sandhya Enterprises - Ledger*\n👤 Retailer: {kb_name}\n"
+        if balance > 0: stmt_text += f"💰 Total Dues: ₹{balance:,.0f}\n\n*Recent Entries:*\n"
+        else: stmt_text += f"💰 Total Advance: ₹{abs(balance):,.0f}\n\n*Recent Entries:*\n"
+        
+        for r in rows_data[-5:]:
+            act_str = f" Diye: {r['debit']:.0f}" if r['debit'] > 0 else (f" Mile: {r['credit']:.0f}" if r['credit'] > 0 else "")
+            stmt_text += f"• {r['date']} | {r['item']} |{act_str} | Bal: ₹{r['bal']:,.0f}\n"
+            
+        stmt_text += "\nPlease clear your dues. Regards, Sandhya Enterprises."
+        wa_link = f"https://wa.me/91{kb_mob}?text={urllib.parse.quote(stmt_text)}"
+        
+        # 🟢 Show WhatsApp Link
+        st.markdown(f"<div style='text-align:center; margin-bottom:15px;'><a href='{wa_link}' target='_blank' style='display:inline-block; padding:10px 20px; background-color:#eff6ff; color:#0b57d0; font-weight:700; border-radius:20px; text-decoration:none; border:1px solid #bfdbfe; box-shadow: 0 2px 5px rgba(0,0,0,0.05);'>📲 Send WhatsApp Reminder (With Text Ledger)</a></div>", unsafe_allow_html=True)
+        
+        # 🟢 PDF and Excel Downloads
+        dl_col1, dl_col2 = st.columns(2)
+        with dl_col1:
+            if not HAS_FPDF:
+                st.warning("⚠️ PDF banane ke liye requirements.txt me `fpdf` add karein.")
+            else:
+                pdf_bytes = create_pdf(kb_name, kb_mob, balance, rows_data)
+                if pdf_bytes:
+                    st.download_button(label="📄 Download PDF Ledger", data=pdf_bytes, file_name=f"{kb_name}_Ledger.pdf", mime="application/pdf", use_container_width=True)
+        with dl_col2:
+            st.download_button("📥 Download Excel Ledger", u_data[['Date', 'Product/Service', 'Amount Out (Debit)', 'Amount In (Credit)']].to_csv(index=False).encode('utf-8-sig'), f"{kb_name}_Ledger.csv", use_container_width=True)
 
         for r in reversed(rows_data):
             d_str = f"₹ {r['debit']:,.0f}" if r['debit'] > 0 else ""
@@ -534,7 +552,7 @@ elif st.session_state.current_page == "DUES":
         ledger_html += "</div>"
         st.markdown(ledger_html, unsafe_allow_html=True)
         
-        # 🟢 FIX: Buttons side-by-side on mobile
+        # 🟢 Buttons side-by-side
         b1, b2 = st.columns(2)
         if b1.button("🔴 AAPNE DIYE", use_container_width=True): st.session_state.kb_action = "diye"; st.rerun()
         if b2.button("🟢 AAPKO MILE", use_container_width=True): st.session_state.kb_action = "mile"; st.rerun()
@@ -542,19 +560,22 @@ elif st.session_state.current_page == "DUES":
         if st.session_state.kb_action == "diye":
             with st.form(f"diye_form", clear_on_submit=True):
                 st.error("🔴 Aapne Diye (Stock Out)")
-                t_type = st.selectbox("Type", ["Etop Transfer", "JPB V4", "Sim Card"])
+                t_type = st.selectbox("Type", ["Etop Transfer", "JPB V4", "Sim Card"], key="type_kb_diye")
                 col_c, col_d = st.columns(2)
                 t_qty, t_amt = 0, 0.0
+                
                 with col_c:
                     if t_type == "Etop Transfer" or t_type == "JPB V4":
                         t_amt = st.number_input("Amount ₹", min_value=0.0)
                 with col_d:
                     if t_type == "Sim Card" or t_type == "JPB V4":
                         t_qty = st.number_input("Qty", min_value=1)
+                        
                 col_e, col_f = st.columns(2)
                 f_n = col_e.selectbox("FSE", ["Avdhesh Kumar", "Babloo kumar singh"])
                 f_p = col_f.text_input("PIN", type="password")
                 txn_id = st.text_input("Remark")
+                
                 if st.form_submit_button("Save Entry", use_container_width=True):
                     if (f_n=="Avdhesh Kumar" and f_p=="9557") or (f_n=="Babloo kumar singh" and f_p=="2081"):
                         try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":kb_name,"r_mob":kb_mob,"type":t_type,"qty":t_qty,"amt_out":t_amt,"amt_in":0,"fse":f_n,"txn_id":txn_id})
@@ -571,6 +592,7 @@ elif st.session_state.current_page == "DUES":
                 f_n = col_e.selectbox("FSE", ["Avdhesh Kumar", "Babloo kumar singh"])
                 f_p = col_f.text_input("PIN", type="password")
                 txn_id = st.text_input("Remark")
+                
                 if st.form_submit_button("Save Entry", use_container_width=True):
                     if (f_n=="Avdhesh Kumar" and f_p=="9557") or (f_n=="Babloo kumar singh" and f_p=="2081"):
                         try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":kb_name,"r_mob":kb_mob,"type":f"Payment Received ({p_mode})","qty":0,"amt_out":0,"amt_in":t_amt,"fse":f_n,"txn_id":txn_id})
@@ -614,7 +636,7 @@ elif st.session_state.current_page == "BULK":
                     prog.progress((i+1)/len(df_j))
                 st.success("✅ Done!"); st.cache_data.clear()
 
-# --- 🚨 8. URGENT RECOVERY ---
+# --- 🚨 8. URGENT RECOVERY (SMART FIX) ---
 elif st.session_state.current_page == "URGENT":
     c1, c2 = st.columns(2)
     if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
