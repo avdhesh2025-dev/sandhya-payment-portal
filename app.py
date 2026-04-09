@@ -100,6 +100,16 @@ st.markdown("""
         justify-content: flex-start !important;
     }
     div[data-testid="stTabs"] .stButton > button:hover { color: #0b57d0 !important; }
+    
+    /* 📱 MOBILE GRID FIX: Force columns to stay Side-by-Side on Phones */
+    @media (max-width: 768px) {
+        div[data-testid="stHorizontalBlock"] {
+            flex-wrap: nowrap !important;
+        }
+        div[data-testid="column"] {
+            min-width: calc(50% - 0.5rem) !important;
+        }
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -171,7 +181,7 @@ if st.session_state.current_page == "HOME":
     with col2:
         if st.button("💰 Today's Collection", use_container_width=True): go_to("COLLECTION"); st.rerun()
         if st.button("📦 Stock / Payment Entry", use_container_width=True): go_to("ENTRY"); st.rerun()
-        if st.button("💸 Khatabook (Dues)", use_container_width=True): go_to("DUES"); st.rerun()
+        if st.button("💸 Khatabook (3D)", use_container_width=True): go_to("DUES"); st.rerun()
         if st.button("🚨 Urgent Recovery", use_container_width=True): go_to("URGENT"); st.rerun()
 
 # --- 📊 1. STOCK ---
@@ -397,7 +407,6 @@ elif st.session_state.current_page == "DUES":
         with tab1:
             if not dues_list: st.success("No dues pending!")
             for item in dues_list:
-                # 🟢 NAYA: 3D Box Container for each row
                 with st.container(border=True):
                     col1, col2 = st.columns([3, 2])
                     with col1: 
@@ -412,7 +421,6 @@ elif st.session_state.current_page == "DUES":
         with tab2:
             if not adv_list: st.info("No advance balances.")
             for item in adv_list:
-                # 🟢 NAYA: 3D Box Container for each row
                 with st.container(border=True):
                     col1, col2 = st.columns([3, 2])
                     with col1: 
@@ -452,7 +460,7 @@ elif st.session_state.current_page == "DUES":
         c = pd.to_numeric(u_data['Amount In (Credit)'], errors='coerce').sum()
         balance = d - c
         
-        # Big Summary Box
+        # 🟢 FIX: Clickable, Beautiful WhatsApp Button
         if balance >= 0:
             st.markdown(f'''
             <div style="display: flex; justify-content: center; padding: 10px 0; margin-bottom: 15px;">
@@ -463,7 +471,7 @@ elif st.session_state.current_page == "DUES":
             </div>
             ''', unsafe_allow_html=True)
             msg = urllib.parse.quote(f"Dear Partner, your pending dues are ₹{balance}. Please clear your payment. Regards, Sandhya Enterprises.")
-            st.markdown(f"<div style='text-align:center;'>[📲 Send WhatsApp Reminder](https://wa.me/91{kb_mob}?text={msg})</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='text-align:center; margin-bottom:10px;'><a href='https://wa.me/91{kb_mob}?text={msg}' target='_blank' style='display:inline-block; padding:10px 20px; background-color:#eff6ff; color:#0b57d0; font-weight:700; border-radius:20px; text-decoration:none; border:1px solid #bfdbfe; box-shadow: 0 2px 5px rgba(0,0,0,0.05);'>📲 Send WhatsApp Reminder</a></div>", unsafe_allow_html=True)
         else:
             st.markdown(f'''
             <div style="display: flex; justify-content: center; padding: 10px 0; margin-bottom: 15px;">
@@ -505,10 +513,10 @@ elif st.session_state.current_page == "DUES":
         ledger_html += "</div>"
         st.markdown(ledger_html, unsafe_allow_html=True)
         
-        # Bottom Buttons
+        # 🟢 FIX: Buttons side-by-side on mobile
         b1, b2 = st.columns(2)
-        if b1.button("🔴 AAPNE DIYE ₹ (Stock)", use_container_width=True): st.session_state.kb_action = "diye"; st.rerun()
-        if b2.button("🟢 AAPKO MILE ₹ (Payment)", use_container_width=True): st.session_state.kb_action = "mile"; st.rerun()
+        if b1.button("🔴 AAPNE DIYE", use_container_width=True): st.session_state.kb_action = "diye"; st.rerun()
+        if b2.button("🟢 AAPKO MILE", use_container_width=True): st.session_state.kb_action = "mile"; st.rerun()
             
         if st.session_state.kb_action == "diye":
             with st.form(f"diye_form", clear_on_submit=True):
