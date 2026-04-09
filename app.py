@@ -14,11 +14,15 @@ except ImportError:
 # 1. Page Configuration (No Sidebar)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide", initial_sidebar_state="collapsed")
 
-# 🟢 PROFESSIONAL SUCCESS POPUP & SOUND FUNCTION 🟢
-def success_popup():
+# SESSION STATES FOR SUCCESS POPUP & SOUND
+if "show_success" not in st.session_state:
+    st.session_state.show_success = False
+
+# 🟢 PROFESSIONAL SUCCESS POPUP & SOUND 🟢
+if st.session_state.show_success:
     st.toast("✅ Transaction Successfully!", icon="✅")
-    # Professional success sound (Hidden audio player)
     st.markdown('<audio autoplay style="display:none;"><source src="https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3" type="audio/mpeg"></audio>', unsafe_allow_html=True)
+    st.session_state.show_success = False # Reset immediately so it only plays once
 
 # 💎 Global CSS Design (3D Effects & Mobile Fixes)
 st.markdown("""
@@ -208,13 +212,10 @@ if st.session_state.current_page == "LOGIN":
             log_mob = st.text_input("Mobile Number (10 Digits)")
             log_pin = st.text_input("4-Digit PIN", type="password")
             if st.button("Login securely", use_container_width=True):
-                # 🟢 Admin Login
                 if log_mob == "7479584179" and log_pin == "9557":
                     st.session_state.role = "Admin"; go_to("HOME"); st.rerun()
-                # 🟢 Hardcoded Employee Login (Babloo Ji)
                 elif log_mob == "7254972081" and log_pin == "2081":
                     st.session_state.role = "Employee"; st.session_state.emp_name = "Babloo kumar singh"; st.session_state.emp_pin = "2081"; go_to("EMP_HOME"); st.rerun()
-                # 🟢 Dynamic Employee Login
                 else:
                     emp_found = False
                     if ret_df is not None and "Location" in ret_df.columns:
@@ -242,9 +243,9 @@ if st.session_state.current_page == "LOGIN":
                     payload = {"action":"add_retailer","name":reg_name.upper(),"mobile":reg_mob,"prm":f"EMP_{reg_pin}","location":"EMPLOYEE","date":date.today().strftime("%d-%m-%Y")}
                     try: requests.post(WEBHOOK_URL, json=payload)
                     except: pass
-                    success_popup()
-                    st.success("✅ Employee Registered Successfully! Go to Login tab.")
+                    st.session_state.show_success = True
                     st.cache_data.clear()
+                    st.rerun()
                 else: st.error("⚠️ Mobile must be 10 digits and PIN must be 4 digits!")
 
 # --- 🏠 1. ADMIN HOME PAGE ---
@@ -293,7 +294,6 @@ elif st.session_state.current_page == "STOCK":
     if c1.button("🔙 Back Menu", use_container_width=True): go_to(get_home()); st.rerun()
     if c2.button("🔄 Refresh", use_container_width=True): st.cache_data.clear(); st.rerun()
     
-    # 🟢 SMART COLUMN FINDER FOR QTY AND FSE
     q_col = None
     if led_df is not None:
         for c in ['Qty', 'Quantity', 'QTY', 'quantity']:
@@ -324,8 +324,8 @@ elif st.session_state.current_page == "STOCK":
                             payload = {"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":fse_sel,"r_mob":"0000000000","type":"Sim Allocation","qty":sim_qty,"amt_out":0,"amt_in":0,"fse":"Admin","txn_id":"SIM_ALLOC"}
                             try: requests.post(WEBHOOK_URL, json=payload)
                             except: pass
-                            success_popup()
-                            st.success(f"✅ {sim_qty} SIMs billed successfully to {fse_sel}!"); st.cache_data.clear(); time.sleep(1); st.rerun()
+                            st.session_state.show_success = True
+                            st.cache_data.clear(); st.rerun()
                         else:
                             st.error("❌ Wrong Admin PIN")
                             
@@ -336,12 +336,10 @@ elif st.session_state.current_page == "STOCK":
                 for fse_n in fse_list:
                     alloc = pd.to_numeric(led_df[(led_df['Retailer Name'] == fse_n) & (led_df['Product/Service'] == 'Sim Allocation')][q_col], errors='coerce').sum()
                     dist = 0
-                    if fse_col: # SAFELY CHECK FSE COLUMN TO PREVENT KEYERROR
+                    if fse_col:
                         dist = pd.to_numeric(led_df[(led_df[fse_col] == fse_n) & (led_df['Product/Service'] == 'Sim Card')][q_col], errors='coerce').sum()
                     fse_stock_data.append({"FSE Name": fse_n, "Total Billed": int(alloc), "Distributed": int(dist), "Current Balance": int(alloc - dist)})
                 st.dataframe(pd.DataFrame(fse_stock_data), use_container_width=True, hide_index=True)
-            else:
-                st.warning("Quantity column missing in Ledger.")
 
         with tab2:
             if inv_df is not None: st.dataframe(inv_df, use_container_width=True, hide_index=True)
@@ -366,7 +364,6 @@ elif st.session_state.current_page == "STOCK":
             ''', unsafe_allow_html=True)
             st.info(f"**Total Received from Admin:** {int(alloc)}  |  **Total Distributed:** {int(dist)}")
             
-            # 🟢 NAYA: Show Details of distributed SIMs to Employee
             if fse_col:
                 dist_df = led_df[(led_df[fse_col] == emp_name) & (led_df['Product/Service'] == 'Sim Card')].copy()
                 if not dist_df.empty:
@@ -374,10 +371,6 @@ elif st.session_state.current_page == "STOCK":
                     dist_df['Qty'] = pd.to_numeric(dist_df[q_col], errors='coerce')
                     show_df = dist_df[['Date', 'Retailer Name', 'Qty']]
                     st.dataframe(show_df, use_container_width=True, hide_index=True)
-                    csv = show_df.to_csv(index=False).encode('utf-8-sig')
-                    st.download_button("📥 Download Details", csv, f"{emp_name}_Distributed_SIMs.csv")
-        else:
-            st.warning("Quantity data not available yet.")
 
 # --- 💰 3. TODAY COLLECTION ---
 elif st.session_state.current_page == "COLLECTION":
@@ -410,9 +403,6 @@ elif st.session_state.current_page == "COLLECTION":
                 cols = [c for c in ['Retailer Name', 'Product/Service', 'Amount In (Credit)', 'FSE Name', 'FSE'] if c in today_collections.columns]
                 if not cols: cols = today_collections.columns.drop('DateObj', errors='ignore')
                 st.dataframe(today_collections[cols], use_container_width=True, hide_index=True)
-        else:
-            with st.expander("🔽 View Today's Collection Details"):
-                st.info("No collections recorded yet for today.")
                 
         st.markdown("<hr>", unsafe_allow_html=True)
         
@@ -432,8 +422,8 @@ elif st.session_state.current_page == "COLLECTION":
                                 payload = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": name, "r_mob": mob, "type": f"Collection ({p_mode})", "qty": 0, "amt_out": 0, "amt_in": p_amt, "fse": f_n, "txn_id": "DIRECT"}
                                 try: requests.post(WEBHOOK_URL, json=payload)
                                 except: pass
-                                success_popup() # 🟢 NAYA POPUP & SOUND
-                                st.success("✅ Saved!"); st.cache_data.clear()
+                                st.session_state.show_success = True
+                                st.cache_data.clear(); st.rerun()
                             else: st.error("❌ Wrong PIN")
 
 # --- 📦 4. ENTRY PAGE ---
@@ -472,7 +462,7 @@ elif st.session_state.current_page == "ENTRY":
         txn_id = st.text_input("Remark / Txn ID")
 
     st.markdown('<div class="wobble-btn">', unsafe_allow_html=True)
-    if st.button("🚀 Save and Send WhatsApp", use_container_width=True):
+    if st.button("🚀 Save Entry", use_container_width=True):
         if verify_pin(fse, fse_pin):
             if t_prm != "Type here to search...":
                 r_name = retailers_data[t_prm]["Name"]; r_mob = retailers_data[t_prm]["Mobile"]
@@ -480,10 +470,8 @@ elif st.session_state.current_page == "ENTRY":
                 payload = {"action":"add_txn","date":t_date.strftime("%d-%m-%Y"),"r_name":r_name, "r_mob":r_mob, "type":final_type,"qty":t_qty,"amt_out":t_amt if t_type!="Payment Received" else 0,"amt_in":t_amt if t_type=="Payment Received" else 0,"fse":fse,"txn_id":txn_id}
                 try: requests.post(WEBHOOK_URL, json=payload)
                 except: pass
-                success_popup() # 🟢 NAYA POPUP & SOUND
-                st.success("✅ Entry Saved Successfully!"); st.cache_data.clear()
-                msg = urllib.parse.quote(f"*Sandhya Enterprises*\nRetailer: {r_name}\nItem: {final_type}\nAmount: ₹{t_amt if t_amt > 0 else t_qty}")
-                st.markdown(f"### [🟢 Send WhatsApp](https://wa.me/91{r_mob}?text={msg})")
+                st.session_state.show_success = True
+                st.cache_data.clear(); st.rerun()
             else: st.error("Please Select a Retailer")
         else: st.error("❌ Invalid PIN")
     st.markdown('</div>', unsafe_allow_html=True)
@@ -509,8 +497,8 @@ elif st.session_state.current_page == "ADD_RETAILER":
                 payload = {"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":loc.upper(),"date":date.today().strftime("%d-%m-%Y")}
                 try: requests.post(WEBHOOK_URL, json=payload)
                 except: pass
-                success_popup()
-                st.success("✅ Retailer Added Successfully!"); st.cache_data.clear()
+                st.session_state.show_success = True
+                st.cache_data.clear(); st.rerun()
             else: st.error("❌ Name, Mobile and PRM ID are required")
     
     st.markdown("---")
@@ -611,8 +599,6 @@ elif st.session_state.current_page == "DUES":
             filtered_list = all_retailers_list
             
         st.markdown("<br>", unsafe_allow_html=True)
-        
-        if not filtered_list: st.info("No matching customers found.")
         
         for item in filtered_list:
             bal = item['Balance']
@@ -751,48 +737,53 @@ elif st.session_state.current_page == "DUES":
         if b2.button("🟢 AAPKO MILE", use_container_width=True): st.session_state.kb_action = "mile"; st.rerun()
             
         if st.session_state.kb_action == "diye":
-            with st.form(f"diye_form", clear_on_submit=True):
-                st.error("🔴 Aapne Diye (Stock Out)")
-                t_type = st.selectbox("Type", ["Etop Transfer", "JPB V4", "Sim Card"], key="type_kb_diye")
+            st.error("🔴 Aapne Diye (Stock Out)")
+            t_type = st.selectbox("Type", ["Etop Transfer", "JPB V4", "Sim Card"], key="type_kb_diye")
+            
+            with st.container(border=True):
                 col_c, col_d = st.columns(2)
                 t_qty, t_amt = 0, 0.0
                 
                 with col_c:
-                    if t_type == "Etop Transfer" or t_type == "JPB V4":
-                        t_amt = st.number_input("Amount ₹", min_value=0.0)
+                    # 🟢 NAYA: RESTORED CUSTOM ETOP AMOUNTS
+                    if t_type == "Etop Transfer":
+                        etop_opt = st.selectbox("Amount ₹", ["5000", "3000", "2000", "1500", "500", "Manual"], key="kb_etop")
+                        t_amt = float(etop_opt) if etop_opt != "Manual" else st.number_input("Enter Amount", min_value=1.0, key="kb_amt")
+                    elif t_type == "JPB V4":
+                        t_amt = st.number_input("Amount ₹", min_value=0.0, key="kb_amt_jpb")
                 with col_d:
                     if t_type == "Sim Card" or t_type == "JPB V4":
-                        t_qty = st.number_input("Qty", min_value=1)
+                        t_qty = st.number_input("Qty", min_value=1, key="kb_qty")
                         
                 col_e, col_f = st.columns(2)
-                f_n = col_e.selectbox("FSE", fse_list)
-                f_p = col_f.text_input("PIN", type="password")
-                txn_id = st.text_input("Remark")
+                f_n = col_e.selectbox("FSE", fse_list, key="kb_fse")
+                f_p = col_f.text_input("PIN", type="password", key="kb_pin")
+                txn_id = st.text_input("Remark", key="kb_rmk")
                 
-                if st.form_submit_button("Save Entry", use_container_width=True):
+                if st.button("Save Entry", use_container_width=True, key="kb_save_d"):
                     if verify_pin(f_n, f_p):
                         try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":kb_name,"r_mob":kb_mob,"type":t_type,"qty":t_qty,"amt_out":t_amt,"amt_in":0,"fse":f_n,"txn_id":txn_id})
                         except: pass
-                        success_popup() # 🟢 NAYA POPUP & SOUND
-                        st.success("✅ Saved!"); st.cache_data.clear(); st.session_state.kb_action = None; st.rerun()
+                        st.session_state.show_success = True
+                        st.cache_data.clear(); st.session_state.kb_action = None; st.rerun()
                     else: st.error("❌ Wrong PIN")
                     
         elif st.session_state.kb_action == "mile":
-            with st.form(f"mile_form", clear_on_submit=True):
-                st.success("🟢 Aapko Mile (Payment Received)")
-                p_mode = st.selectbox("Mode (Cash/Online)", ["Cash", "Online"])
-                t_amt = st.number_input("Amount ₹", min_value=1.0)
+            st.success("🟢 Aapko Mile (Payment Received)")
+            p_mode = st.selectbox("Mode (Cash/Online)", ["Cash", "Online"], key="type_kb_mile")
+            with st.container(border=True):
+                t_amt = st.number_input("Amount ₹", min_value=1.0, key="kb_amt_mile")
                 col_e, col_f = st.columns(2)
-                f_n = col_e.selectbox("FSE", fse_list)
-                f_p = col_f.text_input("PIN", type="password")
-                txn_id = st.text_input("Remark")
+                f_n = col_e.selectbox("FSE", fse_list, key="kb_fse_mile")
+                f_p = col_f.text_input("PIN", type="password", key="kb_pin_mile")
+                txn_id = st.text_input("Remark", key="kb_rem_mile")
                 
-                if st.form_submit_button("Save Entry", use_container_width=True):
+                if st.button("Save Entry", use_container_width=True, key="kb_save_m"):
                     if verify_pin(f_n, f_p):
                         try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":kb_name,"r_mob":kb_mob,"type":f"Payment Received ({p_mode})","qty":0,"amt_out":0,"amt_in":t_amt,"fse":f_n,"txn_id":txn_id})
                         except: pass
-                        success_popup() # 🟢 NAYA POPUP & SOUND
-                        st.success("✅ Saved!"); st.cache_data.clear(); st.session_state.kb_action = None; st.rerun()
+                        st.session_state.show_success = True
+                        st.cache_data.clear(); st.session_state.kb_action = None; st.rerun()
                     else: st.error("❌ Wrong PIN")
 
 # --- 📂 8. BULK ENTRY (JIO ETOP) ---
@@ -831,7 +822,7 @@ elif st.session_state.current_page == "BULK":
                     prog.progress((i+1)/len(df_j))
                 st.success("✅ Done!"); st.cache_data.clear()
 
-# --- 🚨 9. URGENT RECOVERY (SMART FIX) ---
+# --- 🚨 9. URGENT RECOVERY ---
 elif st.session_state.current_page == "URGENT":
     c1, c2 = st.columns(2)
     if c1.button("🔙 Back Menu", use_container_width=True): go_to(get_home()); st.rerun()
@@ -873,8 +864,8 @@ elif st.session_state.current_page == "URGENT":
                         if st.form_submit_button("Submit Reason"):
                             try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"type":f"Urgent Alert: {rsn}","txn_id":"URGENT","fse":f_n,"amt_in":0,"amt_out":0,"qty":0})
                             except: pass
-                            success_popup()
-                            st.success("✅ Reason Recorded!"); st.cache_data.clear()
+                            st.session_state.show_success = True
+                            st.cache_data.clear(); st.rerun()
                             
         if u_list:
             st.download_button("📥 Excel Download Urgent List", pd.DataFrame(u_list).to_csv(index=False).encode('utf-8-sig'), "Urgent_Recovery.csv")
