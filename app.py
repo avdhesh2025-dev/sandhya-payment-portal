@@ -14,7 +14,13 @@ except ImportError:
 # 1. Page Configuration (No Sidebar)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide", initial_sidebar_state="collapsed")
 
-# 💎 Global CSS Design (3D Effects & English UI)
+# 🟢 PROFESSIONAL SUCCESS POPUP & SOUND FUNCTION 🟢
+def success_popup():
+    st.toast("✅ Transaction Successfully!", icon="✅")
+    # Professional success sound (Hidden audio player)
+    st.markdown('<audio autoplay style="display:none;"><source src="https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3" type="audio/mpeg"></audio>', unsafe_allow_html=True)
+
+# 💎 Global CSS Design (3D Effects & Mobile Fixes)
 st.markdown("""
     <style>
     .stApp { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -35,12 +41,6 @@ st.markdown("""
     .stDataFrame, .stSelectbox, .stNumberInput, .stTextInput, .stDateInput {
         background-color: white; border-radius: 10px; padding: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
-    .wobble-btn > div > button {
-        background-color: #ffffff !important; color: #1a1a1a !important; border: none !important; border-radius: 12px !important;
-        font-size: 18px !important; font-weight: 700 !important; box-shadow: 0 6px 0 #d1d9e6 !important;
-        border-left: 6px solid #007bff !important; transition: 0.2s; height: 60px !important;
-    }
-    .wobble-btn > div > button:hover { top: -3px; box-shadow: 0 9px 0 #d1d9e6 !important; border-left: 6px solid #00c6ff !important; }
     
     /* 🔥 KHATABOOK SUPER 3D BOX CSS 🔥 */
     .kb-header-container { display: flex; justify-content: space-around; align-items: center; background: transparent; padding: 10px 0 20px 0; margin-bottom: 15px; }
@@ -66,10 +66,18 @@ st.markdown("""
     div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button { height: auto !important; min-height: 20px !important; background: transparent !important; border: none !important; box-shadow: none !important; color: #1f2937 !important; font-size: 16px !important; font-weight: 700 !important; padding: 0 !important; margin: 0 !important; justify-content: flex-start !important; }
     div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button:hover { color: #0b57d0 !important; }
     
-    /* 📱 MOBILE GRID FIX */
+    /* 📱 MOBILE GRID FIX (Force Buttons Side-By-Side) */
     @media (max-width: 768px) {
-        div[data-testid="stHorizontalBlock"] { flex-wrap: nowrap !important; }
-        div[data-testid="column"] { min-width: calc(50% - 0.5rem) !important; }
+        div[data-testid="stHorizontalBlock"] {
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 10px !important;
+        }
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+            width: 100% !important;
+            flex: 1 1 0% !important;
+            min-width: 0 !important;
+        }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -200,10 +208,13 @@ if st.session_state.current_page == "LOGIN":
             log_mob = st.text_input("Mobile Number (10 Digits)")
             log_pin = st.text_input("4-Digit PIN", type="password")
             if st.button("Login securely", use_container_width=True):
+                # 🟢 Admin Login
                 if log_mob == "7479584179" and log_pin == "9557":
                     st.session_state.role = "Admin"; go_to("HOME"); st.rerun()
+                # 🟢 Hardcoded Employee Login (Babloo Ji)
                 elif log_mob == "7254972081" and log_pin == "2081":
                     st.session_state.role = "Employee"; st.session_state.emp_name = "Babloo kumar singh"; st.session_state.emp_pin = "2081"; go_to("EMP_HOME"); st.rerun()
+                # 🟢 Dynamic Employee Login
                 else:
                     emp_found = False
                     if ret_df is not None and "Location" in ret_df.columns:
@@ -231,6 +242,7 @@ if st.session_state.current_page == "LOGIN":
                     payload = {"action":"add_retailer","name":reg_name.upper(),"mobile":reg_mob,"prm":f"EMP_{reg_pin}","location":"EMPLOYEE","date":date.today().strftime("%d-%m-%Y")}
                     try: requests.post(WEBHOOK_URL, json=payload)
                     except: pass
+                    success_popup()
                     st.success("✅ Employee Registered Successfully! Go to Login tab.")
                     st.cache_data.clear()
                 else: st.error("⚠️ Mobile must be 10 digits and PIN must be 4 digits!")
@@ -273,7 +285,7 @@ elif st.session_state.current_page == "EMP_HOME":
         if st.button("➕ Add Retailer", use_container_width=True): go_to("ADD_RETAILER"); st.rerun()
     with col2:
         if st.button("🚨 Urgent Recovery", use_container_width=True): go_to("URGENT"); st.rerun()
-        if st.button("📦 Sim Card Stock", use_container_width=True): go_to("STOCK"); st.rerun()
+        if st.button("📦 My Sim Card Stock", use_container_width=True): go_to("STOCK"); st.rerun()
 
 # --- 📊 2. STOCK (INVENTORY & FSE SIM BILLING) ---
 elif st.session_state.current_page == "STOCK":
@@ -312,6 +324,7 @@ elif st.session_state.current_page == "STOCK":
                             payload = {"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":fse_sel,"r_mob":"0000000000","type":"Sim Allocation","qty":sim_qty,"amt_out":0,"amt_in":0,"fse":"Admin","txn_id":"SIM_ALLOC"}
                             try: requests.post(WEBHOOK_URL, json=payload)
                             except: pass
+                            success_popup()
                             st.success(f"✅ {sim_qty} SIMs billed successfully to {fse_sel}!"); st.cache_data.clear(); time.sleep(1); st.rerun()
                         else:
                             st.error("❌ Wrong Admin PIN")
@@ -339,7 +352,7 @@ elif st.session_state.current_page == "STOCK":
         if q_col and led_df is not None:
             alloc = pd.to_numeric(led_df[(led_df['Retailer Name'] == emp_name) & (led_df['Product/Service'] == 'Sim Allocation')][q_col], errors='coerce').sum()
             dist = 0
-            if fse_col: # SAFELY CHECK FSE COLUMN TO PREVENT KEYERROR
+            if fse_col:
                 dist = pd.to_numeric(led_df[(led_df[fse_col] == emp_name) & (led_df['Product/Service'] == 'Sim Card')][q_col], errors='coerce').sum()
             cur_stock = alloc - dist
             
@@ -352,6 +365,17 @@ elif st.session_state.current_page == "STOCK":
             </div>
             ''', unsafe_allow_html=True)
             st.info(f"**Total Received from Admin:** {int(alloc)}  |  **Total Distributed:** {int(dist)}")
+            
+            # 🟢 NAYA: Show Details of distributed SIMs to Employee
+            if fse_col:
+                dist_df = led_df[(led_df[fse_col] == emp_name) & (led_df['Product/Service'] == 'Sim Card')].copy()
+                if not dist_df.empty:
+                    st.markdown("### 📝 Distributed SIM Details")
+                    dist_df['Qty'] = pd.to_numeric(dist_df[q_col], errors='coerce')
+                    show_df = dist_df[['Date', 'Retailer Name', 'Qty']]
+                    st.dataframe(show_df, use_container_width=True, hide_index=True)
+                    csv = show_df.to_csv(index=False).encode('utf-8-sig')
+                    st.download_button("📥 Download Details", csv, f"{emp_name}_Distributed_SIMs.csv")
         else:
             st.warning("Quantity data not available yet.")
 
@@ -408,6 +432,7 @@ elif st.session_state.current_page == "COLLECTION":
                                 payload = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": name, "r_mob": mob, "type": f"Collection ({p_mode})", "qty": 0, "amt_out": 0, "amt_in": p_amt, "fse": f_n, "txn_id": "DIRECT"}
                                 try: requests.post(WEBHOOK_URL, json=payload)
                                 except: pass
+                                success_popup() # 🟢 NAYA POPUP & SOUND
                                 st.success("✅ Saved!"); st.cache_data.clear()
                             else: st.error("❌ Wrong PIN")
 
@@ -455,6 +480,7 @@ elif st.session_state.current_page == "ENTRY":
                 payload = {"action":"add_txn","date":t_date.strftime("%d-%m-%Y"),"r_name":r_name, "r_mob":r_mob, "type":final_type,"qty":t_qty,"amt_out":t_amt if t_type!="Payment Received" else 0,"amt_in":t_amt if t_type=="Payment Received" else 0,"fse":fse,"txn_id":txn_id}
                 try: requests.post(WEBHOOK_URL, json=payload)
                 except: pass
+                success_popup() # 🟢 NAYA POPUP & SOUND
                 st.success("✅ Entry Saved Successfully!"); st.cache_data.clear()
                 msg = urllib.parse.quote(f"*Sandhya Enterprises*\nRetailer: {r_name}\nItem: {final_type}\nAmount: ₹{t_amt if t_amt > 0 else t_qty}")
                 st.markdown(f"### [🟢 Send WhatsApp](https://wa.me/91{r_mob}?text={msg})")
@@ -483,6 +509,7 @@ elif st.session_state.current_page == "ADD_RETAILER":
                 payload = {"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":loc.upper(),"date":date.today().strftime("%d-%m-%Y")}
                 try: requests.post(WEBHOOK_URL, json=payload)
                 except: pass
+                success_popup()
                 st.success("✅ Retailer Added Successfully!"); st.cache_data.clear()
             else: st.error("❌ Name, Mobile and PRM ID are required")
     
@@ -550,6 +577,7 @@ elif st.session_state.current_page == "DUES":
             
             if balance > 0: total_milenge += balance
             elif balance < 0: total_dene_hain += abs(balance)
+                
             all_retailers_list.append({"Name": name, "Mobile": mob, "Balance": balance})
             
         def sort_retailers(r):
@@ -745,6 +773,7 @@ elif st.session_state.current_page == "DUES":
                     if verify_pin(f_n, f_p):
                         try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":kb_name,"r_mob":kb_mob,"type":t_type,"qty":t_qty,"amt_out":t_amt,"amt_in":0,"fse":f_n,"txn_id":txn_id})
                         except: pass
+                        success_popup() # 🟢 NAYA POPUP & SOUND
                         st.success("✅ Saved!"); st.cache_data.clear(); st.session_state.kb_action = None; st.rerun()
                     else: st.error("❌ Wrong PIN")
                     
@@ -762,6 +791,7 @@ elif st.session_state.current_page == "DUES":
                     if verify_pin(f_n, f_p):
                         try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":kb_name,"r_mob":kb_mob,"type":f"Payment Received ({p_mode})","qty":0,"amt_out":0,"amt_in":t_amt,"fse":f_n,"txn_id":txn_id})
                         except: pass
+                        success_popup() # 🟢 NAYA POPUP & SOUND
                         st.success("✅ Saved!"); st.cache_data.clear(); st.session_state.kb_action = None; st.rerun()
                     else: st.error("❌ Wrong PIN")
 
@@ -843,6 +873,7 @@ elif st.session_state.current_page == "URGENT":
                         if st.form_submit_button("Submit Reason"):
                             try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"type":f"Urgent Alert: {rsn}","txn_id":"URGENT","fse":f_n,"amt_in":0,"amt_out":0,"qty":0})
                             except: pass
+                            success_popup()
                             st.success("✅ Reason Recorded!"); st.cache_data.clear()
                             
         if u_list:
