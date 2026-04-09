@@ -11,11 +11,22 @@ try:
 except ImportError:
     HAS_FPDF = False
 
-# 1. Page Configuration (A4 Scale)
+# 1. Page Configuration
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="centered", initial_sidebar_state="collapsed")
 
-# 🟢 SESSION STATES (Persistent Login & Modals)
-if "authenticated" not in st.session_state: st.session_state.authenticated = False
+# 🟢 THE "PAKKA TOD" FOR PERSISTENT LOGIN (URL Smart Token)
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+    
+    # Auto-Login Check (Agar URL me auth token hai to direct login)
+    if "auth" in st.query_params:
+        st.session_state.authenticated = True
+        st.session_state.role = st.query_params.get("role", "Employee")
+        st.session_state.emp_name = st.query_params.get("name", "")
+        st.session_state.emp_pin = st.query_params.get("pin", "")
+        st.session_state.current_page = "HOME" if st.session_state.role == "Admin" else "EMP_HOME"
+
+# 🟢 INITIALIZE OTHER SESSION STATES
 if "kb_retailer" not in st.session_state: st.session_state.kb_retailer = None
 if "kb_action" not in st.session_state: st.session_state.kb_action = None
 if "show_success_modal" not in st.session_state: st.session_state.show_success_modal = False
@@ -25,11 +36,18 @@ if "success_wa_link" not in st.session_state: st.session_state.success_wa_link =
 if "role" not in st.session_state: st.session_state.role = None
 if "current_page" not in st.session_state: st.session_state.current_page = "LOGIN"
 
+# 🔴 Logout Function
+def do_logout():
+    st.session_state.authenticated = False
+    st.query_params.clear() # Token delete kar dega
+    st.session_state.current_page = "LOGIN"
+    st.session_state.kb_retailer = None
+
 # 💎 FULL SCREEN SUCCESS POPUP
 if st.session_state.show_success_modal:
     st.markdown('<audio autoplay style="display:none;"><source src="https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3" type="audio/mpeg"></audio>', unsafe_allow_html=True)
     st.markdown(f"""
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 20px; border: 2px solid #86efac; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin-top: 20px;">
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; background: #f0fdf4; border-radius: 20px; border: 2px solid #86efac; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin-top: 20px;">
         <div style="font-size: 80px; margin-bottom: 10px;">✅</div>
         <div style="font-size: 28px; font-weight: 800; color: #166534; margin-bottom: 10px;">Transaction Successful!</div>
         <div style="font-size: 45px; font-weight: 900; color: #0b57d0; margin-bottom: 10px; text-align: center;">{st.session_state.success_display_text}</div>
@@ -46,15 +64,23 @@ if st.session_state.show_success_modal:
         st.rerun()
     st.stop()
 
-# 💎 CSS DESIGN (A4 Layout + Joined Boxes + Ledger Fixes)
+# 💎 CSS DESIGN (A4 FIXED LAYOUT GLOBALLY)
 st.markdown("""
     <style>
-    .main .block-container { max-width: 480px; padding: 1.5rem; background: white; box-shadow: 0 0 15px rgba(0,0,0,0.1); min-height: 100vh; margin: auto; }
-    .stApp { background-color: #f1f5f9; }
+    /* 📄 A4 FRAME LOGIC (Fixed for ALL Pages) */
+    .main .block-container { 
+        max-width: 480px !important; 
+        padding: 1.5rem !important; 
+        background: white !important; 
+        box-shadow: 0 0 15px rgba(0,0,0,0.1) !important; 
+        min-height: 100vh !important; 
+        margin: 0 auto !important; 
+    }
+    .stApp { background-color: #e2e8f0; }
     [data-testid="stSidebar"] { display: none; }
     .app-header { background: linear-gradient(135deg, #0047AB 0%, #00c6ff 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; }
     
-    /* 📱 JOINED BOX DESIGN (No Gap) */
+    /* 📱 JOINED BOX DESIGN */
     .stButton > button { 
         border-radius: 12px 0 0 12px !important; 
         height: 70px !important; 
@@ -69,26 +95,11 @@ st.markdown("""
         width: 100% !important;
     }
     
-    .amt-joined-red { 
-        background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%); 
-        color: white; height: 70px; display: flex; align-items: center; justify-content: center; 
-        font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; 
-        margin-left: -2px; margin-bottom: 12px; border: 1.5px solid #b91c1c;
-    }
-    .amt-joined-green { 
-        background: linear-gradient(135deg, #4ade80 0%, #15803d 100%); 
-        color: white; height: 70px; display: flex; align-items: center; justify-content: center; 
-        font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; 
-        margin-left: -2px; margin-bottom: 12px; border: 1.5px solid #15803d;
-    }
-    .amt-joined-grey { 
-        background: #f3f4f6; 
-        color: #6b7280; height: 70px; display: flex; align-items: center; justify-content: center; 
-        font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; 
-        margin-left: -2px; margin-bottom: 12px; border: 1.5px solid #e2e8f0;
-    }
+    .amt-joined-red { background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%); color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1.5px solid #b91c1c;}
+    .amt-joined-green { background: linear-gradient(135deg, #4ade80 0%, #15803d 100%); color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1.5px solid #15803d;}
+    .amt-joined-grey { background: #f3f4f6; color: #6b7280; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; margin-bottom: 12px; border: 1.5px solid #e2e8f0;}
 
-    /* Standard Buttons Override (for inside forms and dashboard) */
+    /* Standard Buttons Override */
     div[data-testid="stForm"] .stButton > button, 
     .stApp > div > div > div > div > div > div > .stButton > button {
         border-radius: 12px !important;
@@ -145,16 +156,29 @@ ret_df, led_df = load_data()
 valid_ret = ret_df[ret_df['Location'].astype(str).str.upper() != 'EMPLOYEE'] if ret_df is not None else None
 retailers_dict = {f"{r['Retailer Name']} ({str(r['Mobile Number']).split('.')[0]})": r for _, r in valid_ret.iterrows()} if valid_ret is not None else {}
 
-# 🔐 LOGIN
+# 🔐 LOGIN SYSTEM
 if not st.session_state.authenticated:
     st.markdown('<div class="app-header"><h1>🏢 Sandhya ERP</h1><p>Secure Login</p></div>', unsafe_allow_html=True)
     l_mob = st.text_input("Mobile Number")
     l_pin = st.text_input("PIN", type="password")
     if st.button("🚀 LOGIN", use_container_width=True):
         if l_mob == "7479584179" and l_pin == "9557":
-            st.session_state.role = "Admin"; st.session_state.authenticated = True; st.session_state.current_page = "HOME"; st.rerun()
+            st.session_state.role = "Admin"; st.session_state.authenticated = True; st.session_state.current_page = "HOME"
+            st.session_state.emp_name = "Admin"
+            # Setting URL Token for Persistent Login
+            st.query_params["auth"] = "true"; st.query_params["role"] = "Admin"; st.query_params["pin"] = l_pin
+            st.rerun()
         elif l_mob == "7254972081" and l_pin == "2081":
-            st.session_state.role = "Employee"; st.session_state.emp_name = "Babloo kumar singh"; st.session_state.authenticated = True; st.session_state.current_page = "EMP_HOME"; st.rerun()
+            st.session_state.role = "Employee"; st.session_state.emp_name = "Babloo kumar singh"; st.session_state.authenticated = True; st.session_state.current_page = "EMP_HOME"
+            st.query_params["auth"] = "true"; st.query_params["role"] = "Employee"; st.query_params["name"] = "Babloo kumar singh"; st.query_params["pin"] = l_pin
+            st.rerun()
+        elif ret_df is not None:
+            emps = ret_df[ret_df['Location'].astype(str).str.upper() == 'EMPLOYEE']
+            for _, r in emps.iterrows():
+                if str(r.get("Mobile Number")).split('.')[0] == l_mob and str(r.get("PRM ID")).replace("EMP_","") == l_pin:
+                    st.session_state.role = "Employee"; st.session_state.emp_name = r["Retailer Name"]; st.session_state.emp_pin = l_pin; st.session_state.authenticated = True; st.session_state.current_page = "EMP_HOME"
+                    st.query_params["auth"] = "true"; st.query_params["role"] = "Employee"; st.query_params["name"] = r["Retailer Name"]; st.query_params["pin"] = l_pin
+                    st.rerun()
         st.error("Invalid Login Details")
     st.stop()
 
@@ -179,7 +203,7 @@ if st.session_state.current_page == "HOME":
         if st.button("💰 Today Collection", use_container_width=True): go_to("COL"); st.rerun()
         if st.button("📦 Entry", use_container_width=True): go_to("ENTRY"); st.rerun()
         if st.button("🚨 Urgent", use_container_width=True): go_to("URGENT"); st.rerun()
-        if st.button("🚪 Logout", use_container_width=True): st.session_state.authenticated = False; st.rerun()
+        if st.button("🚪 Logout", use_container_width=True, on_click=do_logout): pass
 
 elif st.session_state.current_page == "EMP_HOME":
     st.info(f"👤 {st.session_state.emp_name}")
@@ -189,7 +213,7 @@ elif st.session_state.current_page == "EMP_HOME":
         if st.button("📦 Sim Stock", use_container_width=True): go_to("STOCK"); st.rerun()
     with col2:
         if st.button("➕ Add Retailer", use_container_width=True): go_to("ADD"); st.rerun()
-        if st.button("Exit", use_container_width=True): st.session_state.authenticated = False; st.rerun()
+        if st.button("Exit", use_container_width=True, on_click=do_logout): pass
 
 # --- 💸 KHATABOOK 3D (JOINED BOXES + FIXED LEDGER) ---
 elif st.session_state.current_page == "DUES":
@@ -199,7 +223,6 @@ elif st.session_state.current_page == "DUES":
         all_r = []; tm, ta = 0, 0
         for n, r in retailers_dict.items():
             u_led = led_df[led_df['Retailer Name'] == r['Retailer Name']]
-            # ERROR FIX: Added errors='coerce' to prevent ValueError
             bal = pd.to_numeric(u_led['Amount Out (Debit)'], errors='coerce').sum() - pd.to_numeric(u_led['Amount In (Credit)'], errors='coerce').sum()
             if bal > 0: tm += bal
             else: ta += abs(bal)
@@ -215,7 +238,6 @@ elif st.session_state.current_page == "DUES":
                 cls = "amt-joined-red" if i['Bal'] > 0 else "amt-joined-green" if i['Bal'] < 0 else "amt-joined-grey"
                 c1, c2 = st.columns([3, 1])
                 with c1:
-                    # To remove borders naturally in the form context we use st.button but CSS covers the joining
                     if st.button(f"👤 {i['Name']} ({i['PRM']})", key=f"kb_{i['Disp']}", use_container_width=True):
                         st.session_state.kb_retailer = i['Name']; st.rerun()
                 with c2: 
@@ -237,7 +259,6 @@ elif st.session_state.current_page == "DUES":
             c = c_val if pd.notnull(c_val) else 0
             running_bal += (d - c)
             
-            # Set status for individual entry
             if running_bal > 0: status_text = f"🚩 Dues: ₹{running_bal:,.0f}"
             elif running_bal < 0: status_text = f"✅ Adv: ₹{abs(running_bal):,.0f}"
             else: status_text = "⚪ Settled: ₹0"
@@ -303,7 +324,7 @@ elif st.session_state.current_page == "DUES":
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
                 if st.form_submit_button("Save"):
                     if verify_pin(f, p):
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":mob,"type":t,"qty":qty,"amt_out":amt,"amt_in":0,"fse":f,"txn_id":"KB"})
+                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"type":t,"qty":qty,"amt_out":amt,"amt_in":0,"fse":f,"txn_id":"KB"})
                         st.session_state.success_display_text = f"₹ {amt:,.0f}" if amt>0 else f"{int(qty)} SIMs"
                         st.session_state.success_txn_type = t
                         msg = urllib.parse.quote(f"*Sandhya Enterprises*\n{t} Done\nAmt: Rs {amt if amt>0 else qty}")
@@ -316,7 +337,7 @@ elif st.session_state.current_page == "DUES":
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
                 if st.form_submit_button("Save"):
                     if verify_pin(f, p):
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":mob,"type":f"Payment ({m})","amt_in":a,"fse":f,"txn_id":"KB"})
+                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"type":f"Payment ({m})","amt_in":a,"fse":f,"txn_id":"KB"})
                         st.session_state.success_display_text = f"₹ {a:,.0f}"; st.session_state.success_txn_type = f"Payment Received ({m})"
                         st.session_state.success_wa_link = f"https://wa.me/91{mob}?text=Payment%20Received%3A%20Rs%20{a}"
                         st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
@@ -344,3 +365,6 @@ elif st.session_state.current_page == "COL":
 elif st.session_state.current_page == "ENTRY":
     st.button("🔙 Back", on_click=lambda: go_to(get_home()))
     st.write("Record Entry System loaded.")
+elif st.session_state.current_page == "LEDGER":
+    st.button("🔙 Back", on_click=lambda: go_to(get_home()))
+    st.write("Ledger Reporting loaded.")
