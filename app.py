@@ -14,7 +14,7 @@ except ImportError:
 # 1. Page Configuration (No Sidebar)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide", initial_sidebar_state="collapsed")
 
-# 💎 Global CSS Design (3D Effects & English UI)
+# 💎 Global CSS Design (3D Effects & Mobile Fixes)
 st.markdown("""
     <style>
     .stApp { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -35,12 +35,6 @@ st.markdown("""
     .stDataFrame, .stSelectbox, .stNumberInput, .stTextInput, .stDateInput {
         background-color: white; border-radius: 10px; padding: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
-    .wobble-btn > div > button {
-        background-color: #ffffff !important; color: #1a1a1a !important; border: none !important; border-radius: 12px !important;
-        font-size: 18px !important; font-weight: 700 !important; box-shadow: 0 6px 0 #d1d9e6 !important;
-        border-left: 6px solid #007bff !important; transition: 0.2s; height: 60px !important;
-    }
-    .wobble-btn > div > button:hover { top: -3px; box-shadow: 0 9px 0 #d1d9e6 !important; border-left: 6px solid #00c6ff !important; }
     
     /* 🔥 KHATABOOK SUPER 3D BOX CSS 🔥 */
     .kb-header-container { display: flex; justify-content: space-around; align-items: center; background: transparent; padding: 10px 0 20px 0; margin-bottom: 15px; }
@@ -66,10 +60,18 @@ st.markdown("""
     div[data-testid="stTabs"] .stButton > button { height: auto !important; min-height: 20px !important; background: transparent !important; border: none !important; box-shadow: none !important; color: #1f2937 !important; font-size: 16px !important; font-weight: 700 !important; padding: 0 !important; margin: 0 !important; justify-content: flex-start !important; }
     div[data-testid="stTabs"] .stButton > button:hover { color: #0b57d0 !important; }
     
-    /* 📱 MOBILE GRID FIX */
+    /* 📱 MOBILE GRID FIX (Force Buttons Side-By-Side) */
     @media (max-width: 768px) {
-        div[data-testid="stHorizontalBlock"] { flex-wrap: nowrap !important; }
-        div[data-testid="column"] { min-width: calc(50% - 0.5rem) !important; }
+        div[data-testid="stHorizontalBlock"] {
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 10px !important;
+        }
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+            width: 100% !important;
+            flex: 1 1 0% !important;
+            min-width: 0 !important;
+        }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -139,7 +141,7 @@ def load_data():
 
 ret_df, inv_df, led_df = load_data()
 
-# 🟢 SMART FILTER: Separate Employees and Real Retailers
+# 🟢 FILTER EMPLOYEES OUT FROM RETAILER LIST
 valid_ret_df = None
 if ret_df is not None:
     if "Location" in ret_df.columns:
@@ -167,8 +169,7 @@ if "emp_pin" not in st.session_state: st.session_state.emp_pin = ""
 if "kb_retailer" not in st.session_state: st.session_state.kb_retailer = None
 if "kb_action" not in st.session_state: st.session_state.kb_action = None
 
-def get_home():
-    return "HOME" if st.session_state.get("role") == "Admin" else "EMP_HOME"
+def get_home(): return "HOME" if st.session_state.get("role") == "Admin" else "EMP_HOME"
 
 def go_to(page): 
     st.session_state.current_page = page
@@ -176,7 +177,7 @@ def go_to(page):
 
 st.markdown('<div class="app-header"><h1>🏢 Sandhya Enterprises</h1><p>Smart Management System</p></div>', unsafe_allow_html=True)
 
-# 🟢 ROLE BASED FSE LIST
+# 🟢 FSE LIST & PIN VERIFICATION LOGIC
 fse_list = ["Avdhesh Kumar", "Babloo kumar singh"]
 if st.session_state.get("role") == "Employee":
     fse_list = [st.session_state.emp_name]
@@ -197,10 +198,15 @@ if st.session_state.current_page == "LOGIN":
             log_mob = st.text_input("Mobile Number (10 Digits)")
             log_pin = st.text_input("4-Digit PIN", type="password")
             if st.button("Login securely", use_container_width=True):
+                # Admin Login
                 if log_mob == "7479584179" and log_pin == "9557":
-                    st.session_state.role = "Admin"
-                    go_to("HOME")
-                    st.rerun()
+                    st.session_state.role = "Admin"; go_to("HOME"); st.rerun()
+                # Hardcoded Babloo Ji Login
+                elif log_mob == "7254972081" and log_pin == "2081":
+                    st.session_state.role = "Employee"
+                    st.session_state.emp_name = "Babloo kumar singh"
+                    st.session_state.emp_pin = "2081"
+                    go_to("EMP_HOME"); st.rerun()
                 else:
                     emp_found = False
                     if ret_df is not None and "Location" in ret_df.columns:
@@ -213,11 +219,9 @@ if st.session_state.current_page == "LOGIN":
                                 st.session_state.emp_name = str(r.get("Retailer Name", ""))
                                 st.session_state.emp_pin = p
                                 emp_found = True
-                                go_to("EMP_HOME")
-                                st.rerun()
+                                go_to("EMP_HOME"); st.rerun()
                                 break
-                    if not emp_found:
-                        st.error("❌ Invalid Mobile Number or PIN!")
+                    if not emp_found: st.error("❌ Invalid Mobile Number or PIN!")
 
     with tab2:
         with st.container(border=True):
@@ -232,8 +236,7 @@ if st.session_state.current_page == "LOGIN":
                     except: pass
                     st.success("✅ Employee Registered Successfully! Go to Login tab.")
                     st.cache_data.clear()
-                else:
-                    st.error("⚠️ Mobile must be 10 digits and PIN must be 4 digits!")
+                else: st.error("⚠️ Mobile must be 10 digits and PIN must be 4 digits!")
 
 # --- 🏠 1. ADMIN HOME PAGE ---
 elif st.session_state.current_page == "HOME":
@@ -264,9 +267,7 @@ elif st.session_state.current_page == "EMP_HOME":
     c1.success(f"### 👋 Welcome, {st.session_state.emp_name}")
     if c2.button("🚪 Logout"): st.session_state.role = None; go_to("LOGIN"); st.rerun()
     
-    st.markdown("""<style>
-    .stButton > button { height: 75px; background: #ffffff; color: #1e293b; border: 1.5px solid #e2e8f0; border-radius: 14px; font-size: 18px; font-weight: 600; margin-bottom: 15px;}
-    </style>""", unsafe_allow_html=True)
+    st.markdown("""<style>.stButton > button { height: 75px; background: #ffffff; color: #1e293b; border: 1.5px solid #e2e8f0; border-radius: 14px; font-size: 18px; font-weight: 600; margin-bottom: 15px;}</style>""", unsafe_allow_html=True)
     st.markdown("<hr>", unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
@@ -588,7 +589,7 @@ elif st.session_state.current_page == "DUES":
             running_bal += (debit - credit)
             rows_data.append({'date': row['Date'], 'item': row['Product/Service'], 'debit': debit, 'credit': credit, 'bal': running_bal})
             
-        # 🟢 Text Statement with last 5 entries for WhatsApp
+        # 🟢 Text Statement for WhatsApp
         stmt_text = f"*Sandhya Enterprises - Ledger*\n👤 Retailer: {kb_name}\n"
         if balance > 0: stmt_text += f"💰 Total Dues: ₹{balance:,.0f}\n\n*Recent Entries:*\n"
         else: stmt_text += f"💰 Total Advance: ₹{abs(balance):,.0f}\n\n*Recent Entries:*\n"
@@ -600,8 +601,12 @@ elif st.session_state.current_page == "DUES":
         stmt_text += "\nPlease clear your dues. Regards, Sandhya Enterprises."
         wa_link = f"https://wa.me/91{kb_mob}?text={urllib.parse.quote(stmt_text)}"
         
-        # 🟢 Show WhatsApp Link
-        st.markdown(f"<div style='text-align:center; margin-bottom:15px;'><a href='{wa_link}' target='_blank' style='display:inline-block; padding:10px 20px; background-color:#eff6ff; color:#0b57d0; font-weight:700; border-radius:20px; text-decoration:none; border:1px solid #bfdbfe; box-shadow: 0 2px 5px rgba(0,0,0,0.05);'>📲 Send WhatsApp Reminder (With Text Ledger)</a></div>", unsafe_allow_html=True)
+        # 🟢 100% WORKING WHATSAPP BUTTON HTML
+        st.markdown(f'''
+        <a href="{wa_link}" target="_blank" style="display: block; text-align: center; background-color: #eff6ff; color: #0b57d0; font-size: 16px; font-weight: bold; padding: 12px; border-radius: 8px; text-decoration: none; border: 1px solid #bfdbfe; margin-bottom: 15px;">
+            <span style="font-size: 20px; vertical-align: middle;">📲</span> Send WhatsApp Reminder (With Ledger)
+        </a>
+        ''', unsafe_allow_html=True)
         
         # 🟢 PDF and Excel Downloads
         dl_col1, dl_col2 = st.columns(2)
@@ -632,7 +637,7 @@ elif st.session_state.current_page == "DUES":
         ledger_html += "</div>"
         st.markdown(ledger_html, unsafe_allow_html=True)
         
-        # 🟢 Buttons side-by-side
+        # 🟢 Buttons Force Side-by-Side
         b1, b2 = st.columns(2)
         if b1.button("🔴 AAPNE DIYE", use_container_width=True): st.session_state.kb_action = "diye"; st.rerun()
         if b2.button("🟢 AAPKO MILE", use_container_width=True): st.session_state.kb_action = "mile"; st.rerun()
@@ -640,7 +645,7 @@ elif st.session_state.current_page == "DUES":
         if st.session_state.kb_action == "diye":
             with st.form(f"diye_form", clear_on_submit=True):
                 st.error("🔴 Aapne Diye (Stock Out)")
-                t_type = st.selectbox("Type", ["Etop Transfer", "JPB V4", "Sim Card"], key="type_kb_diye")
+                t_type = st.selectbox("Type", ["Etop Transfer", "JPB V4", "Sim Card"])
                 col_c, col_d = st.columns(2)
                 t_qty, t_amt = 0, 0.0
                 
