@@ -5,6 +5,12 @@ import urllib.parse
 import requests
 import time
 
+try:
+    from fpdf import FPDF
+    HAS_FPDF = True
+except ImportError:
+    HAS_FPDF = False
+
 # 1. Page Configuration (No Sidebar)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide", initial_sidebar_state="collapsed")
 
@@ -37,28 +43,8 @@ st.markdown("""
     .wobble-btn > div > button:hover { top: -3px; box-shadow: 0 9px 0 #d1d9e6 !important; border-left: 6px solid #00c6ff !important; }
     
     /* 🔥 KHATABOOK SUPER 3D BOX CSS 🔥 */
-    .kb-header-container {
-        display: flex;
-        justify-content: space-around;
-        align-items: center;
-        background: transparent;
-        padding: 10px 0 20px 0;
-        margin-bottom: 15px;
-    }
-    .kb-box {
-        width: 44%;
-        text-align: center;
-        background: #ffffff;
-        border: 1px solid #eaeaea;
-        border-radius: 12px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        padding: 25px 15px;
-        transition: all 0.2s ease;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-    }
+    .kb-header-container { display: flex; justify-content: space-around; align-items: center; background: transparent; padding: 10px 0 20px 0; margin-bottom: 15px; }
+    .kb-box { width: 44%; text-align: center; background: #ffffff; border: 1px solid #eaeaea; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); padding: 25px 15px; transition: all 0.2s ease; display: flex; flex-direction: column; justify-content: center; align-items: center; }
     .kb-divider { width: 1px; height: 80px; background: #e5e7eb; }
     .kb-box:hover { box-shadow: 0 10px 25px rgba(0,0,0,0.2); transform: translateY(-3px); }
     .kb-box h4 { font-size: 14px; color: #6b7280; margin: 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;}
@@ -75,40 +61,15 @@ st.markdown("""
     .kb-ledger-item { font-size: 15px; color: #1f2937; font-weight: 600; text-transform: capitalize;}
     
     /* 💎 RETAILER LIST 3D CARD CSS 💎 */
-    div[data-testid="stVerticalBlockBorderWrapper"] {
-        border-radius: 12px !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.06) !important;
-        background-color: #ffffff !important;
-        border: 1px solid #eaeaea !important;
-        padding: 5px 10px !important;
-        margin-bottom: 10px !important;
-        transition: 0.3s;
-    }
-    div[data-testid="stVerticalBlockBorderWrapper"]:hover {
-        box-shadow: 0 8px 20px rgba(0,0,0,0.12) !important;
-        transform: translateY(-2px);
-        border-color: #0b57d0 !important;
-    }
-    
-    /* Clickable Button styling inside the Card */
-    div[data-testid="stTabs"] .stButton > button {
-        height: auto !important; min-height: 20px !important;
-        background: transparent !important; border: none !important;
-        box-shadow: none !important; color: #1f2937 !important;
-        font-size: 16px !important; font-weight: 700 !important;
-        padding: 0 !important; margin: 0 !important;
-        justify-content: flex-start !important;
-    }
+    div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 12px !important; box-shadow: 0 4px 10px rgba(0,0,0,0.06) !important; background-color: #ffffff !important; border: 1px solid #eaeaea !important; padding: 5px 10px !important; margin-bottom: 10px !important; transition: 0.3s; }
+    div[data-testid="stVerticalBlockBorderWrapper"]:hover { box-shadow: 0 8px 20px rgba(0,0,0,0.12) !important; transform: translateY(-2px); border-color: #0b57d0 !important; }
+    div[data-testid="stTabs"] .stButton > button { height: auto !important; min-height: 20px !important; background: transparent !important; border: none !important; box-shadow: none !important; color: #1f2937 !important; font-size: 16px !important; font-weight: 700 !important; padding: 0 !important; margin: 0 !important; justify-content: flex-start !important; }
     div[data-testid="stTabs"] .stButton > button:hover { color: #0b57d0 !important; }
     
-    /* 📱 MOBILE GRID FIX: Force columns to stay Side-by-Side on Phones */
+    /* 📱 MOBILE GRID FIX */
     @media (max-width: 768px) {
-        div[data-testid="stHorizontalBlock"] {
-            flex-wrap: nowrap !important;
-        }
-        div[data-testid="column"] {
-            min-width: calc(50% - 0.5rem) !important;
-        }
+        div[data-testid="stHorizontalBlock"] { flex-wrap: nowrap !important; }
+        div[data-testid="column"] { min-width: calc(50% - 0.5rem) !important; }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -125,6 +86,57 @@ def clean_prm_id(val):
     if not s or s.lower() == 'nan': return ""
     try: return str(int(float(s)))
     except: return s.split('.')[0].replace(" ", "").upper()
+
+def create_pdf(r_name, r_mob, bal, r_data):
+    if not HAS_FPDF: return None
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Header
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 8, "Sandhya Enterprises", ln=True, align='C')
+    pdf.set_font("Arial", 'B', 11)
+    pdf.cell(0, 6, "Jio Authorities Distributor", ln=True, align='C')
+    
+    pdf.set_font("Arial", '', 9)
+    pdf.cell(0, 5, "Register office: Rosera Rod Meghpatti City Samastipur Bihar 848117", ln=True, align='C')
+    pdf.cell(0, 5, "GSTIN: 10GQZPK8313P1Z1  |  PAN: GQZPK8313P", ln=True, align='C')
+    pdf.cell(0, 5, "Email: smp.sandhya02@gmail.com  |  Avdhesh Kumar: 7479584179", ln=True, align='C')
+    
+    pdf.line(10, 43, 200, 43)
+    pdf.ln(10)
+    
+    # Retailer Details
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(100, 6, f"Retailer: {r_name}", ln=False)
+    pdf.cell(0, 6, f"Mobile: {r_mob}", ln=True, align='R')
+    
+    bal_str = f"Total Dues: Rs {bal:,.0f}" if bal >= 0 else f"Advance Balance: Rs {abs(bal):,.0f}"
+    pdf.cell(0, 8, bal_str, ln=True)
+    pdf.ln(5)
+    
+    # Table Header
+    pdf.set_font("Arial", 'B', 9)
+    pdf.cell(25, 8, "Date", border=1)
+    pdf.cell(75, 8, "Particulars", border=1)
+    pdf.cell(30, 8, "Aapne Diye", border=1)
+    pdf.cell(30, 8, "Aapko Mile", border=1)
+    pdf.cell(30, 8, "Balance", border=1)
+    pdf.ln()
+    
+    # Table Rows
+    pdf.set_font("Arial", '', 9)
+    for r in r_data:
+        pdf.cell(25, 8, str(r['date']), border=1)
+        pdf.cell(75, 8, str(r['item'])[:40], border=1)
+        d_val = f"{r['debit']:,.0f}" if r['debit'] > 0 else "-"
+        c_val = f"{r['credit']:,.0f}" if r['credit'] > 0 else "-"
+        pdf.cell(30, 8, d_val, border=1)
+        pdf.cell(30, 8, c_val, border=1)
+        pdf.cell(30, 8, f"{r['bal']:,.0f}", border=1)
+        pdf.ln()
+        
+    return pdf.output(dest='S').encode('latin-1')
 
 @st.cache_data(ttl=5)
 def load_data():
@@ -249,7 +261,7 @@ elif st.session_state.current_page == "COLLECTION":
                                 st.success("✅ Saved!"); st.cache_data.clear()
                             else: st.error("❌ Wrong PIN")
 
-# --- 📦 3. ENTRY PAGE ---
+# --- 📦 3. ENTRY PAGE (DYNAMIC FORM) ---
 elif st.session_state.current_page == "ENTRY":
     c1, c2 = st.columns(2)
     if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
@@ -258,7 +270,6 @@ elif st.session_state.current_page == "ENTRY":
     t_date = st.date_input("Date", date.today())
     t_prm = st.selectbox("Select Retailer*", options=dropdown_options)
     
-    # 🟢 DYNAMIC FORM: Show fields based on Entry Type
     t_type = st.selectbox("Entry Type", ["Etop Transfer", "Payment Received", "JPB V4", "Sim Card"])
     
     with st.container(border=True):
@@ -278,8 +289,8 @@ elif st.session_state.current_page == "ENTRY":
                 p_mode = st.selectbox("Payment Mode (Cash/Online)", ["Cash", "Online"])
                 t_amt = st.number_input("Enter Amount", min_value=1.0)
             elif t_type == "JPB V4":
-                t_qty = st.number_input("Qty", min_value=1); rate = st.number_input("Rate", min_value=1.0)
-                t_amt = t_qty * rate
+                t_amt = st.number_input("Total Amount ₹", min_value=1.0)
+                t_qty = st.number_input("Qty", min_value=1)
             elif t_type == "Sim Card":
                 t_qty = st.number_input("Qty", min_value=1)
                 
@@ -295,7 +306,7 @@ elif st.session_state.current_page == "ENTRY":
                 try: requests.post(WEBHOOK_URL, json=payload)
                 except: pass
                 st.success("✅ Entry Saved Successfully!"); st.cache_data.clear()
-                msg = urllib.parse.quote(f"*Sandhya Enterprises*\nRetailer: {r_name}\nItem: {final_type}\nAmount: ₹{t_amt}")
+                msg = urllib.parse.quote(f"*Sandhya Enterprises*\nRetailer: {r_name}\nItem: {final_type}\nAmount: ₹{t_amt if t_amt > 0 else t_qty}")
                 st.markdown(f"### [🟢 Send WhatsApp](https://wa.me/91{r_mob}?text={msg})")
             else: st.error("Please Select a Retailer")
         else: st.error("❌ Invalid PIN")
@@ -465,12 +476,6 @@ elif st.session_state.current_page == "DUES":
         c = pd.to_numeric(u_data['Amount In (Credit)'], errors='coerce').sum()
         balance = d - c
         
-        # 🟢 STATEMENT GENERATOR (For WhatsApp)
-        stmt_text = f"*Sandhya Enterprises - Ledger*\n👤 Retailer: {kb_name}\n"
-        if balance > 0: stmt_text += f"💰 Total Dues: ₹{balance:,.0f}\n\n*Recent Entries:*\n"
-        else: stmt_text += f"💰 Total Advance: ₹{abs(balance):,.0f}\n\n*Recent Entries:*\n"
-        
-        # Big Summary Box
         if balance >= 0:
             st.markdown(f'''
             <div style="display: flex; justify-content: center; padding: 10px 0; margin-bottom: 15px;">
@@ -504,12 +509,14 @@ elif st.session_state.current_page == "DUES":
             running_bal += (debit - credit)
             rows_data.append({'date': row['Date'], 'item': row['Product/Service'], 'debit': debit, 'credit': credit, 'bal': running_bal})
             
-        # Add last 5 rows to WhatsApp statement
-        for r in rows_data[-5:]:
-            stmt_text += f"• {r['date']} | {r['item']} | Bal: ₹{r['bal']:,.0f}\n"
-        stmt_text += "\nPlease clear your dues. Regards, Sandhya Enterprises."
-        wa_link = f"https://wa.me/91{kb_mob}?text={urllib.parse.quote(stmt_text)}"
-            
+        # 🟢 PDF LEDGER GENERATION
+        if not HAS_FPDF:
+            st.warning("⚠️ PDF बनाने के लिए Streamlit Cloud (requirements.txt) में `fpdf` ऐड करें।")
+        else:
+            pdf_bytes = create_pdf(kb_name, kb_mob, balance, rows_data)
+            if pdf_bytes:
+                st.download_button(label="📄 Download PDF Ledger (WhatsApp के लिए)", data=pdf_bytes, file_name=f"{kb_name}_Ledger.pdf", mime="application/pdf", use_container_width=True)
+
         for r in reversed(rows_data):
             d_str = f"₹ {r['debit']:,.0f}" if r['debit'] > 0 else ""
             c_str = f"₹ {r['credit']:,.0f}" if r['credit'] > 0 else ""
@@ -525,43 +532,29 @@ elif st.session_state.current_page == "DUES":
             </div>
             '''
         ledger_html += "</div>"
-        
-        # 🟢 NAYA: WhatsApp Statement Button and Excel Download
-        st.markdown(f"<div style='text-align:center; margin-bottom:15px;'><a href='{wa_link}' target='_blank' style='display:inline-block; padding:10px 20px; background-color:#eff6ff; color:#0b57d0; font-weight:700; border-radius:20px; text-decoration:none; border:1px solid #bfdbfe; box-shadow: 0 2px 5px rgba(0,0,0,0.05);'>📲 Send Statement (WhatsApp)</a></div>", unsafe_allow_html=True)
-        
-        col_down1, col_down2, col_down3 = st.columns([1, 2, 1])
-        with col_down2:
-            st.download_button("📥 Download Excel Ledger", u_data[['Date', 'Product/Service', 'Amount Out (Debit)', 'Amount In (Credit)']].to_csv(index=False).encode('utf-8-sig'), f"{kb_name}_Ledger.csv", use_container_width=True)
-
         st.markdown(ledger_html, unsafe_allow_html=True)
         
-        # 🟢 Bottom Buttons side-by-side
+        # 🟢 FIX: Buttons side-by-side on mobile
         b1, b2 = st.columns(2)
         if b1.button("🔴 AAPNE DIYE", use_container_width=True): st.session_state.kb_action = "diye"; st.rerun()
         if b2.button("🟢 AAPKO MILE", use_container_width=True): st.session_state.kb_action = "mile"; st.rerun()
             
         if st.session_state.kb_action == "diye":
-            st.error("🔴 Aapne Diye (Stock Out)")
-            
-            # 🟢 DYNAMIC FORM FOR KHATABOOK
-            t_type = st.selectbox("Type", ["Etop Transfer", "JPB V4", "Sim Card"], key="type_kb_diye")
-            
             with st.form(f"diye_form", clear_on_submit=True):
+                st.error("🔴 Aapne Diye (Stock Out)")
+                t_type = st.selectbox("Type", ["Etop Transfer", "JPB V4", "Sim Card"])
                 col_c, col_d = st.columns(2)
                 t_qty, t_amt = 0, 0.0
-                
                 with col_c:
                     if t_type == "Etop Transfer" or t_type == "JPB V4":
                         t_amt = st.number_input("Amount ₹", min_value=0.0)
                 with col_d:
                     if t_type == "Sim Card" or t_type == "JPB V4":
                         t_qty = st.number_input("Qty", min_value=1)
-                        
                 col_e, col_f = st.columns(2)
                 f_n = col_e.selectbox("FSE", ["Avdhesh Kumar", "Babloo kumar singh"])
                 f_p = col_f.text_input("PIN", type="password")
                 txn_id = st.text_input("Remark")
-                
                 if st.form_submit_button("Save Entry", use_container_width=True):
                     if (f_n=="Avdhesh Kumar" and f_p=="9557") or (f_n=="Babloo kumar singh" and f_p=="2081"):
                         try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":kb_name,"r_mob":kb_mob,"type":t_type,"qty":t_qty,"amt_out":t_amt,"amt_in":0,"fse":f_n,"txn_id":txn_id})
@@ -570,8 +563,8 @@ elif st.session_state.current_page == "DUES":
                     else: st.error("❌ Wrong PIN")
                     
         elif st.session_state.kb_action == "mile":
-            st.success("🟢 Aapko Mile (Payment Received)")
             with st.form(f"mile_form", clear_on_submit=True):
+                st.success("🟢 Aapko Mile (Payment Received)")
                 p_mode = st.selectbox("Mode (Cash/Online)", ["Cash", "Online"])
                 t_amt = st.number_input("Amount ₹", min_value=1.0)
                 col_e, col_f = st.columns(2)
@@ -621,7 +614,7 @@ elif st.session_state.current_page == "BULK":
                     prog.progress((i+1)/len(df_j))
                 st.success("✅ Done!"); st.cache_data.clear()
 
-# --- 🚨 8. URGENT RECOVERY (SMART FIX) ---
+# --- 🚨 8. URGENT RECOVERY ---
 elif st.session_state.current_page == "URGENT":
     c1, c2 = st.columns(2)
     if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
