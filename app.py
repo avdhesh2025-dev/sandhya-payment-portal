@@ -76,9 +76,14 @@ if st.session_state.show_success_modal:
         st.rerun()
     st.stop()
 
-# 💎 CSS DESIGN (A4 FIXED LAYOUT + SOOTHING COLORS)
+# 💎 CSS DESIGN (A4 FIXED LAYOUT + SOOTHING COLORS + ANTI-ZOOM)
 st.markdown("""
     <style>
+    /* 🚫 PREVENT AUTO-ZOOM ON MOBILE */
+    input[type="text"], input[type="password"], input[type="number"], textarea, select {
+        font-size: 16px !important;
+    }
+
     /* 📄 A4 FRAME LOGIC */
     .main .block-container { max-width: 480px !important; padding: 1.5rem !important; background: white !important; box-shadow: 0 0 15px rgba(0,0,0,0.1) !important; min-height: 100vh !important; margin: 0 auto !important; }
     .stApp { background-color: #e2e8f0; }
@@ -161,7 +166,7 @@ if not st.session_state.authenticated:
     l_mob = st.text_input("Mobile Number")
     l_pin = st.text_input("PIN", type="password")
     
-    # 🟢 JAVASCRIPT HACK: FORCE NUMERIC KEYBOARD ON MOBILE
+    # 🟢 JAVASCRIPT HACK: FORCE NUMERIC KEYBOARD & HARD LOCK ZOOM ON MOBILE
     st.components.v1.html(
         """
         <script>
@@ -170,6 +175,15 @@ if not st.session_state.authenticated:
             input.setAttribute('inputmode', 'numeric');
             input.setAttribute('pattern', '[0-9]*');
         });
+        
+        // 🚫 PREVENT PAGE ZOOM ON CLICK (Meta Tag Injection)
+        let meta = window.parent.document.querySelector('meta[name="viewport"]');
+        if (!meta) {
+            meta = window.parent.document.createElement('meta');
+            meta.name = 'viewport';
+            window.parent.document.head.appendChild(meta);
+        }
+        meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
         </script>
         """, height=0, width=0
     )
@@ -349,7 +363,6 @@ elif st.session_state.current_page == "DUES":
                 else: amt = st.number_input("Amount"); qty = st.number_input("Qty")
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
                 
-                # JAVASCRIPT HACK IN FORM FOR NUMERIC KEYBOARD
                 st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');i.setAttribute('pattern','[0-9]*');});</script>""", height=0, width=0)
 
                 if st.form_submit_button("Save", type="secondary"):
@@ -396,9 +409,6 @@ elif st.session_state.current_page == "COL":
     t_led = led_df[led_df['Date'] == date.today().strftime("%d-%m-%Y")]
     st.dataframe(t_led[pd.to_numeric(t_led['Amount In (Credit)'], errors='coerce') > 0], hide_index=True)
 
-elif st.session_state.current_page == "ENTRY":
+elif st.session_state.current_page in ["ENTRY", "LEDGER", "URGENT"]:
     st.button("🔙 Back", on_click=lambda: go_to(get_home()), type="secondary")
-    st.write("Record Entry System loaded.")
-elif st.session_state.current_page == "LEDGER":
-    st.button("🔙 Back", on_click=lambda: go_to(get_home()), type="secondary")
-    st.write("Ledger Reporting loaded.")
+    st.write(f"{st.session_state.current_page} System loaded.")
