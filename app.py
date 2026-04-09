@@ -371,6 +371,8 @@ elif st.session_state.current_page == "STOCK":
                     dist_df['Qty'] = pd.to_numeric(dist_df[q_col], errors='coerce')
                     show_df = dist_df[['Date', 'Retailer Name', 'Qty']]
                     st.dataframe(show_df, use_container_width=True, hide_index=True)
+        else:
+            st.warning("Quantity data not available yet.")
 
 # --- 💰 3. TODAY COLLECTION ---
 elif st.session_state.current_page == "COLLECTION":
@@ -600,6 +602,8 @@ elif st.session_state.current_page == "DUES":
             
         st.markdown("<br>", unsafe_allow_html=True)
         
+        if not filtered_list: st.info("No matching customers found.")
+        
         for item in filtered_list:
             bal = item['Balance']
             if bal > 0: color = "#b91c1c"; status = "Pending"; amt_str = f"₹ {bal:,.0f}"
@@ -678,6 +682,8 @@ elif st.session_state.current_page == "DUES":
             
         u_data = u_data.sort_values(by='DateObj', ascending=True) 
         running_bal = 0
+        
+        # 🟢 HTML FORMATTING FIXED FOR NO INDENTATION (Error-Free)
         ledger_html = "<div style='background:white; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; margin-bottom:15px; margin-top:10px;'>"
         ledger_html += "<div style='display:flex; font-size:11px; color:#6b7280; font-weight:600; padding:10px 15px; background:#f9fafb; border-bottom:1px solid #e5e7eb;'><div style='width:40%'>ENTRIES</div><div style='width:30%; text-align:right'>AAPNE DIYE</div><div style='width:30%; text-align:right'>AAPKO MILE</div></div>"
         
@@ -690,6 +696,14 @@ elif st.session_state.current_page == "DUES":
             running_bal += (debit - credit)
             rows_data.append({'date': row['Date'], 'item': row['Product/Service'], 'debit': debit, 'credit': credit, 'bal': running_bal})
             
+        for r in reversed(rows_data):
+            d_str = f"₹ {r['debit']:,.0f}" if r['debit'] > 0 else ""
+            c_str = f"₹ {r['credit']:,.0f}" if r['credit'] > 0 else ""
+            # NO INDENTATION HERE TO AVOID MARKDOWN CODE BLOCK RENDERING
+            ledger_html += f"<div class='kb-ledger-row'><div class='kb-ledger-left'><div class='kb-ledger-date'>{r['date']}</div><div class='kb-ledger-bal'>Bal. ₹ {r['bal']:,.0f}</div><div class='kb-ledger-item'>{r['item']}</div></div><div class='kb-ledger-mid'>{d_str}</div><div class='kb-ledger-right'>{c_str}</div></div>"
+            
+        ledger_html += "</div>"
+        
         stmt_text = f"*Sandhya Enterprises - Ledger*\n👤 Retailer: {kb_name}\n"
         if balance > 0: stmt_text += f"💰 Total Dues: ₹{balance:,.0f}\n\n*Recent Entries:*\n"
         elif balance < 0: stmt_text += f"💰 Total Advance: ₹{abs(balance):,.0f}\n\n*Recent Entries:*\n"
@@ -715,21 +729,7 @@ elif st.session_state.current_page == "DUES":
         with dl_col2:
             st.download_button("📥 Download Excel Ledger", u_data[['Date', 'Product/Service', 'Amount Out (Debit)', 'Amount In (Credit)']].to_csv(index=False).encode('utf-8-sig'), f"{kb_name}_Ledger.csv", use_container_width=True)
 
-        for r in reversed(rows_data):
-            d_str = f"₹ {r['debit']:,.0f}" if r['debit'] > 0 else ""
-            c_str = f"₹ {r['credit']:,.0f}" if r['credit'] > 0 else ""
-            ledger_html += f'''
-            <div class="kb-ledger-row">
-                <div class="kb-ledger-left">
-                    <div class="kb-ledger-date">{r['date']}</div>
-                    <div class="kb-ledger-bal">Bal. ₹ {r['bal']:,.0f}</div>
-                    <div class="kb-ledger-item">{r['item']}</div>
-                </div>
-                <div class="kb-ledger-mid">{d_str}</div>
-                <div class="kb-ledger-right">{c_str}</div>
-            </div>
-            '''
-        ledger_html += "</div>"
+        # RENDER HTML SAFELY
         st.markdown(ledger_html, unsafe_allow_html=True)
         
         b1, b2 = st.columns(2)
@@ -737,30 +737,28 @@ elif st.session_state.current_page == "DUES":
         if b2.button("🟢 AAPKO MILE", use_container_width=True): st.session_state.kb_action = "mile"; st.rerun()
             
         if st.session_state.kb_action == "diye":
-            st.error("🔴 Aapne Diye (Stock Out)")
-            t_type = st.selectbox("Type", ["Etop Transfer", "JPB V4", "Sim Card"], key="type_kb_diye")
-            
-            with st.container(border=True):
+            with st.form(f"diye_form", clear_on_submit=True):
+                st.error("🔴 Aapne Diye (Stock Out)")
+                t_type = st.selectbox("Type", ["Etop Transfer", "JPB V4", "Sim Card"], key="type_kb_diye")
                 col_c, col_d = st.columns(2)
                 t_qty, t_amt = 0, 0.0
                 
                 with col_c:
-                    # 🟢 NAYA: RESTORED CUSTOM ETOP AMOUNTS
                     if t_type == "Etop Transfer":
                         etop_opt = st.selectbox("Amount ₹", ["5000", "3000", "2000", "1500", "500", "Manual"], key="kb_etop")
                         t_amt = float(etop_opt) if etop_opt != "Manual" else st.number_input("Enter Amount", min_value=1.0, key="kb_amt")
                     elif t_type == "JPB V4":
-                        t_amt = st.number_input("Amount ₹", min_value=0.0, key="kb_amt_jpb")
+                        t_amt = st.number_input("Amount ₹", min_value=0.0)
                 with col_d:
                     if t_type == "Sim Card" or t_type == "JPB V4":
-                        t_qty = st.number_input("Qty", min_value=1, key="kb_qty")
+                        t_qty = st.number_input("Qty", min_value=1)
                         
                 col_e, col_f = st.columns(2)
-                f_n = col_e.selectbox("FSE", fse_list, key="kb_fse")
-                f_p = col_f.text_input("PIN", type="password", key="kb_pin")
-                txn_id = st.text_input("Remark", key="kb_rmk")
+                f_n = col_e.selectbox("FSE", fse_list)
+                f_p = col_f.text_input("PIN", type="password")
+                txn_id = st.text_input("Remark")
                 
-                if st.button("Save Entry", use_container_width=True, key="kb_save_d"):
+                if st.form_submit_button("Save Entry", use_container_width=True):
                     if verify_pin(f_n, f_p):
                         try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":kb_name,"r_mob":kb_mob,"type":t_type,"qty":t_qty,"amt_out":t_amt,"amt_in":0,"fse":f_n,"txn_id":txn_id})
                         except: pass
@@ -769,16 +767,16 @@ elif st.session_state.current_page == "DUES":
                     else: st.error("❌ Wrong PIN")
                     
         elif st.session_state.kb_action == "mile":
-            st.success("🟢 Aapko Mile (Payment Received)")
-            p_mode = st.selectbox("Mode (Cash/Online)", ["Cash", "Online"], key="type_kb_mile")
-            with st.container(border=True):
-                t_amt = st.number_input("Amount ₹", min_value=1.0, key="kb_amt_mile")
+            with st.form(f"mile_form", clear_on_submit=True):
+                st.success("🟢 Aapko Mile (Payment Received)")
+                p_mode = st.selectbox("Mode (Cash/Online)", ["Cash", "Online"])
+                t_amt = st.number_input("Amount ₹", min_value=1.0)
                 col_e, col_f = st.columns(2)
-                f_n = col_e.selectbox("FSE", fse_list, key="kb_fse_mile")
-                f_p = col_f.text_input("PIN", type="password", key="kb_pin_mile")
-                txn_id = st.text_input("Remark", key="kb_rem_mile")
+                f_n = col_e.selectbox("FSE", fse_list)
+                f_p = col_f.text_input("PIN", type="password")
+                txn_id = st.text_input("Remark")
                 
-                if st.button("Save Entry", use_container_width=True, key="kb_save_m"):
+                if st.form_submit_button("Save Entry", use_container_width=True):
                     if verify_pin(f_n, f_p):
                         try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":kb_name,"r_mob":kb_mob,"type":f"Payment Received ({p_mode})","qty":0,"amt_out":0,"amt_in":t_amt,"fse":f_n,"txn_id":txn_id})
                         except: pass
@@ -822,7 +820,7 @@ elif st.session_state.current_page == "BULK":
                     prog.progress((i+1)/len(df_j))
                 st.success("✅ Done!"); st.cache_data.clear()
 
-# --- 🚨 9. URGENT RECOVERY ---
+# --- 🚨 9. URGENT RECOVERY (SMART FIX) ---
 elif st.session_state.current_page == "URGENT":
     c1, c2 = st.columns(2)
     if c1.button("🔙 Back Menu", use_container_width=True): go_to(get_home()); st.rerun()
