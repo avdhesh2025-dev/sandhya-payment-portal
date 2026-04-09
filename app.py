@@ -8,7 +8,7 @@ import time
 # 1. Page Configuration (No Sidebar)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide", initial_sidebar_state="collapsed")
 
-# 💎 Global CSS Design (3D Effects & Khatabook UI)
+# 💎 Global CSS Design (3D Effects & English UI)
 st.markdown("""
     <style>
     .stApp { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -43,7 +43,6 @@ st.markdown("""
     .kb-give { color: #15803d; font-size: 24px; font-weight: bold; margin: 5px 0 0 0; }
     .kb-get { color: #b91c1c; font-size: 24px; font-weight: bold; margin: 5px 0 0 0; }
     .kb-divider { width: 1px; background: #e5e7eb; }
-    .streamlit-expanderHeader { background-color: white; border-radius: 8px; font-size: 16px; font-weight: bold; border: 1px solid #f3f4f6;}
     
     /* 📝 KHATABOOK INSIDE LEDGER CSS */
     .kb-ledger-row { display: flex; justify-content: space-between; border-bottom: 1px solid #f3f4f6; background: white; }
@@ -55,7 +54,7 @@ st.markdown("""
     .kb-ledger-item { font-size: 14px; color: #1f2937; margin-top: 6px; font-weight: 600; text-transform: capitalize;}
     .kb-ledger-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: white; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 15px;}
     .kb-ledger-header h3 { margin:0; font-size: 16px; color: #374151; font-weight: 600;}
-    .kb-ledger-header h2 { margin:0; font-size: 20px; color: #b91c1c; font-weight: 700;} 
+    .kb-ledger-header h2 { margin:0; font-size: 22px; color: #b91c1c; font-weight: 700;} 
     .kb-ledger-header h2.green { color: #15803d; }
     </style>
 """, unsafe_allow_html=True)
@@ -98,10 +97,14 @@ if ret_df is not None:
             prm_mapping[m_prm] = {"Name": name, "Mobile": mob}
             dropdown_options.append(f"{prm} - {name}")
 
+# SESSION STATES
 if "current_page" not in st.session_state: st.session_state.current_page = "HOME"
+if "kb_retailer" not in st.session_state: st.session_state.kb_retailer = None
+if "kb_action" not in st.session_state: st.session_state.kb_action = None
 
 def go_to(page): 
     st.session_state.current_page = page
+    st.session_state.kb_retailer = None # Reset khatabook view on page change
 
 st.markdown('<div class="app-header"><h1>🏢 Sandhya Enterprises</h1><p>Smart Management System</p></div>', unsafe_allow_html=True)
 
@@ -124,7 +127,7 @@ if st.session_state.current_page == "HOME":
     with col2:
         if st.button("💰 Today's Collection", use_container_width=True): go_to("COLLECTION"); st.rerun()
         if st.button("📦 Stock / Payment Entry", use_container_width=True): go_to("ENTRY"); st.rerun()
-        if st.button("💸 Dues List (Khatabook)", use_container_width=True): go_to("DUES"); st.rerun()
+        if st.button("💸 Khatabook (Dues)", use_container_width=True): go_to("DUES"); st.rerun()
         if st.button("🚨 Urgent Recovery", use_container_width=True): go_to("URGENT"); st.rerun()
 
 # --- 📊 1. STOCK ---
@@ -305,202 +308,168 @@ elif st.session_state.current_page == "LEDGER":
         st.dataframe(f_led.drop(columns=['DateObj']), use_container_width=True, hide_index=True)
         st.download_button("📥 Excel Download", f_led.to_csv(index=False).encode('utf-8-sig'), f"{r_name}_Ledger.csv")
 
-# --- 💸 6. DUES REMINDERS (🔥 KHATABOOK INTERACTIVE UI 🔥) ---
+# --- 💸 6. DUES REMINDERS (🔥 KHATABOOK ISOLATED UI 🔥) ---
 elif st.session_state.current_page == "DUES":
-    c1, c2 = st.columns(2)
-    if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
-    if c2.button("🔄 Refresh", use_container_width=True): st.cache_data.clear(); st.rerun()
     
-    st.header("📖 Khatabook (Touch to Open Ledger)")
-    
-    total_dene_hain = 0
-    total_milenge = 0
-    dues_list = []
-    adv_list = []
-    
-    for key, val in retailers_data.items():
-        name = val["Name"]
-        mob = val["Mobile"]
-        u_data = led_df[led_df['Retailer Name'] == name]
+    # CASE 1: SHOW FULL LIST IF NO RETAILER IS CLICKED
+    if st.session_state.kb_retailer is None:
+        c1, c2 = st.columns(2)
+        if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
+        if c2.button("🔄 Refresh", use_container_width=True): st.cache_data.clear(); st.rerun()
+        
+        st.header("📖 Khatabook (List)")
+        
+        total_dene_hain = 0; total_milenge = 0
+        dues_list = []; adv_list = []
+        
+        for key, val in retailers_data.items():
+            name = val["Name"]; mob = val["Mobile"]
+            u_data = led_df[led_df['Retailer Name'] == name]
+            d = pd.to_numeric(u_data['Amount Out (Debit)'], errors='coerce').sum()
+            c = pd.to_numeric(u_data['Amount In (Credit)'], errors='coerce').sum()
+            balance = d - c
+            
+            if balance > 0: 
+                total_milenge += balance
+                dues_list.append({"Name": name, "Mobile": mob, "Balance": balance})
+            elif balance < 0: 
+                total_dene_hain += abs(balance)
+                adv_list.append({"Name": name, "Mobile": mob, "Balance": abs(balance)})
+                
+        st.markdown(f'''
+            <div class="kb-header-container">
+                <div class="kb-box">
+                    <h4>Aapko dene hain (Advance)</h4>
+                    <p class="kb-give">₹ {total_dene_hain:,.0f}</p>
+                </div>
+                <div class="kb-divider"></div>
+                <div class="kb-box">
+                    <h4>Aapko Milenge (Dues)</h4>
+                    <p class="kb-get">₹ {total_milenge:,.0f}</p>
+                </div>
+            </div>
+        ''', unsafe_allow_html=True)
+        
+        tab1, tab2 = st.tabs(["🔴 Aapko Milenge", "🟢 Aapko Dene Hain"])
+        
+        with tab1:
+            if not dues_list: st.success("No dues pending!")
+            for item in dues_list:
+                col1, col2 = st.columns([3, 1])
+                col1.markdown(f"<span style='font-size:16px; font-weight:bold;'>{item['Name']}</span><br><span style='color:gray;font-size:12px;'>{item['Mobile']} • Pending</span>", unsafe_allow_html=True)
+                col2.markdown(f"<div style='text-align:right;color:#b91c1c;font-weight:bold;font-size:16px;'>₹ {item['Balance']:,.0f}</div>", unsafe_allow_html=True)
+                if st.button(f"Ledger Dekhein >", key=f"open_{item['Name']}", use_container_width=True):
+                    st.session_state.kb_retailer = item['Name']
+                    st.rerun()
+                st.markdown("<hr style='margin:5px 0;'>", unsafe_allow_html=True)
+                
+        with tab2:
+            if not adv_list: st.info("No advance balances.")
+            for item in adv_list:
+                col1, col2 = st.columns([3, 1])
+                col1.markdown(f"<span style='font-size:16px; font-weight:bold;'>{item['Name']}</span><br><span style='color:gray;font-size:12px;'>{item['Mobile']} • Advance</span>", unsafe_allow_html=True)
+                col2.markdown(f"<div style='text-align:right;color:#15803d;font-weight:bold;font-size:16px;'>₹ {item['Balance']:,.0f}</div>", unsafe_allow_html=True)
+                if st.button(f"Ledger Dekhein >", key=f"open_adv_{item['Name']}", use_container_width=True):
+                    st.session_state.kb_retailer = item['Name']
+                    st.rerun()
+                st.markdown("<hr style='margin:5px 0;'>", unsafe_allow_html=True)
+
+    # CASE 2: SHOW ONLY ONE RETAILER VIEW (LEDGER)
+    else:
+        kb_name = st.session_state.kb_retailer
+        # Find Mobile
+        kb_mob = ""
+        for k, v in retailers_data.items():
+            if v["Name"] == kb_name: kb_mob = v["Mobile"]; break
+            
+        c1, c2 = st.columns([1, 4])
+        if c1.button("⬅️ Back", use_container_width=True):
+            st.session_state.kb_retailer = None
+            st.session_state.kb_action = None
+            st.rerun()
+        c2.markdown(f"### 👤 {kb_name} ({kb_mob})")
+        
+        u_data = led_df[led_df['Retailer Name'] == kb_name].copy()
         d = pd.to_numeric(u_data['Amount Out (Debit)'], errors='coerce').sum()
         c = pd.to_numeric(u_data['Amount In (Credit)'], errors='coerce').sum()
         balance = d - c
         
-        if balance > 0: 
-            total_milenge += balance
-            dues_list.append({"Name": name, "Mobile": mob, "Balance": balance})
-        elif balance < 0: 
-            total_dene_hain += abs(balance)
-            last_credit = u_data[pd.to_numeric(u_data['Amount In (Credit)'], errors='coerce') > 0].tail(1)
-            reason = last_credit['Product/Service'].values[0] if not last_credit.empty else "Advance"
-            adv_list.append({"Name": name, "Mobile": mob, "Balance": abs(balance), "Reason": reason})
+        if balance >= 0:
+            st.markdown(f'''<div class="kb-ledger-header"><h3>Aapko Milenge</h3><h2>₹ {balance:,.0f}</h2></div>''', unsafe_allow_html=True)
+            msg = urllib.parse.quote(f"Dear Partner, your pending dues are ₹{balance}. Please clear your payment. Regards, Sandhya Enterprises.")
+            st.markdown(f"[📲 Send WhatsApp Reminder](https://wa.me/91{kb_mob}?text={msg})")
+        else:
+            st.markdown(f'''<div class="kb-ledger-header"><h3>Aapko Dene Hain</h3><h2 class="green">₹ {abs(balance):,.0f}</h2></div>''', unsafe_allow_html=True)
             
-    st.markdown(f'''
-        <div class="kb-header-container">
-            <div class="kb-box">
-                <h4>Aapko dene hain (Advance)</h4>
-                <p class="kb-give">₹ {total_dene_hain:,.0f}</p>
-            </div>
-            <div class="kb-divider"></div>
-            <div class="kb-box">
-                <h4>Aapko Milenge (Dues)</h4>
-                <p class="kb-get">₹ {total_milenge:,.0f}</p>
-            </div>
-        </div>
-    ''', unsafe_allow_html=True)
-    
-    tab1, tab2 = st.tabs(["🔴 Aapko Milenge (Dues)", "🟢 Aapko Dene Hain (Advance)"])
-    
-    with tab1:
-        if not dues_list: st.success("No dues pending!")
-        for item in dues_list:
-            with st.expander(f"🔴 {item['Name']}  |  ₹ {item['Balance']:,.0f}  |  {item['Mobile']}"):
-                
-                # 🟢 NAYA: Header inside expander
-                st.markdown(f'''
-                <div class="kb-ledger-header">
-                    <h3>Aapko Milenge</h3>
-                    <h2>₹ {item['Balance']:,.0f}</h2>
+        u_data = u_data.sort_values(by='DateObj', ascending=True) 
+        running_bal = 0
+        ledger_html = "<div style='background:white; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; margin-bottom:15px; margin-top:10px;'>"
+        ledger_html += "<div style='display:flex; font-size:11px; color:#6b7280; font-weight:600; padding:10px 15px; background:#f9fafb; border-bottom:1px solid #e5e7eb;'><div style='width:50%'>ENTRIES</div><div style='width:25%; text-align:right'>AAPNE DIYE</div><div style='width:25%; text-align:right'>AAPKO MILE</div></div>"
+        
+        rows_data = []
+        for _, row in u_data.iterrows():
+            debit = pd.to_numeric(row['Amount Out (Debit)'], errors='coerce')
+            credit = pd.to_numeric(row['Amount In (Credit)'], errors='coerce')
+            if pd.isna(debit): debit = 0
+            if pd.isna(credit): credit = 0
+            running_bal += (debit - credit)
+            rows_data.append({'date': row['Date'], 'item': row['Product/Service'], 'debit': debit, 'credit': credit, 'bal': running_bal})
+            
+        for r in reversed(rows_data):
+            d_str = f"₹ {r['debit']:,.0f}" if r['debit'] > 0 else ""
+            c_str = f"₹ {r['credit']:,.0f}" if r['credit'] > 0 else ""
+            ledger_html += f'''
+            <div class="kb-ledger-row">
+                <div class="kb-ledger-left">
+                    <div class="kb-ledger-date">{r['date']}</div>
+                    <div class="kb-ledger-bal">Bal. ₹ {r['bal']:,.0f}</div>
+                    <div class="kb-ledger-item">{r['item']}</div>
                 </div>
-                ''', unsafe_allow_html=True)
-                
-                # 🟢 NAYA: Ledger HTML Generation
-                u_data = led_df[led_df['Retailer Name'] == item['Name']].copy()
-                u_data = u_data.sort_values(by='DateObj', ascending=True) # Calculate balance from past to present
-                
-                running_bal = 0
-                ledger_html = "<div style='background:white; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; margin-bottom:15px;'>"
-                ledger_html += "<div style='display:flex; font-size:11px; color:#6b7280; font-weight:600; padding:10px 15px; background:#f9fafb; border-bottom:1px solid #e5e7eb;'><div style='width:50%'>ENTRIES</div><div style='width:25%; text-align:right'>AAPNE DIYE</div><div style='width:25%; text-align:right'>AAPKO MILE</div></div>"
-                
-                rows_data = []
-                for _, row in u_data.iterrows():
-                    debit = pd.to_numeric(row['Amount Out (Debit)'], errors='coerce')
-                    credit = pd.to_numeric(row['Amount In (Credit)'], errors='coerce')
-                    if pd.isna(debit): debit = 0
-                    if pd.isna(credit): credit = 0
-                    running_bal += (debit - credit)
-                    rows_data.append({'date': row['Date'], 'item': row['Product/Service'], 'debit': debit, 'credit': credit, 'bal': running_bal})
+                <div class="kb-ledger-mid">{d_str}</div>
+                <div class="kb-ledger-right">{c_str}</div>
+            </div>
+            '''
+        ledger_html += "</div>"
+        st.markdown(ledger_html, unsafe_allow_html=True)
+        
+        # Bottom Buttons
+        b1, b2 = st.columns(2)
+        if b1.button("🔴 AAPNE DIYE ₹ (Stock)", use_container_width=True): st.session_state.kb_action = "diye"; st.rerun()
+        if b2.button("🟢 AAPKO MILE ₹ (Payment)", use_container_width=True): st.session_state.kb_action = "mile"; st.rerun()
+            
+        if st.session_state.kb_action == "diye":
+            with st.form(f"diye_form", clear_on_submit=True):
+                st.subheader("🔴 Aapne Diye (Stock Out)")
+                t_type = st.selectbox("Type", ["Etop Transfer", "JPB V4", "Sim Card"])
+                col_c, col_d = st.columns(2)
+                t_amt = col_c.number_input("Amount ₹", min_value=0.0)
+                t_qty = col_d.number_input("Qty (if JPB/SIM)", min_value=0)
+                col_e, col_f = st.columns(2)
+                f_n = col_e.selectbox("FSE", ["Avdhesh Kumar", "Babloo kumar singh"])
+                f_p = col_f.text_input("PIN", type="password")
+                txn_id = st.text_input("Remark")
+                if st.form_submit_button("Save Entry", use_container_width=True):
+                    if (f_n=="Avdhesh Kumar" and f_p=="9557") or (f_n=="Babloo kumar singh" and f_p=="2081"):
+                        try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":kb_name,"r_mob":kb_mob,"type":t_type,"qty":t_qty,"amt_out":t_amt,"amt_in":0,"fse":f_n,"txn_id":txn_id})
+                        except: pass
+                        st.success("✅ Saved!"); st.cache_data.clear(); st.session_state.kb_action = None
+                    else: st.error("❌ Wrong PIN")
                     
-                for r in reversed(rows_data):
-                    d_str = f"₹ {r['debit']:,.0f}" if r['debit'] > 0 else ""
-                    c_str = f"₹ {r['credit']:,.0f}" if r['credit'] > 0 else ""
-                    ledger_html += f'''
-                    <div class="kb-ledger-row">
-                        <div class="kb-ledger-left">
-                            <div class="kb-ledger-date">{r['date']}</div>
-                            <div class="kb-ledger-bal">Bal. ₹ {r['bal']:,.0f}</div>
-                            <div class="kb-ledger-item">{r['item']}</div>
-                        </div>
-                        <div class="kb-ledger-mid">{d_str}</div>
-                        <div class="kb-ledger-right">{c_str}</div>
-                    </div>
-                    '''
-                ledger_html += "</div>"
-                st.markdown(ledger_html, unsafe_allow_html=True)
-                
-                msg = urllib.parse.quote(f"Dear Partner, your pending dues are ₹{item['Balance']}. Please clear your payment. Regards, Sandhya Enterprises.")
-                st.markdown(f"**[📲 Send WhatsApp Reminder](https://wa.me/91{item['Mobile']}?text={msg})**")
-                
-                st.markdown("### ⚡ Add Entry / Collection")
-                with st.form(f"kb_form_dues_{item['Name']}", clear_on_submit=True):
-                    col_a, col_b = st.columns(2)
-                    t_type = col_a.selectbox("Type", ["Payment Received", "Etop Transfer", "JPB V4", "Sim Card"])
-                    p_mode = col_b.selectbox("Mode (If Payment)", ["Cash", "Online"])
-                    
-                    col_c, col_d = st.columns(2)
-                    t_amt = col_c.number_input("Amount ₹", min_value=0.0)
-                    t_qty = col_d.number_input("Qty (if JPB/SIM)", min_value=0)
-                    
-                    col_e, col_f = st.columns(2)
-                    f_n = col_e.selectbox("FSE", ["Avdhesh Kumar", "Babloo kumar singh"])
-                    f_p = col_f.text_input("PIN", type="password")
-                    txn_id = st.text_input("Remark")
-
-                    if st.form_submit_button("Save Entry"):
-                        if (f_n=="Avdhesh Kumar" and f_p=="9557") or (f_n=="Babloo kumar singh" and f_p=="2081"):
-                            final_type = f"{t_type} ({p_mode})" if t_type == "Payment Received" else t_type
-                            amt_out = t_amt if t_type != "Payment Received" else 0
-                            amt_in = t_amt if t_type == "Payment Received" else 0
-                            
-                            payload = {"action":"add_txn", "date":date.today().strftime("%d-%m-%Y"), "r_name":item['Name'], "r_mob":item['Mobile'], "type":final_type, "qty":t_qty, "amt_out":amt_out, "amt_in":amt_in, "fse":f_n, "txn_id":txn_id}
-                            try: requests.post(WEBHOOK_URL, json=payload)
-                            except: pass
-                            st.success("✅ Saved Successfully!"); st.cache_data.clear()
-                        else:
-                            st.error("❌ Wrong PIN")
-
-    with tab2:
-        if not adv_list: st.info("No advance balances.")
-        for item in adv_list:
-            with st.expander(f"🟢 {item['Name']}  |  Advance: ₹ {item['Balance']:,.0f}  |  Item: {item['Reason']}"):
-                
-                st.markdown(f'''
-                <div class="kb-ledger-header">
-                    <h3>Aapko Dene Hain</h3>
-                    <h2 class="green">₹ {item['Balance']:,.0f}</h2>
-                </div>
-                ''', unsafe_allow_html=True)
-                
-                u_data = led_df[led_df['Retailer Name'] == item['Name']].copy()
-                u_data = u_data.sort_values(by='DateObj', ascending=True) 
-                
-                running_bal = 0
-                ledger_html = "<div style='background:white; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; margin-bottom:15px;'>"
-                ledger_html += "<div style='display:flex; font-size:11px; color:#6b7280; font-weight:600; padding:10px 15px; background:#f9fafb; border-bottom:1px solid #e5e7eb;'><div style='width:50%'>ENTRIES</div><div style='width:25%; text-align:right'>AAPNE DIYE</div><div style='width:25%; text-align:right'>AAPKO MILE</div></div>"
-                
-                rows_data = []
-                for _, row in u_data.iterrows():
-                    debit = pd.to_numeric(row['Amount Out (Debit)'], errors='coerce')
-                    credit = pd.to_numeric(row['Amount In (Credit)'], errors='coerce')
-                    if pd.isna(debit): debit = 0
-                    if pd.isna(credit): credit = 0
-                    running_bal += (debit - credit)
-                    rows_data.append({'date': row['Date'], 'item': row['Product/Service'], 'debit': debit, 'credit': credit, 'bal': running_bal})
-                    
-                for r in reversed(rows_data):
-                    d_str = f"₹ {r['debit']:,.0f}" if r['debit'] > 0 else ""
-                    c_str = f"₹ {r['credit']:,.0f}" if r['credit'] > 0 else ""
-                    ledger_html += f'''
-                    <div class="kb-ledger-row">
-                        <div class="kb-ledger-left">
-                            <div class="kb-ledger-date">{r['date']}</div>
-                            <div class="kb-ledger-bal">Bal. ₹ {r['bal']:,.0f}</div>
-                            <div class="kb-ledger-item">{r['item']}</div>
-                        </div>
-                        <div class="kb-ledger-mid">{d_str}</div>
-                        <div class="kb-ledger-right">{c_str}</div>
-                    </div>
-                    '''
-                ledger_html += "</div>"
-                st.markdown(ledger_html, unsafe_allow_html=True)
-                
-                st.markdown("### ⚡ Add Entry / Collection")
-                with st.form(f"kb_form_adv_{item['Name']}", clear_on_submit=True):
-                    col_a, col_b = st.columns(2)
-                    t_type = col_a.selectbox("Type", ["Etop Transfer", "Payment Received", "JPB V4", "Sim Card"])
-                    p_mode = col_b.selectbox("Mode (If Payment)", ["Cash", "Online"])
-                    
-                    col_c, col_d = st.columns(2)
-                    t_amt = col_c.number_input("Amount ₹", min_value=0.0)
-                    t_qty = col_d.number_input("Qty (if JPB/SIM)", min_value=0)
-                    
-                    col_e, col_f = st.columns(2)
-                    f_n = col_e.selectbox("FSE", ["Avdhesh Kumar", "Babloo kumar singh"])
-                    f_p = col_f.text_input("PIN", type="password")
-                    txn_id = st.text_input("Remark")
-
-                    if st.form_submit_button("Save Entry"):
-                        if (f_n=="Avdhesh Kumar" and f_p=="9557") or (f_n=="Babloo kumar singh" and f_p=="2081"):
-                            final_type = f"{t_type} ({p_mode})" if t_type == "Payment Received" else t_type
-                            amt_out = t_amt if t_type != "Payment Received" else 0
-                            amt_in = t_amt if t_type == "Payment Received" else 0
-                            
-                            payload = {"action":"add_txn", "date":date.today().strftime("%d-%m-%Y"), "r_name":item['Name'], "r_mob":item['Mobile'], "type":final_type, "qty":t_qty, "amt_out":amt_out, "amt_in":amt_in, "fse":f_n, "txn_id":txn_id}
-                            try: requests.post(WEBHOOK_URL, json=payload)
-                            except: pass
-                            st.success("✅ Saved Successfully!"); st.cache_data.clear()
-                        else:
-                            st.error("❌ Wrong PIN")
+        elif st.session_state.kb_action == "mile":
+            with st.form(f"mile_form", clear_on_submit=True):
+                st.subheader("🟢 Aapko Mile (Payment Received)")
+                p_mode = st.selectbox("Mode", ["Cash", "Online"])
+                t_amt = st.number_input("Amount ₹", min_value=1.0)
+                col_e, col_f = st.columns(2)
+                f_n = col_e.selectbox("FSE", ["Avdhesh Kumar", "Babloo kumar singh"])
+                f_p = col_f.text_input("PIN", type="password")
+                txn_id = st.text_input("Remark")
+                if st.form_submit_button("Save Entry", use_container_width=True):
+                    if (f_n=="Avdhesh Kumar" and f_p=="9557") or (f_n=="Babloo kumar singh" and f_p=="2081"):
+                        try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":kb_name,"r_mob":kb_mob,"type":f"Payment Received ({p_mode})","qty":0,"amt_out":0,"amt_in":t_amt,"fse":f_n,"txn_id":txn_id})
+                        except: pass
+                        st.success("✅ Saved!"); st.cache_data.clear(); st.session_state.kb_action = None
+                    else: st.error("❌ Wrong PIN")
 
 # --- 📂 7. BULK ENTRY (JIO ETOP) ---
 elif st.session_state.current_page == "BULK":
@@ -559,7 +528,10 @@ elif st.session_state.current_page == "URGENT":
             net_dues = total_debit - total_credit
             
             if net_dues > 0:
-                is_urgent = False; u_reason = ""; u_date = ""
+                is_urgent = False
+                u_reason = ""
+                u_date = ""
+                
                 for _, row in u_data.iterrows():
                     r_date = row['DateObj']
                     if pd.notnull(r_date):
