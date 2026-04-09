@@ -36,6 +36,23 @@ st.markdown("""
         border-left: 6px solid #007bff !important; transition: 0.2s; height: 60px !important;
     }
     .wobble-btn > div > button:hover { top: -3px; box-shadow: 0 9px 0 #d1d9e6 !important; border-left: 6px solid #00c6ff !important; }
+    
+    /* 🔥 KHATABOOK STYLE CSS FOR DUES PAGE 🔥 */
+    .kb-header-container { display: flex; justify-content: space-between; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;}
+    .kb-box { width: 48%; text-align: center; }
+    .kb-box h4 { font-size: 15px; color: #6b7280; margin: 0; font-weight: 500; }
+    .kb-give { color: #15803d; font-size: 24px; font-weight: bold; margin: 5px 0 0 0; }
+    .kb-get { color: #b91c1c; font-size: 24px; font-weight: bold; margin: 5px 0 0 0; }
+    .kb-divider { width: 1px; background: #e5e7eb; }
+    .kb-card { background: white; padding: 15px 20px; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);}
+    .kb-card:hover { background-color: #f9fafb; }
+    .kb-left { display: flex; flex-direction: column; }
+    .kb-name { font-size: 16px; font-weight: 600; color: #1f2937; margin: 0; }
+    .kb-phone { font-size: 13px; color: #6b7280; margin: 3px 0 0 0; }
+    .kb-right { text-align: right; }
+    .kb-amt-red { font-size: 17px; font-weight: bold; color: #b91c1c; margin: 0;}
+    .kb-amt-green { font-size: 17px; font-weight: bold; color: #15803d; margin: 0;}
+    .kb-remind { font-size: 13px; color: #2563eb; text-decoration: none; font-weight: 700; display: block; margin-top: 5px;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -103,7 +120,7 @@ if st.session_state.current_page == "HOME":
     with col2:
         if st.button("💰 Today's Collection", use_container_width=True): go_to("COLLECTION"); st.rerun()
         if st.button("📦 Stock / Payment Entry", use_container_width=True): go_to("ENTRY"); st.rerun()
-        if st.button("💸 Dues List", use_container_width=True): go_to("DUES"); st.rerun()
+        if st.button("💸 Dues List (Khatabook)", use_container_width=True): go_to("DUES"); st.rerun()
         if st.button("🚨 Urgent Recovery", use_container_width=True): go_to("URGENT"); st.rerun()
 
 # --- 📊 1. STOCK ---
@@ -129,8 +146,7 @@ elif st.session_state.current_page == "COLLECTION":
             name = row["Retailer Name"]
             u_led = led_df[led_df['Retailer Name'] == name]
             dues = pd.to_numeric(u_led['Amount Out (Debit)'], errors='coerce').sum() - pd.to_numeric(u_led['Amount In (Credit)'], errors='coerce').sum()
-            if dues > 0:
-                total_market_dues += dues
+            if dues > 0: total_market_dues += dues
                 
         today_led = led_df[led_df['Date'] == today_date_str].copy()
         today_led['Amount In (Credit)'] = pd.to_numeric(today_led['Amount In (Credit)'], errors='coerce').fillna(0)
@@ -142,12 +158,12 @@ elif st.session_state.current_page == "COLLECTION":
         box2.success(f"### 📥 Today's Collection\n# ₹ {today_collection_sum:,.2f}")
         
         if not today_collections.empty:
-            with st.expander("🔽 View Today's Collection Details (Kisne kya entry ki)"):
+            with st.expander("🔽 View Today's Collection Details"):
                 cols = [c for c in ['Retailer Name', 'Product/Service', 'Amount In (Credit)', 'FSE Name'] if c in today_collections.columns]
                 if not cols: cols = today_collections.columns.drop('DateObj', errors='ignore')
                 st.dataframe(today_collections[cols], use_container_width=True, hide_index=True)
         else:
-            with st.expander("🔽 View Today's Collection Details (Kisne kya entry ki)"):
+            with st.expander("🔽 View Today's Collection Details"):
                 st.info("No collections recorded yet for today.")
                 
         st.markdown("<hr>", unsafe_allow_html=True)
@@ -161,13 +177,11 @@ elif st.session_state.current_page == "COLLECTION":
                     st.markdown(f"### [📞 Call](tel:{mob})")
                     with st.form(f"col_{_}"):
                         p_amt = st.number_input("Amount", min_value=1.0)
-                        # 🟢 NAYA OPTION ADD KIYA GAYA HAI: Cash / Online
                         p_mode = st.selectbox("Payment Mode", ["Cash", "Online"], key=f"mode_{_}")
                         f_n = st.selectbox("FSE", ["Avdhesh Kumar", "Babloo kumar singh"], key=f"fse_{_}")
                         f_p = st.text_input("PIN", type="password", key=f"pin_{_}")
                         if st.form_submit_button("Save"):
                             if (f_n=="Avdhesh Kumar" and f_p=="9557") or (f_n=="Babloo kumar singh" and f_p=="2081"):
-                                # Type me ab Collection (Cash) ya Collection (Online) likha jayega
                                 payload = {"action": "add_txn", "date": date.today().strftime("%d-%m-%Y"), "r_name": name, "r_mob": mob, "type": f"Collection ({p_mode})", "qty": 0, "amt_out": 0, "amt_in": p_amt, "fse": f_n, "txn_id": "DIRECT"}
                                 try: requests.post(WEBHOOK_URL, json=payload)
                                 except: pass
@@ -287,51 +301,79 @@ elif st.session_state.current_page == "LEDGER":
         st.dataframe(f_led.drop(columns=['DateObj']), use_container_width=True, hide_index=True)
         st.download_button("📥 Excel Download", f_led.to_csv(index=False).encode('utf-8-sig'), f"{r_name}_Ledger.csv")
 
-# --- 💸 6. DUES REMINDERS ---
+# --- 💸 6. DUES REMINDERS (KHATABOOK UI) ---
 elif st.session_state.current_page == "DUES":
     c1, c2 = st.columns(2)
     if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
     if c2.button("🔄 Refresh", use_container_width=True): st.cache_data.clear(); st.rerun()
     
-    st.header("💰 Dues & Advance List")
-    if st.button("🔄 Check Market Balance", use_container_width=True):
-        dues_summary = []
-        adv_summary = []
+    st.header("📖 Khatabook (Dues & Advance)")
+    
+    total_dene_hain = 0
+    total_milenge = 0
+    dues_cards = ""
+    adv_cards = ""
+    
+    for key, val in retailers_data.items():
+        name = val["Name"]
+        mob = val["Mobile"]
+        u_data = led_df[led_df['Retailer Name'] == name]
+        d = pd.to_numeric(u_data['Amount Out (Debit)'], errors='coerce').sum()
+        c = pd.to_numeric(u_data['Amount In (Credit)'], errors='coerce').sum()
+        balance = d - c
         
-        for key, val in retailers_data.items():
-            name = val["Name"]
-            u_data = led_df[led_df['Retailer Name'] == name].copy()
-            d = pd.to_numeric(u_data['Amount Out (Debit)'], errors='coerce').sum()
-            c = pd.to_numeric(u_data['Amount In (Credit)'], errors='coerce').sum()
-            balance = d - c
+        if balance > 0: 
+            total_milenge += balance
+            msg = urllib.parse.quote(f"Dear Partner, your pending dues are ₹{balance}. Please clear your payment. Regards, Sandhya Enterprises.")
+            dues_cards += f'''
+            <div class="kb-card">
+                <div class="kb-left">
+                    <p class="kb-name">{name}</p>
+                    <p class="kb-phone">{mob} • Pending</p>
+                </div>
+                <div class="kb-right">
+                    <p class="kb-amt-red">₹ {balance:,.0f}</p>
+                    <a href="https://wa.me/91{mob}?text={msg}" target="_blank" class="kb-remind">REMIND KARAYEIN ></a>
+                </div>
+            </div>
+            '''
+        elif balance < 0: 
+            total_dene_hain += abs(balance)
+            adv_cards += f'''
+            <div class="kb-card">
+                <div class="kb-left">
+                    <p class="kb-name">{name}</p>
+                    <p class="kb-phone">{mob} • Advance</p>
+                </div>
+                <div class="kb-right">
+                    <p class="kb-amt-green">₹ {abs(balance):,.0f}</p>
+                </div>
+            </div>
+            '''
             
-            if balance > 0: 
-                dues_summary.append({"Retailer": name, "Mobile": val["Mobile"], "Dues": balance})
-            elif balance < 0: 
-                last_credit = u_data[pd.to_numeric(u_data['Amount In (Credit)'], errors='coerce') > 0].tail(1)
-                reason = last_credit['Product/Service'].values[0] if not last_credit.empty else "Advance"
-                adv_summary.append({"Retailer": name, "Mobile": val["Mobile"], "Advance Balance": abs(balance), "Reason/Item": reason})
-        
-        st.subheader("🚩 Pending Dues List")
-        s_df = pd.DataFrame(dues_summary)
-        if not s_df.empty:
-            st.error(f"💸 Total Market Dues: ₹{s_df['Dues'].sum()}")
-            st.dataframe(s_df, use_container_width=True, hide_index=True)
-            for _, row in s_df.iterrows():
-                msg = f"Dear Partner, your pending dues are ₹{row['Dues']}. Please clear your payment. Regards, Sandhya Enterprises."
-                st.markdown(f"**{row['Retailer']}** (₹{row['Dues']}) -> [📲 Send Reminder](https://wa.me/91{row['Mobile']}?text={urllib.parse.quote(msg)})")
-        else: 
-            st.success("✅ No dues pending!")
-            
-        st.markdown("<hr>", unsafe_allow_html=True)
-        
-        st.subheader("🌟 Retailers in Advance (Kiske paas extra jama hai)")
-        a_df = pd.DataFrame(adv_summary)
-        if not a_df.empty:
-            st.success(f"💰 Total Advance in Market: ₹{a_df['Advance Balance'].sum()}")
-            st.dataframe(a_df, use_container_width=True, hide_index=True)
-        else:
-            st.info("No advance balances found.")
+    # Khatabook Header Boxes
+    st.markdown(f'''
+        <div class="kb-header-container">
+            <div class="kb-box">
+                <h4>Aapko dene hain</h4>
+                <p class="kb-give">₹ {total_dene_hain:,.0f}</p>
+            </div>
+            <div class="kb-divider"></div>
+            <div class="kb-box">
+                <h4>Aapko Milenge</h4>
+                <p class="kb-get">₹ {total_milenge:,.0f}</p>
+            </div>
+        </div>
+    ''', unsafe_allow_html=True)
+    
+    # Khatabook Lists
+    tab1, tab2 = st.tabs(["🔴 Aapko Milenge (Dues)", "🟢 Aapko Dene Hain (Advance)"])
+    with tab1:
+        if dues_cards: st.markdown(dues_cards, unsafe_allow_html=True)
+        else: st.success("No dues pending!")
+    with tab2:
+        if adv_cards: st.markdown(adv_cards, unsafe_allow_html=True)
+        else: st.info("No advance balances.")
 
 # --- 📂 7. BULK ENTRY (JIO ETOP) ---
 elif st.session_state.current_page == "BULK":
@@ -369,7 +411,7 @@ elif st.session_state.current_page == "BULK":
                     prog.progress((i+1)/len(df_j))
                 st.success("✅ Done!"); st.cache_data.clear()
 
-# --- 🚨 8. URGENT RECOVERY (SMART FIX) ---
+# --- 🚨 8. URGENT RECOVERY ---
 elif st.session_state.current_page == "URGENT":
     c1, c2 = st.columns(2)
     if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
@@ -390,10 +432,7 @@ elif st.session_state.current_page == "URGENT":
             net_dues = total_debit - total_credit
             
             if net_dues > 0:
-                is_urgent = False
-                u_reason = ""
-                u_date = ""
-                
+                is_urgent = False; u_reason = ""; u_date = ""
                 for _, row in u_data.iterrows():
                     r_date = row['DateObj']
                     if pd.notnull(r_date):
