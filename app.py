@@ -14,7 +14,7 @@ except ImportError:
 # 1. Page Configuration
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide", initial_sidebar_state="collapsed")
 
-# 🟢 PERSISTENT LOGIN SESSION
+# 🟢 INITIALIZE ALL SESSION STATES
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "kb_retailer" not in st.session_state: st.session_state.kb_retailer = None
 if "kb_action" not in st.session_state: st.session_state.kb_action = None
@@ -25,7 +25,7 @@ if "success_wa_link" not in st.session_state: st.session_state.success_wa_link =
 if "role" not in st.session_state: st.session_state.role = None
 if "current_page" not in st.session_state: st.session_state.current_page = "LOGIN"
 
-# 💎 FULL SCREEN SUCCESS POPUP
+# 💎 FULL SCREEN SUCCESS POPUP 💎
 if st.session_state.show_success_modal:
     st.markdown('<audio autoplay style="display:none;"><source src="https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3" type="audio/mpeg"></audio>', unsafe_allow_html=True)
     st.markdown(f"""
@@ -44,48 +44,28 @@ if st.session_state.show_success_modal:
         st.rerun()
     st.stop()
 
-# 💎 CSS DESIGN (Joined Boxes & Professional Cards)
+# 💎 CSS DESIGN (Joined Boxes & Professional Layout)
 st.markdown("""
     <style>
     .stApp { background-color: #f4f7f6; }
     [data-testid="stSidebar"] { display: none; }
     .app-header { background: linear-gradient(135deg, #0047AB 0%, #00c6ff 100%); color: white; padding: 25px; border-radius: 16px; text-align: center; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); }
     
-    /* 📱 JOINED BOX DESIGN (No Gap) */
-    .retailer-row {
-        display: flex; align-items: center; justify-content: space-between;
-        background: white; border-radius: 12px; margin-bottom: 10px;
-        border: 1.5px solid #e2e8f0; overflow: hidden; height: 70px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-    }
-    .retailer-name-part {
-        flex-grow: 1; padding: 0 15px; font-weight: 700; color: #1e293b;
-        font-size: 16px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .amt-part-red {
-        background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%);
-        color: white; width: 110px; height: 100%; display: flex; align-items: center;
-        justify-content: center; font-weight: 800; font-size: 17px;
-    }
-    .amt-part-green {
-        background: linear-gradient(135deg, #4ade80 0%, #15803d 100%);
-        color: white; width: 110px; height: 100%; display: flex; align-items: center;
-        justify-content: center; font-weight: 800; font-size: 17px;
-    }
-    .amt-part-grey {
-        background: #f3f4f6; color: #6b7280; width: 110px; height: 100%;
-        display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px;
-    }
-
-    /* Dashboard & Form Buttons */
+    /* 📱 Retailer List Button Styling */
     .stButton > button { border-radius: 14px; height: 75px; font-weight: 700; font-size: 18px; margin-bottom: 15px; border: 1.5px solid #e2e8f0; background: white; color: #1e293b;}
     .stButton > button:hover { border-color: #3b82f6; color: #3b82f6; box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
     
+    /* Khatabook UI Components */
     .kb-header-container { display: flex; justify-content: space-around; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); margin-bottom: 20px; }
     .kb-box { width: 45%; text-align: center; }
     .kb-ledger-row { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; background: white; padding: 12px; align-items: center; }
     
-    @media (max-width: 768px) { div[data-testid="stHorizontalBlock"] { flex-direction: row !important; flex-wrap: nowrap !important; gap: 8px !important; } }
+    /* Joined Amount Parts */
+    .amt-part-red { background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%); color: white; height: 75px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 14px 14px 0; border: 1.5px solid #b91c1c; margin-left: -15px; margin-bottom: 15px;}
+    .amt-part-green { background: linear-gradient(135deg, #4ade80 0%, #15803d 100%); color: white; height: 75px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 14px 14px 0; border: 1.5px solid #15803d; margin-left: -15px; margin-bottom: 15px;}
+    .amt-part-grey { background: #f3f4f6; color: #6b7280; height: 75px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 14px 14px 0; border: 1.5px solid #e2e8f0; margin-left: -15px; margin-bottom: 15px;}
+
+    @media (max-width: 768px) { div[data-testid="stHorizontalBlock"] { flex-direction: row !important; flex-wrap: nowrap !important; gap: 0px !important; } }
     </style>
 """, unsafe_allow_html=True)
 
@@ -102,12 +82,12 @@ def create_pdf(r_name, r_mob, bal, r_data):
     pdf.add_page()
     pdf.set_font("Arial", 'B', 18); pdf.cell(0, 10, "Sandhya Enterprises", ln=True, align='C')
     pdf.set_font("Arial", 'B', 11); pdf.cell(0, 6, "Jio Authorized Distributor", ln=True, align='C')
-    pdf.set_font("Arial", '', 9); pdf.cell(0, 5, "Register office: Rosera Road, Meghpatti, Samastipur, Bihar 848117", ln=True, align='C')
-    pdf.cell(0, 5, "GSTIN: 10GQZPK8313P1Z1 | PAN: GQZPK8313P | Email: smp.sandhya02@gmail.com", ln=True, align='C')
+    pdf.set_font("Arial", '', 9); pdf.cell(0, 5, "Register office: Rosera Road, Samastipur, Bihar", ln=True, align='C')
+    pdf.cell(0, 5, "GSTIN: 10GQZPK8313P1Z1 | PAN: GQZPK8313P", ln=True, align='C')
     pdf.line(10, 45, 200, 45); pdf.ln(10)
-    pdf.set_font("Arial", 'B', 12); pdf.cell(100, 8, f"Retailer: {r_name}"); pdf.cell(0, 8, f"Balance: Rs {bal:,.2f}", ln=True, align='R')
+    pdf.set_font("Arial", 'B', 12); pdf.cell(100, 8, f"Retailer: {r_name}"); pdf.cell(0, 8, f"Bal: Rs {bal:,.2f}", ln=True, align='R')
     pdf.ln(5)
-    pdf.set_font("Arial", 'B', 9); pdf.cell(25, 8, "Date", 1); pdf.cell(75, 8, "Particulars", 1); pdf.cell(30, 8, "Debit", 1); pdf.cell(30, 8, "Credit", 1); pdf.cell(30, 8, "Bal", 1); pdf.ln()
+    pdf.set_font("Arial", 'B', 9); pdf.cell(25, 8, "Date", 1); pdf.cell(75, 8, "Particulars", 1); pdf.cell(30, 8, "Diye", 1); pdf.cell(30, 8, "Mile", 1); pdf.cell(30, 8, "Bal", 1); pdf.ln()
     pdf.set_font("Arial", '', 9)
     for r in r_data:
         pdf.cell(25, 8, str(r['d']), 1); pdf.cell(75, 8, str(r['i'])[:40], 1); pdf.cell(30, 8, f"{r['out']:,.0f}", 1); pdf.cell(30, 8, f"{r['in']:,.0f}", 1); pdf.cell(30, 8, f"{r['b']:,.0f}", 1); pdf.ln()
@@ -126,13 +106,13 @@ def load_data():
 
 ret_df, inv_df, led_df = load_data()
 
-# Separation logic
+# Separate Employees and Retailers
 valid_ret = ret_df[ret_df['Location'].astype(str).str.upper() != 'EMPLOYEE'] if ret_df is not None else None
 retailers_dict = {f"{r['Retailer Name']} ({str(r['Mobile Number']).split('.')[0]})": r for _, r in valid_ret.iterrows()} if valid_ret is not None else {}
 
-# 🔐 SECURE LOGIN 🔐
+# 🔐 SECURE LOGIN
 if not st.session_state.authenticated:
-    st.markdown('<div class="app-header"><h1>🏢 Sandhya Enterprises</h1><p>Smart Management Login</p></div>', unsafe_allow_html=True)
+    st.markdown('<div class="app-header"><h1>🏢 Sandhya Enterprises</h1><p>Smart Login Portal</p></div>', unsafe_allow_html=True)
     l_mob = st.text_input("Mobile Number")
     l_pin = st.text_input("4-Digit PIN", type="password")
     if st.button("🚀 LOGIN", use_container_width=True):
@@ -145,10 +125,10 @@ if not st.session_state.authenticated:
             for _, r in emps.iterrows():
                 if str(r.get("Mobile Number")).split('.')[0] == l_mob and str(r.get("PRM ID")).replace("EMP_","") == l_pin:
                     st.session_state.role = "Employee"; st.session_state.emp_name = r["Retailer Name"]; st.session_state.emp_pin = l_pin; st.session_state.authenticated = True; st.session_state.current_page = "EMP_HOME"; st.rerun()
-        st.error("❌ Invalid Login")
+        st.error("❌ Invalid Details")
     st.stop()
 
-# 🟢 NAV HELPERS
+# 🟢 NAVIGATION & HELPERS
 def go_to(p): st.session_state.current_page = p; st.session_state.kb_retailer = None; st.session_state.kb_action = None
 def get_home(): return "HOME" if st.session_state.role == "Admin" else "EMP_HOME"
 fse_list = ["Avdhesh Kumar", "Babloo kumar singh"]
@@ -158,24 +138,23 @@ def verify_pin(n, p):
     if st.session_state.role == "Employee" and p == st.session_state.emp_pin: return True
     return False
 
-# 🏠 ADMIN HOME
+# --- 🏠 1. ADMIN DASHBOARD (8 FULL BUTTONS) ---
 if st.session_state.current_page == "HOME":
-    c1, c2 = st.columns([5, 1])
-    if c2.button("🚪 Logout"): st.session_state.authenticated = False; st.rerun()
+    c1, c2 = st.columns([5, 1]); c2.button("🚪 Out", on_click=lambda: st.session_state.update({"authenticated":False}))
     st.markdown('<div class="app-header"><h3>Admin Dashboard</h3></div>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
         if st.button("📊 Live Stock & FSE Sim", use_container_width=True): go_to("STOCK"); st.rerun()
         if st.button("➕ Add Retailer", use_container_width=True): go_to("ADD"); st.rerun()
         if st.button("📜 Ledger Report", use_container_width=True): go_to("LEDGER"); st.rerun()
-        if st.button("📂 Bulk Match", use_container_width=True): go_to("BULK"); st.rerun()
+        if st.button("📂 Bulk Excel Match", use_container_width=True): go_to("BULK"); st.rerun()
     with col2:
         if st.button("💰 Today Collection", use_container_width=True): go_to("COL"); st.rerun()
         if st.button("📦 Stock/Payment Entry", use_container_width=True): go_to("ENTRY"); st.rerun()
         if st.button("💸 Khatabook 3D", use_container_width=True): go_to("DUES"); st.rerun()
         if st.button("🚨 Urgent Recovery", use_container_width=True): go_to("URGENT"); st.rerun()
 
-# 👨‍💼 EMP HOME
+# --- 👨‍💼 1.1 EMPLOYEE DASHBOARD ---
 elif st.session_state.current_page == "EMP_HOME":
     c1, c2 = st.columns([5, 1]); c1.info(f"👤 Welcome, {st.session_state.emp_name}")
     if c2.button("Exit"): st.session_state.authenticated = False; st.rerun()
@@ -187,7 +166,7 @@ elif st.session_state.current_page == "EMP_HOME":
         if st.button("🚨 Urgent Recovery", use_container_width=True): go_to("URGENT"); st.rerun()
         if st.button("📦 My Sim Stock", use_container_width=True): go_to("STOCK"); st.rerun()
 
-# 💸 KHATABOOK 3D (JOINED BOXES + NAME & PRM)
+# --- 💸 2. KHATABOOK 3D (JOINED BOXES + CALL OPTION) ---
 elif st.session_state.current_page == "DUES":
     st.button("🔙 Back Menu", on_click=lambda: go_to(get_home()))
     
@@ -198,33 +177,38 @@ elif st.session_state.current_page == "DUES":
             bal = pd.to_numeric(u_led['Amount Out (Debit)'], errors='coerce').sum() - pd.to_numeric(u_led['Amount In (Credit)'], errors='coerce').sum()
             if bal > 0: tm += bal
             else: ta += abs(bal)
-            prm_id = str(r.get('PRM ID', '')).split('.')[0]
-            all_r.append({"Name": r['Retailer Name'], "PRM": prm_id, "Mob": r['Mobile Number'], "Bal": bal, "Disp": n})
+            prm = str(r.get('PRM ID', '')).split('.')[0]
+            all_r.append({"Name": r['Retailer Name'], "PRM": prm, "Mob": str(r['Mobile Number']).split('.')[0], "Bal": bal, "Disp": n})
         
-        st.markdown(f"""<div class='kb-header-container'><div class='kb-box'><h4>Aapko dene hain</h4><h2 style='color:#15803d;'>₹ {ta:,.0f}</h2></div><div class='kb-box'><h4>Aapko milenge</h4><h2 style='color:#b91c1c;'>₹ {tm:,.0f}</h2></div></div>""", unsafe_allow_html=True)
+        st.markdown(f"<div class='kb-header-container'><div class='kb-box'><h4>Dene hain</h4><h2 style='color:#15803d;'>₹ {ta:,.0f}</h2></div><div class='kb-box'><h4>Milenge</h4><h2 style='color:#b91c1c;'>₹ {tm:,.0f}</h2></div></div>", unsafe_allow_html=True)
         
         all_r.sort(key=lambda x: (0 if x['Bal'] > 0 else 1 if x['Bal'] < 0 else 2, -abs(x['Bal'])))
-        sel = st.selectbox("🔍 Search Customer...", ["All Customers"] + [x['Disp'] for x in all_r])
+        sel = st.selectbox("🔍 Search Retailer Name/Number...", ["All Customers"] + [x['Disp'] for x in all_r])
         
         for item in all_r:
             if sel == "All Customers" or item['Disp'] == sel:
-                # 📱 Status-based design
-                if item['Bal'] > 0: amt_class = "amt-part-red"
-                elif item['Bal'] < 0: amt_class = "amt-part-green"
-                else: amt_class = "amt-part-grey"
-                
-                # 📱 JOINED DESIGN: Name + PRM in one button, Amount attached
+                # Class mapping
+                cls = "amt-part-red" if item['Bal'] > 0 else "amt-part-green" if item['Bal'] < 0 else "amt-part-grey"
                 col1, col2 = st.columns([3, 1])
                 with col1:
                     if st.button(f"👤 {item['Name']} ({item['PRM']})", key=f"btn_{item['Name']}_{item['PRM']}", use_container_width=True):
                         st.session_state.kb_retailer = item['Name']; st.rerun()
                 with col2:
-                    st.markdown(f"<div class='retailer-row' style='border-left:none; border-radius:0 12px 12px 0; margin-left:-10px;'><div class='{amt_class}' style='width:100%'>₹ {abs(item['Bal']):,.0f}</div></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='{cls}'>₹ {abs(item['Bal']):,.0f}</div>", unsafe_allow_html=True)
     else:
-        # SINGLE RETAILER VIEW
+        # SINGLE RETAILER VIEW (WITH DIRECT CALL)
         name = st.session_state.kb_retailer
         r_info = next(v for k, v in retailers_dict.items() if v['Retailer Name'] == name)
-        st.markdown(f"<div style='background:#0b57d0; color:white; padding:15px; border-radius:10px;'><h3>{name}</h3><p>{r_info['Mobile Number']}</p></div>", unsafe_allow_html=True)
+        r_mob = str(r_info['Mobile Number']).split('.')[0]
+        
+        # 📞 DIRECT CALL BUTTON
+        st.markdown(f"""
+        <div style='background:#0b57d0; color:white; padding:15px; border-radius:10px; margin-bottom:10px;'>
+            <h3>{name}</h3>
+            <p>{r_mob}</p>
+            <a href="tel:{r_mob}" style="display:block; text-align:center; background:#ffffff; color:#0b57d0; padding:10px; border-radius:8px; font-weight:800; text-decoration:none; font-size:18px;">📞 CALL RETAILER NOW</a>
+        </div>
+        """, unsafe_allow_html=True)
         
         u_led = led_df[led_df['Retailer Name'] == name].sort_values('DateObj')
         bal = 0; rows = []
@@ -237,11 +221,11 @@ elif st.session_state.current_page == "DUES":
         st.markdown(f"<div style='background:white; padding:20px; border-radius:10px; margin:10px 0; text-align:center;'><h4>Balance</h4><h2 style='color:#b91c1c;'>₹ {bal:,.0f}</h2></div>", unsafe_allow_html=True)
         
         if HAS_FPDF:
-            pdf_b = create_pdf(name, r_info['Mobile Number'], bal, rows)
+            pdf_b = create_pdf(name, r_mob, bal, rows)
             st.download_button("📄 Download PDF Ledger", pdf_b, f"{name}_Ledger.pdf", "application/pdf", use_container_width=True)
 
         for r in reversed(rows):
-            st.markdown(f"<div class='kb-ledger-row'><div style='width:50%'><b>{r['d']}</b><br>{r['i']}</div><div style='color:#b91c1c;'>{f'₹{r['out']:,.0f}' if r['out']>0 else ''}</div><div style='color:#15803d;'>{f'₹{r['in']:,.0f}' if r['in']>0 else ''}</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='kb-ledger-row'><div style='width:50%'><b>{r['d']}</b><br>{r['i']}<br><small>Bal: ₹{r['b']}</small></div><div style='color:#b91c1c;'>{f'₹{r['out']:,.0f}' if r['out']>0 else ''}</div><div style='color:#15803d;'>{f'₹{r['in']:,.0f}' if r['in']>0 else ''}</div></div>", unsafe_allow_html=True)
         
         st.markdown("---")
         b1, b2 = st.columns(2)
@@ -249,7 +233,7 @@ elif st.session_state.current_page == "DUES":
         if b2.button("🟢 AAPKO MILE", use_container_width=True): st.session_state.kb_action = "mile"; st.rerun()
         
         if st.session_state.kb_action == "diye":
-            with st.form("diye_form"):
+            with st.form("d_f"):
                 t = st.selectbox("Type", ["Etop Transfer", "JPB V4", "Sim Card"])
                 amt, qty = 0, 0
                 if t == "Etop Transfer":
@@ -258,59 +242,87 @@ elif st.session_state.current_page == "DUES":
                 elif t == "Sim Card": qty = st.number_input("Qty", min_value=1)
                 else: amt = st.number_input("Amount"); qty = st.number_input("Qty")
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
-                if st.form_submit_button("Save Entry"):
+                if st.form_submit_button("Save"):
                     if verify_pin(f, p):
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":r_info['Mobile Number'],"type":t,"qty":qty,"amt_out":amt,"amt_in":0,"fse":f,"txn_id":"KB"})
+                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":r_mob,"type":t,"qty":qty,"amt_out":amt,"amt_in":0,"fse":f,"txn_id":"KB"})
                         st.session_state.success_display_text = f"₹ {amt:,.0f}" if amt>0 else f"{int(qty)} SIMs"
                         st.session_state.success_txn_type = t
-                        msg = urllib.parse.quote(f"*Sandhya Enterprises*\n{t} Done\nAmt: Rs {amt if amt>0 else qty}")
-                        st.session_state.success_wa_link = f"https://wa.me/91{r_info['Mobile Number']}?text={msg}"
+                        st.session_state.success_wa_link = f"https://wa.me/91{r_mob}?text=Receipt%3A%20{t}%20Done%20Amt%20{amt if amt>0 else qty}"
                         st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
 
         if st.session_state.kb_action == "mile":
-            with st.form("mile_form"):
+            with st.form("m_f"):
                 m = st.selectbox("Mode", ["Cash", "Online"]); amt = st.number_input("Amount ₹", min_value=1.0)
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
-                if st.form_submit_button("Save"):
+                if st.form_submit_button("Save Entry"):
                     if verify_pin(f, p):
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":r_info['Mobile Number'],"type":f"Payment ({m})","qty":0,"amt_out":0,"amt_in":amt,"fse":f,"txn_id":"KB"})
+                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":r_mob,"type":f"Payment ({m})","qty":0,"amt_out":0,"amt_in":amt,"fse":f,"txn_id":"KB"})
                         st.session_state.success_display_text = f"₹ {amt:,.0f}"; st.session_state.success_txn_type = f"Payment Received ({m})"
-                        st.session_state.success_wa_link = f"https://wa.me/91{r_info['Mobile Number']}?text=Payment%20Received%3A%20Rs%20{amt}"
+                        st.session_state.success_wa_link = f"https://wa.me/91{r_mob}?text=Payment%20Received%3A%20Rs%20{amt}"
                         st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
 
-# --- OTHER PAGES ---
+# --- 📦 3. STOCK & FSE BILLING ---
 elif st.session_state.current_page == "STOCK":
-    st.button("🔙 Back", on_click=lambda: go_to(get_home()))
+    st.button("🔙 Back Menu", on_click=lambda: go_to(get_home()))
     if st.session_state.role == "Admin":
-        t1, t2 = st.tabs(["📱 FSE Sim Billing", "📦 Inventory"])
+        t1, t2 = st.tabs(["📱 FSE Sim Billing", "📦 Main Stock"])
         with t1:
             with st.form("bill"):
-                f = st.selectbox("FSE", fse_list); q = st.number_input("SIM Qty", min_value=1); ap = st.text_input("Admin PIN", type="password")
+                f = st.selectbox("Select FSE", fse_list); q = st.number_input("SIM Qty", min_value=1); ap = st.text_input("Admin PIN", type="password")
                 if st.form_submit_button("Bill SIMs"):
                     if ap == "9557":
                         requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":f,"r_mob":"0","type":"Sim Allocation","qty":q,"amt_out":0,"amt_in":0,"fse":"Admin","txn_id":"S"})
                         st.session_state.success_display_text = f"{int(q)} SIMs"; st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
-        with t2: st.dataframe(inv_df, use_container_width=True)
+        with t2: st.dataframe(inv_df, use_container_width=True, hide_index=True)
     else:
         alloc = pd.to_numeric(led_df[(led_df['Retailer Name']==st.session_state.emp_name)&(led_df['Product/Service']=='Sim Allocation')]['Qty'], errors='coerce').sum()
         dist = pd.to_numeric(led_df[(led_df['FSE Name']==st.session_state.emp_name)&(led_df['Product/Service']=='Sim Card')]['Qty'], errors='coerce').sum()
-        st.metric("SIM Balance", int(alloc - dist))
+        st.metric("My SIM Balance", int(alloc - dist))
+        st.write("### SIM Sales History")
+        st.dataframe(led_df[(led_df['FSE Name']==st.session_state.emp_name)&(led_df['Product/Service']=='Sim Card')][['Date','Retailer Name','Qty']], hide_index=True)
 
-elif st.session_state.current_page == "ADD":
-    st.button("🔙 Back", on_click=lambda: go_to(get_home()))
-    with st.form("add_r"):
-        n=st.text_input("Name"); m=st.text_input("Mobile"); p=st.text_input("PRM"); l=st.text_input("Loc")
-        if st.form_submit_button("Add"):
-            requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":l.upper(),"date":date.today().strftime("%d-%m-%Y")})
-            st.success("Added!"); st.cache_data.clear()
-
-elif st.session_state.current_page == "COL":
-    st.button("🔙 Back", on_click=lambda: go_to(get_home())); st.write("Collection details...")
+# --- 📜 4. LEDGER REPORT ---
 elif st.session_state.current_page == "LEDGER":
-    st.button("🔙 Back", on_click=lambda: go_to(get_home())); st.write("Reports...")
+    st.button("🔙 Back", on_click=lambda: go_to(get_home()))
+    st.header("📜 Detailed Ledger Report")
+    sel = st.selectbox("Retailer List", list(retailers_dict.keys()))
+    if sel:
+        st.dataframe(led_df[led_df['Retailer Name'] == sel.split(" (")[0]], hide_index=True)
+
+# --- ➕ 5. ADD RETAILER ---
+elif st.session_state.current_page == "ADD":
+    st.button("🔙 Back Menu", on_click=lambda: go_to(get_home()))
+    with st.form("add_r"):
+        n = st.text_input("Retailer Name"); m = st.text_input("Mobile"); p = st.text_input("PRM ID"); l = st.text_input("Loc")
+        if st.form_submit_button("Add Retailer"):
+            requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":l.upper(),"date":date.today().strftime("%d-%m-%Y")})
+            st.session_state.success_display_text = n.upper(); st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
+
+# --- 💰 6. TODAY COLLECTION ---
+elif st.session_state.current_page == "COL":
+    st.button("🔙 Back", on_click=lambda: go_to(get_home()))
+    st.header("💰 Today's Market Collection")
+    t_led = led_df[led_df['Date'] == date.today().strftime("%d-%m-%Y")]
+    st.dataframe(t_led[pd.to_numeric(t_led['Amount In (Credit)'], 0) > 0], hide_index=True)
+
+# --- 📦 7. STOCK/PAYMENT ENTRY ---
 elif st.session_state.current_page == "ENTRY":
-    st.button("🔙 Back", on_click=lambda: go_to(get_home())); st.write("Entry...")
-elif st.session_state.current_page == "BULK":
-    st.button("🔙 Back", on_click=lambda: go_to(get_home())); st.write("Bulk...")
+    st.button("🔙 Back", on_click=lambda: go_to(get_home()))
+    with st.form("e_form"):
+        r = st.selectbox("Retailer", list(retailers_dict.keys())); t = st.selectbox("Type", ["Etop Transfer", "Payment Received", "JPB V4", "Sim Card"]); a = st.number_input("Amount"); f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
+        if st.form_submit_button("Save"):
+            if verify_pin(f, p):
+                requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":retailers_dict[r]['Retailer Name'],"type":t,"amt_out":a,"fse":f,"txn_id":"E"})
+                st.session_state.success_display_text = f"Rs {a}"; st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
+
+# --- 🚨 8. URGENT RECOVERY ---
 elif st.session_state.current_page == "URGENT":
-    st.button("🔙 Back", on_click=lambda: go_to(get_home())); st.write("Urgent...")
+    st.button("🔙 Back Menu", on_click=lambda: go_to(get_home()))
+    st.error("🚨 Pending Recovery List (Dues > 24 Hours)")
+    st.info("Record matching from Database...")
+
+# --- 📂 9. BULK MATCH ---
+elif st.session_state.current_page == "BULK":
+    st.button("🔙 Back", on_click=lambda: go_to(get_home()))
+    st.header("📂 Bulk Excel Match")
+    st.file_uploader("Upload Jio Data")
