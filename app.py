@@ -257,25 +257,32 @@ elif st.session_state.current_page == "ENTRY":
     st.header("📦 Stock / Payment Entry")
     t_date = st.date_input("Date", date.today())
     t_prm = st.selectbox("Select Retailer*", options=dropdown_options)
-    col1, col2 = st.columns(2)
-    with col1:
-        t_type = st.selectbox("Entry Type", ["Etop Transfer", "Payment Received", "JPB V4", "Sim Card"])
-        fse = st.selectbox("FSE", ["Avdhesh Kumar", "Babloo kumar singh"])
-        fse_pin = st.text_input("Enter PIN", type="password")
-    with col2:
+    
+    # 🟢 DYNAMIC FORM: Show fields based on Entry Type
+    t_type = st.selectbox("Entry Type", ["Etop Transfer", "Payment Received", "JPB V4", "Sim Card"])
+    
+    with st.container(border=True):
+        col1, col2 = st.columns(2)
         t_qty, t_amt = 0, 0.0
         p_mode = "" 
-        if t_type == "Etop Transfer":
-            etop_opt = st.selectbox("Amount ₹", ["5000", "3000", "2000", "1500", "500", "Manual"])
-            t_amt = float(etop_opt) if etop_opt != "Manual" else st.number_input("Enter Amount", min_value=1.0)
-        elif t_type == "Payment Received":
-            p_mode = st.selectbox("Payment Mode (Cash/Online)", ["Cash", "Online"])
-            t_amt = st.number_input("Enter Amount", min_value=1.0, value=None)
-        elif t_type == "JPB V4":
-            t_qty = st.number_input("Qty", min_value=1); rate = st.number_input("Rate", min_value=1.0)
-            t_amt = t_qty * rate
-        elif t_type == "Sim Card":
-            t_qty = st.number_input("Qty", min_value=1)
+        
+        with col1:
+            fse = st.selectbox("FSE", ["Avdhesh Kumar", "Babloo kumar singh"])
+            fse_pin = st.text_input("Enter PIN", type="password")
+            
+        with col2:
+            if t_type == "Etop Transfer":
+                etop_opt = st.selectbox("Amount ₹", ["5000", "3000", "2000", "1500", "500", "Manual"])
+                t_amt = float(etop_opt) if etop_opt != "Manual" else st.number_input("Enter Amount", min_value=1.0)
+            elif t_type == "Payment Received":
+                p_mode = st.selectbox("Payment Mode (Cash/Online)", ["Cash", "Online"])
+                t_amt = st.number_input("Enter Amount", min_value=1.0)
+            elif t_type == "JPB V4":
+                t_qty = st.number_input("Qty", min_value=1); rate = st.number_input("Rate", min_value=1.0)
+                t_amt = t_qty * rate
+            elif t_type == "Sim Card":
+                t_qty = st.number_input("Qty", min_value=1)
+                
         txn_id = st.text_input("Remark / Txn ID")
 
     st.markdown('<div class="wobble-btn">', unsafe_allow_html=True)
@@ -387,7 +394,6 @@ elif st.session_state.current_page == "DUES":
                 total_dene_hain += abs(balance)
                 adv_list.append({"Name": name, "Mobile": mob, "Balance": abs(balance)})
                 
-        # Top Header Boxes
         st.markdown(f'''
             <div class="kb-header-container">
                 <div class="kb-box">
@@ -444,7 +450,6 @@ elif st.session_state.current_page == "DUES":
             st.session_state.kb_action = None
             st.rerun()
             
-        # Khatabook Style Blue Header
         st.markdown(f"""
         <div style="background-color: #0b57d0; padding: 15px; border-radius: 8px; display: flex; align-items: center; margin-bottom: 15px; margin-top: 15px;">
             <div style="width: 45px; height: 45px; border-radius: 50%; background-color: white; color: #0b57d0; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 20px; margin-right: 15px;">{kb_name[:2].upper()}</div>
@@ -460,7 +465,12 @@ elif st.session_state.current_page == "DUES":
         c = pd.to_numeric(u_data['Amount In (Credit)'], errors='coerce').sum()
         balance = d - c
         
-        # 🟢 FIX: Clickable, Beautiful WhatsApp Button
+        # 🟢 STATEMENT GENERATOR (For WhatsApp)
+        stmt_text = f"*Sandhya Enterprises - Ledger*\n👤 Retailer: {kb_name}\n"
+        if balance > 0: stmt_text += f"💰 Total Dues: ₹{balance:,.0f}\n\n*Recent Entries:*\n"
+        else: stmt_text += f"💰 Total Advance: ₹{abs(balance):,.0f}\n\n*Recent Entries:*\n"
+        
+        # Big Summary Box
         if balance >= 0:
             st.markdown(f'''
             <div style="display: flex; justify-content: center; padding: 10px 0; margin-bottom: 15px;">
@@ -470,8 +480,6 @@ elif st.session_state.current_page == "DUES":
                 </div>
             </div>
             ''', unsafe_allow_html=True)
-            msg = urllib.parse.quote(f"Dear Partner, your pending dues are ₹{balance}. Please clear your payment. Regards, Sandhya Enterprises.")
-            st.markdown(f"<div style='text-align:center; margin-bottom:10px;'><a href='https://wa.me/91{kb_mob}?text={msg}' target='_blank' style='display:inline-block; padding:10px 20px; background-color:#eff6ff; color:#0b57d0; font-weight:700; border-radius:20px; text-decoration:none; border:1px solid #bfdbfe; box-shadow: 0 2px 5px rgba(0,0,0,0.05);'>📲 Send WhatsApp Reminder</a></div>", unsafe_allow_html=True)
         else:
             st.markdown(f'''
             <div style="display: flex; justify-content: center; padding: 10px 0; margin-bottom: 15px;">
@@ -496,6 +504,12 @@ elif st.session_state.current_page == "DUES":
             running_bal += (debit - credit)
             rows_data.append({'date': row['Date'], 'item': row['Product/Service'], 'debit': debit, 'credit': credit, 'bal': running_bal})
             
+        # Add last 5 rows to WhatsApp statement
+        for r in rows_data[-5:]:
+            stmt_text += f"• {r['date']} | {r['item']} | Bal: ₹{r['bal']:,.0f}\n"
+        stmt_text += "\nPlease clear your dues. Regards, Sandhya Enterprises."
+        wa_link = f"https://wa.me/91{kb_mob}?text={urllib.parse.quote(stmt_text)}"
+            
         for r in reversed(rows_data):
             d_str = f"₹ {r['debit']:,.0f}" if r['debit'] > 0 else ""
             c_str = f"₹ {r['credit']:,.0f}" if r['credit'] > 0 else ""
@@ -511,24 +525,43 @@ elif st.session_state.current_page == "DUES":
             </div>
             '''
         ledger_html += "</div>"
+        
+        # 🟢 NAYA: WhatsApp Statement Button and Excel Download
+        st.markdown(f"<div style='text-align:center; margin-bottom:15px;'><a href='{wa_link}' target='_blank' style='display:inline-block; padding:10px 20px; background-color:#eff6ff; color:#0b57d0; font-weight:700; border-radius:20px; text-decoration:none; border:1px solid #bfdbfe; box-shadow: 0 2px 5px rgba(0,0,0,0.05);'>📲 Send Statement (WhatsApp)</a></div>", unsafe_allow_html=True)
+        
+        col_down1, col_down2, col_down3 = st.columns([1, 2, 1])
+        with col_down2:
+            st.download_button("📥 Download Excel Ledger", u_data[['Date', 'Product/Service', 'Amount Out (Debit)', 'Amount In (Credit)']].to_csv(index=False).encode('utf-8-sig'), f"{kb_name}_Ledger.csv", use_container_width=True)
+
         st.markdown(ledger_html, unsafe_allow_html=True)
         
-        # 🟢 FIX: Buttons side-by-side on mobile
+        # 🟢 Bottom Buttons side-by-side
         b1, b2 = st.columns(2)
         if b1.button("🔴 AAPNE DIYE", use_container_width=True): st.session_state.kb_action = "diye"; st.rerun()
         if b2.button("🟢 AAPKO MILE", use_container_width=True): st.session_state.kb_action = "mile"; st.rerun()
             
         if st.session_state.kb_action == "diye":
+            st.error("🔴 Aapne Diye (Stock Out)")
+            
+            # 🟢 DYNAMIC FORM FOR KHATABOOK
+            t_type = st.selectbox("Type", ["Etop Transfer", "JPB V4", "Sim Card"], key="type_kb_diye")
+            
             with st.form(f"diye_form", clear_on_submit=True):
-                st.error("🔴 Aapne Diye (Stock Out)")
-                t_type = st.selectbox("Type", ["Etop Transfer", "JPB V4", "Sim Card"])
                 col_c, col_d = st.columns(2)
-                t_amt = col_c.number_input("Amount ₹", min_value=0.0)
-                t_qty = col_d.number_input("Qty (if JPB/SIM)", min_value=0)
+                t_qty, t_amt = 0, 0.0
+                
+                with col_c:
+                    if t_type == "Etop Transfer" or t_type == "JPB V4":
+                        t_amt = st.number_input("Amount ₹", min_value=0.0)
+                with col_d:
+                    if t_type == "Sim Card" or t_type == "JPB V4":
+                        t_qty = st.number_input("Qty", min_value=1)
+                        
                 col_e, col_f = st.columns(2)
                 f_n = col_e.selectbox("FSE", ["Avdhesh Kumar", "Babloo kumar singh"])
                 f_p = col_f.text_input("PIN", type="password")
                 txn_id = st.text_input("Remark")
+                
                 if st.form_submit_button("Save Entry", use_container_width=True):
                     if (f_n=="Avdhesh Kumar" and f_p=="9557") or (f_n=="Babloo kumar singh" and f_p=="2081"):
                         try: requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":kb_name,"r_mob":kb_mob,"type":t_type,"qty":t_qty,"amt_out":t_amt,"amt_in":0,"fse":f_n,"txn_id":txn_id})
@@ -537,8 +570,8 @@ elif st.session_state.current_page == "DUES":
                     else: st.error("❌ Wrong PIN")
                     
         elif st.session_state.kb_action == "mile":
+            st.success("🟢 Aapko Mile (Payment Received)")
             with st.form(f"mile_form", clear_on_submit=True):
-                st.success("🟢 Aapko Mile (Payment Received)")
                 p_mode = st.selectbox("Mode (Cash/Online)", ["Cash", "Online"])
                 t_amt = st.number_input("Amount ₹", min_value=1.0)
                 col_e, col_f = st.columns(2)
