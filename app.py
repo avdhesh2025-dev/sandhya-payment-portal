@@ -118,7 +118,7 @@ st.markdown("""
         border-radius: 12px !important; height: 70px !important; font-weight: 700 !important; font-size: 15px !important; margin-bottom: 12px !important; border: 1.5px solid #e2e8f0 !important; background: white !important; color: #1e293b !important; width: 100% !important; 
     }
     
-    /* 📱 RETAILER LIST BOX (Soothing Slate-Blue Color) */
+    /* 📱 RETAILER LIST BOX (Soothing Slate-Blue Color + White Text + Joined Shape) */
     .stButton > button[kind="primary"] { 
         border-radius: 12px 0 0 12px !important; background: #475569 !important; color: #ffffff !important; height: 70px !important; font-weight: 700 !important; font-size: 15px !important; margin-bottom: 12px !important; border: none !important; text-align: left !important; padding-left: 15px !important; width: 100% !important; 
     }
@@ -151,6 +151,8 @@ WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyH_oGxKbNZQj2azNOR0FgkLy
 sheet_id = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
 retailers_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Retailers"
 ledger_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Ledger"
+# 🟢 INVENTORY CSV ADDED BACK FOR ADMIN STOCK PAGE
+inventory_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Inventory"
 
 def create_pdf(r_name, r_mob, bal, r_data):
     if not HAS_FPDF: return None
@@ -177,19 +179,16 @@ def load_data():
     try:
         cb = int(time.time())
         ret = pd.read_csv(f"{retailers_csv}&cb={cb}").dropna(how="all").fillna("")
+        # 🟢 RESTORED INVENTORY DATA FETCH
+        inv = pd.read_csv(f"{inventory_csv}&cb={cb}").dropna(how="all").fillna("")
         led = pd.read_csv(f"{ledger_csv}&cb={cb}").dropna(how="all").fillna("")
         led['DateObj'] = pd.to_datetime(led['Date'], format='%d-%m-%Y', errors='coerce')
-        return ret, led
-    except: return None, None
+        return ret, inv, led
+    except: return None, None, None
 
-ret_df, led_df = load_data()
+ret_df, inv_df, led_df = load_data()
 valid_ret = ret_df[ret_df['Location'].astype(str).str.upper() != 'EMPLOYEE'] if ret_df is not None else None
 retailers_dict = {f"{r['Retailer Name']} ({str(r['Mobile Number']).split('.')[0]})": r for _, r in valid_ret.iterrows()} if valid_ret is not None else {}
-
-fse_list = ["Avdhesh Kumar", "Babloo kumar singh"]
-if ret_df is not None and "Location" in ret_df.columns:
-    emp_names = ret_df[ret_df['Location'].astype(str).str.upper() == 'EMPLOYEE']['Retailer Name'].tolist()
-    fse_list = list(set(fse_list + emp_names))
 
 # 🔐 LOGIN SYSTEM
 if not st.session_state.authenticated:
@@ -198,7 +197,6 @@ if not st.session_state.authenticated:
     l_mob = st.text_input("Mobile Number")
     l_pin = st.text_input("PIN", type="password")
     
-    # 🟢 JAVASCRIPT HACK: FORCE NUMERIC KEYBOARD & HARD LOCK ZOOM ON MOBILE
     st.components.v1.html(
         """
         <script>
@@ -207,7 +205,6 @@ if not st.session_state.authenticated:
             input.setAttribute('inputmode', 'numeric');
             input.setAttribute('pattern', '[0-9]*');
         });
-        
         let meta = window.parent.document.querySelector('meta[name="viewport"]');
         if (!meta) {
             meta = window.parent.document.createElement('meta');
@@ -250,6 +247,11 @@ st.markdown("""
     <p style="margin: 2px 0px; font-size: 14px;">📞 7479584179</p>
 </div>
 """, unsafe_allow_html=True)
+
+fse_list = ["Avdhesh Kumar", "Babloo kumar singh"]
+if ret_df is not None and "Location" in ret_df.columns:
+    emp_names = ret_df[ret_df['Location'].astype(str).str.upper() == 'EMPLOYEE']['Retailer Name'].tolist()
+    fse_list = list(set(fse_list + emp_names))
 
 # --- DASHBOARDS ---
 if st.session_state.current_page == "HOME":
@@ -435,14 +437,49 @@ elif st.session_state.current_page == "DUES":
 elif st.session_state.current_page == "STOCK":
     st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
     st.header("📦 Inventory Stock")
-    if led_df is not None and not led_df.empty and 'Product/Service' in led_df.columns and 'FSE Name' in led_df.columns:
-        if st.session_state.role == "Admin":
-            stock_data = led_df[led_df['Product/Service'] == 'Sim Allocation']
-        else:
-            stock_data = led_df[led_df['FSE Name'] == st.session_state.emp_name]
-        st.dataframe(stock_data, hide_index=True)
+    
+    if st.session_state.role == "Admin":
+        t1, t2 = st.tabs(["📱 FSE Sim Billing", "📦 Main Stock"])
+        with t1:
+            with st.form("bill"):
+                f = st.selectbox("Select FSE", fse_list)
+                q = st.number_input("SIM Qty", min_value=1)
+                ap = st.text_input("Admin PIN", type="password")
+                st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');i.setAttribute('pattern','[0-9]*');});</script>""", height=0, width=0)
+                if st.form_submit_button("Bill SIMs", type="secondary"):
+                    if ap == "9557":
+                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":f,"r_mob":"0","type":"Sim Allocation","qty":q,"amt_out":0,"amt_in":0,"fse":"Admin","txn_id":"S"})
+                        st.session_state.success_display_text = f"{int(q)} SIMs"
+                        st.session_state.success_txn_type = "SIM Billed to FSE"
+                        st.session_state.show_success_modal = True
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error("Wrong Admin PIN")
+        with t2:
+            if inv_df is not None and not inv_df.empty:
+                st.dataframe(inv_df, use_container_width=True, hide_index=True)
+            else:
+                st.info("Inventory data not available.")
     else:
-        st.info("Stock data is currently unavailable.")
+        # Employee View
+        if led_df is not None and not led_df.empty and 'Product/Service' in led_df.columns:
+            q_col = 'Qty' if 'Qty' in led_df.columns else None
+            if q_col:
+                alloc = pd.to_numeric(led_df[(led_df['Retailer Name']==st.session_state.emp_name)&(led_df['Product/Service']=='Sim Allocation')][q_col], errors='coerce').sum()
+                if 'FSE Name' in led_df.columns:
+                    dist = pd.to_numeric(led_df[(led_df['FSE Name']==st.session_state.emp_name)&(led_df['Product/Service']=='Sim Card')][q_col], errors='coerce').sum()
+                else:
+                    dist = 0
+                st.metric("My SIM Balance", int(alloc - dist))
+                
+                if 'FSE Name' in led_df.columns:
+                    st.write("### SIM Distribution History")
+                    st.dataframe(led_df[(led_df['FSE Name']==st.session_state.emp_name)&(led_df['Product/Service']=='Sim Card')][['Date','Retailer Name', q_col]], hide_index=True)
+            else:
+                st.info("Quantity data not found in Ledger.")
+        else:
+            st.info("Stock history not available.")
 
 elif st.session_state.current_page == "ADD":
     st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
@@ -456,7 +493,6 @@ elif st.session_state.current_page == "ADD":
 elif st.session_state.current_page == "COL":
     st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
     st.header("💰 Today's Collection")
-    
     if led_df is not None and not led_df.empty and 'Date' in led_df.columns and 'Amount In (Credit)' in led_df.columns:
         t_led = led_df[led_df['Date'] == date.today().strftime("%d-%m-%Y")].copy()
         t_led['Amount In (Credit)'] = pd.to_numeric(t_led['Amount In (Credit)'], errors='coerce').fillna(0)
@@ -483,7 +519,6 @@ elif st.session_state.current_page == "COL":
     else:
         st.info("No collection data available today.")
 
-# 🟢 RESTORED: ENTRY & LEDGER & URGENT PAGES
 elif st.session_state.current_page == "ENTRY":
     st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
     st.header("📦 Direct Stock/Payment Entry")
