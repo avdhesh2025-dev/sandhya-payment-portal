@@ -14,7 +14,7 @@ except ImportError:
 # 1. Page Configuration (No Sidebar)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide", initial_sidebar_state="collapsed")
 
-# 💎 Global CSS Design (3D Effects & Mobile Fixes)
+# 💎 Global CSS Design (3D Effects & English UI)
 st.markdown("""
     <style>
     .stApp { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -35,6 +35,12 @@ st.markdown("""
     .stDataFrame, .stSelectbox, .stNumberInput, .stTextInput, .stDateInput {
         background-color: white; border-radius: 10px; padding: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
+    .wobble-btn > div > button {
+        background-color: #ffffff !important; color: #1a1a1a !important; border: none !important; border-radius: 12px !important;
+        font-size: 18px !important; font-weight: 700 !important; box-shadow: 0 6px 0 #d1d9e6 !important;
+        border-left: 6px solid #007bff !important; transition: 0.2s; height: 60px !important;
+    }
+    .wobble-btn > div > button:hover { top: -3px; box-shadow: 0 9px 0 #d1d9e6 !important; border-left: 6px solid #00c6ff !important; }
     
     /* 🔥 KHATABOOK SUPER 3D BOX CSS 🔥 */
     .kb-header-container { display: flex; justify-content: space-around; align-items: center; background: transparent; padding: 10px 0 20px 0; margin-bottom: 15px; }
@@ -60,18 +66,10 @@ st.markdown("""
     div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button { height: auto !important; min-height: 20px !important; background: transparent !important; border: none !important; box-shadow: none !important; color: #1f2937 !important; font-size: 16px !important; font-weight: 700 !important; padding: 0 !important; margin: 0 !important; justify-content: flex-start !important; }
     div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button:hover { color: #0b57d0 !important; }
     
-    /* 📱 MOBILE GRID FIX (Force Buttons Side-By-Side) */
+    /* 📱 MOBILE GRID FIX */
     @media (max-width: 768px) {
-        div[data-testid="stHorizontalBlock"] {
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            gap: 10px !important;
-        }
-        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-            width: 100% !important;
-            flex: 1 1 0% !important;
-            min-width: 0 !important;
-        }
+        div[data-testid="stHorizontalBlock"] { flex-wrap: nowrap !important; }
+        div[data-testid="column"] { min-width: calc(50% - 0.5rem) !important; }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -179,6 +177,10 @@ st.markdown('<div class="app-header"><h1>🏢 Sandhya Enterprises</h1><p>Smart M
 
 # 🟢 FSE LIST & PIN VERIFICATION LOGIC
 fse_list = ["Avdhesh Kumar", "Babloo kumar singh"]
+if ret_df is not None and "Location" in ret_df.columns:
+    emp_names = ret_df[ret_df['Location'].astype(str).str.upper() == 'EMPLOYEE']['Retailer Name'].tolist()
+    fse_list = list(set(fse_list + emp_names))
+
 if st.session_state.get("role") == "Employee":
     fse_list = [st.session_state.emp_name]
 
@@ -246,7 +248,7 @@ elif st.session_state.current_page == "HOME":
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("📊 Live Stock", use_container_width=True): go_to("STOCK"); st.rerun()
+        if st.button("📊 Live Stock & FSE Sim", use_container_width=True): go_to("STOCK"); st.rerun()
         if st.button("➕ Add Retailer", use_container_width=True): go_to("ADD_RETAILER"); st.rerun()
         if st.button("📜 Ledger Report", use_container_width=True): go_to("LEDGER"); st.rerun()
         if st.button("📂 Bulk Entry (Excel)", use_container_width=True): go_to("BULK"); st.rerun()
@@ -273,13 +275,75 @@ elif st.session_state.current_page == "EMP_HOME":
         if st.button("🚨 Urgent Recovery", use_container_width=True): go_to("URGENT"); st.rerun()
         if st.button("📦 Sim Card Stock", use_container_width=True): go_to("STOCK"); st.rerun()
 
-# --- 📊 2. STOCK ---
+# --- 📊 2. STOCK (INVENTORY & FSE SIM BILLING) ---
 elif st.session_state.current_page == "STOCK":
     c1, c2 = st.columns(2)
     if c1.button("🔙 Back Menu", use_container_width=True): go_to(get_home()); st.rerun()
     if c2.button("🔄 Refresh", use_container_width=True): st.cache_data.clear(); st.rerun()
-    st.header("📊 Live Inventory Stock")
-    if inv_df is not None: st.dataframe(inv_df, use_container_width=True, hide_index=True)
+    
+    # Identify Qty Column
+    q_col = None
+    if led_df is not None:
+        for c in ['Qty', 'Quantity', 'QTY', 'quantity']:
+            if c in led_df.columns:
+                q_col = c; break
+
+    if st.session_state.role == "Admin":
+        st.header("📊 Inventory & FSE Sim Billing")
+        tab1, tab2 = st.tabs(["📱 FSE Sim Billing & Stock", "📦 Live Inventory Stock"])
+        
+        with tab1:
+            st.subheader("➕ Bill Sim Cards to FSE")
+            with st.container(border=True):
+                with st.form("fse_sim_bill_form", clear_on_submit=True):
+                    col_a, col_b = st.columns(2)
+                    fse_sel = col_a.selectbox("Select FSE", fse_list)
+                    sim_qty = col_b.number_input("Number of SIMs to Bill", min_value=1)
+                    admin_pin = st.text_input("Admin PIN", type="password")
+                    
+                    if st.form_submit_button("Bill SIMs", use_container_width=True):
+                        if admin_pin == "9557":
+                            payload = {"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":fse_sel,"r_mob":"0000000000","type":"Sim Allocation","qty":sim_qty,"amt_out":0,"amt_in":0,"fse":"Admin","txn_id":"SIM_ALLOC"}
+                            try: requests.post(WEBHOOK_URL, json=payload)
+                            except: pass
+                            st.success(f"✅ {sim_qty} SIMs billed successfully to {fse_sel}!"); st.cache_data.clear(); time.sleep(1); st.rerun()
+                        else:
+                            st.error("❌ Wrong Admin PIN")
+                            
+            st.markdown("---")
+            st.subheader("📈 FSE Current Sim Stock")
+            if q_col and led_df is not None:
+                fse_stock_data = []
+                for fse_n in fse_list:
+                    alloc = pd.to_numeric(led_df[(led_df['Retailer Name'] == fse_n) & (led_df['Product/Service'] == 'Sim Allocation')][q_col], errors='coerce').sum()
+                    dist = pd.to_numeric(led_df[(led_df['FSE Name'] == fse_n) & (led_df['Product/Service'] == 'Sim Card')][q_col], errors='coerce').sum()
+                    fse_stock_data.append({"FSE Name": fse_n, "Total Billed": int(alloc), "Distributed": int(dist), "Current Balance": int(alloc - dist)})
+                st.dataframe(pd.DataFrame(fse_stock_data), use_container_width=True, hide_index=True)
+            else:
+                st.warning("Quantity column missing in Ledger.")
+
+        with tab2:
+            if inv_df is not None: st.dataframe(inv_df, use_container_width=True, hide_index=True)
+
+    elif st.session_state.role == "Employee":
+        st.header("📦 My Sim Card Stock")
+        emp_name = st.session_state.emp_name
+        if q_col and led_df is not None:
+            alloc = pd.to_numeric(led_df[(led_df['Retailer Name'] == emp_name) & (led_df['Product/Service'] == 'Sim Allocation')][q_col], errors='coerce').sum()
+            dist = pd.to_numeric(led_df[(led_df['FSE Name'] == emp_name) & (led_df['Product/Service'] == 'Sim Card')][q_col], errors='coerce').sum()
+            cur_stock = alloc - dist
+            
+            st.markdown(f'''
+            <div style="display: flex; justify-content: center; padding: 20px 0;">
+                <div style="width: 100%; background: #ffffff; border: 1px solid #eaeaea; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); padding: 30px; text-align: center;">
+                    <h4 style="font-size: 16px; color: #6b7280; margin: 0; font-weight: 600; text-transform: uppercase;">Current SIM Balance</h4>
+                    <p style="color: #0b57d0; font-size: 56px; font-weight: bold; margin: 10px 0 0 0;">{int(cur_stock)}</p>
+                </div>
+            </div>
+            ''', unsafe_allow_html=True)
+            st.info(f"**Total Received from Admin:** {int(alloc)}  |  **Total Distributed:** {int(dist)}")
+        else:
+            st.warning("Quantity data not available yet.")
 
 # --- 💰 3. TODAY COLLECTION ---
 elif st.session_state.current_page == "COLLECTION":
@@ -453,10 +517,10 @@ elif st.session_state.current_page == "LEDGER":
         st.dataframe(f_led.drop(columns=['DateObj']), use_container_width=True, hide_index=True)
         st.download_button("📥 Excel Download", f_led.to_csv(index=False).encode('utf-8-sig'), f"{r_name}_Ledger.csv")
 
-# --- 💸 7. DUES REMINDERS (🔥 KHATABOOK UI) ---
+# --- 💸 7. DUES REMINDERS (🔥 KHATABOOK UI - UNIFIED LIST) ---
 elif st.session_state.current_page == "DUES":
     
-    # CASE 1: SHOW UNIFIED LIST OF RETAILERS
+    # CASE 1: SHOW UNIFIED LIST OF ALL RETAILERS
     if st.session_state.kb_retailer is None:
         c1, c2 = st.columns(2)
         if c1.button("🔙 Back Menu", use_container_width=True): go_to(get_home()); st.rerun()
@@ -476,13 +540,13 @@ elif st.session_state.current_page == "DUES":
             
             if balance > 0: total_milenge += balance
             elif balance < 0: total_dene_hain += abs(balance)
+                
             all_retailers_list.append({"Name": name, "Mobile": mob, "Balance": balance})
             
-        # 🟢 SORTING LOGIC: 1. Dues(>0), 2. Advance(<0), 3. Settled(0)
         def sort_retailers(r):
-            if r['Balance'] > 0: return (0, -r['Balance']) # Dues sorted highest first
-            elif r['Balance'] < 0: return (1, r['Balance']) # Advance sorted highest first
-            else: return (2, 0) # Settled at the bottom
+            if r['Balance'] > 0: return (0, -r['Balance']) 
+            elif r['Balance'] < 0: return (1, r['Balance']) 
+            else: return (2, 0) 
             
         all_retailers_list.sort(key=sort_retailers)
                 
@@ -500,7 +564,6 @@ elif st.session_state.current_page == "DUES":
             </div>
         ''', unsafe_allow_html=True)
         
-        # 🟢 SMART SEARCH BOX (Dropdown As-You-Type without Enter)
         search_opts = ["All Customers"] + [f"{r['Name']} - {r['Mobile']}" for r in all_retailers_list]
         selected_cust = st.selectbox("🔍 Customer search karein (Type Name or Mobile)...", search_opts)
         
@@ -512,7 +575,6 @@ elif st.session_state.current_page == "DUES":
             
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Display the filtered/sorted unified list
         if not filtered_list: st.info("No matching customers found.")
         
         for item in filtered_list:
