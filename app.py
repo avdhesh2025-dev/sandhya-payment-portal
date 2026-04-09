@@ -132,10 +132,12 @@ elif st.session_state.current_page == "COLLECTION":
             if dues > 0:
                 total_market_dues += dues
                 
-        # Calculate Today's Total Collection
+        # 🟢 SMART FILTER: Calculate Today's Total Collection (Exclude 'Opening Advance' or 'Opening Dues')
         today_led = led_df[led_df['Date'] == today_date_str].copy()
         today_led['Amount In (Credit)'] = pd.to_numeric(today_led['Amount In (Credit)'], errors='coerce').fillna(0)
-        today_collections = today_led[today_led['Amount In (Credit)'] > 0]
+        
+        # Only keep rows where Amount > 0 AND it is NOT an 'Opening' entry
+        today_collections = today_led[(today_led['Amount In (Credit)'] > 0) & (~today_led['Product/Service'].astype(str).str.contains('Opening', case=False, na=False))]
         today_collection_sum = today_collections['Amount In (Credit)'].sum()
         
         # Display the Boxes
@@ -143,7 +145,7 @@ elif st.session_state.current_page == "COLLECTION":
         box1.error(f"### 🚩 Total Market Dues\n# ₹ {total_market_dues:,.2f}")
         box2.success(f"### 📥 Today's Collection\n# ₹ {today_collection_sum:,.2f}")
         
-        # 🟢 NEW: Expandable Arrow for Today's Collection Details
+        # Expandable Arrow for Today's Collection Details
         if not today_collections.empty:
             with st.expander("🔽 View Today's Collection Details (Kisne kya entry ki)"):
                 cols = [c for c in ['Retailer Name', 'Product/Service', 'Amount In (Credit)', 'FSE Name'] if c in today_collections.columns]
@@ -302,14 +304,14 @@ elif st.session_state.current_page == "DUES":
             
             if balance > 0: 
                 dues_summary.append({"Retailer": name, "Mobile": val["Mobile"], "Dues": balance})
-            elif balance < 0: # 🟢 NEW: Extra Paisa (Advance) Check
-                # Find last credit reason (kya chij ka)
+            elif balance < 0: # 🟢 NEW: Advance Balance Check (Negative Dues)
+                # Find out the reason for this advance (last credited item)
                 last_credit = u_data[pd.to_numeric(u_data['Amount In (Credit)'], errors='coerce') > 0].tail(1)
                 reason = last_credit['Product/Service'].values[0] if not last_credit.empty else "Advance"
-                adv_summary.append({"Retailer": name, "Mobile": val["Mobile"], "Advance Balance": abs(balance), "Reason/Item": reason})
+                adv_summary.append({"Retailer": name, "Mobile": val["Mobile"], "Advance": abs(balance), "Reason/Item": reason})
         
-        # 1. Show Dues (Wassuli)
-        st.subheader("🚩 Pending Dues List")
+        # 1. Dues Table (Wassuli)
+        st.subheader("🚩 Pending Dues List (Wassuli)")
         s_df = pd.DataFrame(dues_summary)
         if not s_df.empty:
             st.error(f"💸 Total Market Dues: ₹{s_df['Dues'].sum()}")
@@ -322,11 +324,11 @@ elif st.session_state.current_page == "DUES":
             
         st.markdown("<hr>", unsafe_allow_html=True)
         
-        # 2. 🟢 NEW: Show Advance Balances
-        st.subheader("🌟 Retailers in Advance (Kiske paas extra jama hai)")
+        # 2. Advance Table (Extra Jama Paisa)
+        st.subheader("🌟 Advance List (Kiske paas extra jama hai)")
         a_df = pd.DataFrame(adv_summary)
         if not a_df.empty:
-            st.success(f"💰 Total Advance in Market: ₹{a_df['Advance Balance'].sum()}")
+            st.success(f"💰 Total Advance in Market: ₹{a_df['Advance'].sum()}")
             st.dataframe(a_df, use_container_width=True, hide_index=True)
         else:
             st.info("No advance balances found.")
@@ -379,7 +381,6 @@ elif st.session_state.current_page == "URGENT":
         now = datetime.now()
         u_list = []
         
-        # Smart Logic: Pehle check karo ki Retailer par koi DUES baki hai ya nahi
         for key, val in retailers_data.items():
             name = val["Name"]
             u_data = led_df[led_df['Retailer Name'] == name]
@@ -392,11 +393,10 @@ elif st.session_state.current_page == "URGENT":
                 u_reason = ""
                 u_date = ""
                 
-                # Agar DUES hai, tab check karo ki konsa purana bill nahi bhara
                 for _, row in u_data.iterrows():
                     r_date = row['DateObj']
                     if pd.notnull(r_date):
-                        row_text = str(row.values) # Data nikalne ka 100% safe tarika
+                        row_text = str(row.values) 
                         if "Etop" in row_text and (now - r_date) > timedelta(hours=24):
                             is_urgent = True; u_reason = "Etop > 24 Hrs"; u_date = row['Date']; break
                         elif "JPB" in row_text and (now - r_date) > timedelta(days=15):
