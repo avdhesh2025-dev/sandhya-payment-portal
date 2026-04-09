@@ -11,34 +11,13 @@ try:
 except ImportError:
     HAS_FPDF = False
 
-# 1. Page Configuration (A4 Scale)
+# 1. Page Configuration (A4 Scale & Fixed Layout)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="centered", initial_sidebar_state="collapsed")
 
-# 🟢 FUNCTIONS DEFINED AT THE TOP (To prevent NameError)
-def get_home():
-    return "HOME" if st.session_state.get("role") == "Admin" else "EMP_HOME"
-
-def go_to(p): 
-    st.session_state.current_page = p
-    st.session_state.kb_retailer = None
-    st.session_state.kb_action = None
-    st.query_params["page"] = p
-
-def do_logout():
-    st.session_state.authenticated = False
-    st.query_params.clear() 
-    st.session_state.current_page = "LOGIN"
-    st.session_state.kb_retailer = None
-
-def verify_pin(n, p):
-    if n == "Avdhesh Kumar" and p == "9557": return True
-    if n == "Babloo kumar singh" and p == "2081": return True
-    if st.session_state.get("role") == "Employee" and p == st.session_state.get("emp_pin"): return True
-    return False
-
-# 🟢 PERSISTENT LOGIN (URL Smart Token)
+# 🟢 THE "PAKKA TOD" FOR PERSISTENT LOGIN (URL Smart Token)
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
+    
     if "auth" in st.query_params:
         st.session_state.authenticated = True
         st.session_state.role = st.query_params.get("role", "Employee")
@@ -68,6 +47,13 @@ if st.session_state.authenticated:
             st.session_state.kb_action = None
     elif not url_page:
         st.query_params["page"] = st.session_state.current_page
+
+# 🔴 Logout Function
+def do_logout():
+    st.session_state.authenticated = False
+    st.query_params.clear() 
+    st.session_state.current_page = "LOGIN"
+    st.session_state.kb_retailer = None
 
 # 💎 FULL SCREEN SUCCESS POPUP
 if st.session_state.show_success_modal:
@@ -99,12 +85,15 @@ st.markdown("""
     [data-testid="stSidebar"] { display: none; }
     .app-header { background: linear-gradient(135deg, #0047AB 0%, #00c6ff 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; }
     
-    /* 🔘 DEFAULT BUTTONS */
+    /* 📱 CENTER LOGIN BOX */
+    .login-spacer { margin-top: 18vh; }
+
+    /* 🔘 DEFAULT BUTTONS (Secondary) */
     .stButton > button[kind="secondary"] { 
         border-radius: 12px !important; height: 70px !important; font-weight: 700 !important; font-size: 15px !important; margin-bottom: 12px !important; border: 1.5px solid #e2e8f0 !important; background: white !important; color: #1e293b !important; width: 100% !important; 
     }
     
-    /* 📱 RETAILER LIST BOX (Soothing Slate-Blue Color) */
+    /* 📱 RETAILER LIST BOX (Soothing Slate-Blue Color + White Text + Joined Shape) */
     .stButton > button[kind="primary"] { 
         border-radius: 12px 0 0 12px !important; 
         background: #475569 !important; 
@@ -165,16 +154,26 @@ ret_df, led_df = load_data()
 valid_ret = ret_df[ret_df['Location'].astype(str).str.upper() != 'EMPLOYEE'] if ret_df is not None else None
 retailers_dict = {f"{r['Retailer Name']} ({str(r['Mobile Number']).split('.')[0]})": r for _, r in valid_ret.iterrows()} if valid_ret is not None else {}
 
-fse_list = ["Avdhesh Kumar", "Babloo kumar singh"]
-if ret_df is not None and "Location" in ret_df.columns:
-    emp_names = ret_df[ret_df['Location'].astype(str).str.upper() == 'EMPLOYEE']['Retailer Name'].tolist()
-    fse_list = list(set(fse_list + emp_names))
-
 # 🔐 LOGIN SYSTEM
 if not st.session_state.authenticated:
+    st.markdown('<div class="login-spacer"></div>', unsafe_allow_html=True)
     st.markdown('<div class="app-header"><h1>🏢 Sandhya ERP</h1><p>Secure Login</p></div>', unsafe_allow_html=True)
     l_mob = st.text_input("Mobile Number")
     l_pin = st.text_input("PIN", type="password")
+    
+    # 🟢 JAVASCRIPT HACK: FORCE NUMERIC KEYBOARD ON MOBILE
+    st.components.v1.html(
+        """
+        <script>
+        const inputs = window.parent.document.querySelectorAll('input[type="text"], input[type="password"]');
+        inputs.forEach(input => {
+            input.setAttribute('inputmode', 'numeric');
+            input.setAttribute('pattern', '[0-9]*');
+        });
+        </script>
+        """, height=0, width=0
+    )
+
     if st.button("🚀 LOGIN", use_container_width=True, type="secondary"):
         if l_mob == "7479584179" and l_pin == "9557":
             st.session_state.role = "Admin"; st.session_state.authenticated = True; st.session_state.current_page = "HOME"
@@ -207,6 +206,17 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+def go_to(p): st.session_state.current_page = p; st.session_state.kb_retailer = None; st.session_state.kb_action = None
+fse_list = ["Avdhesh Kumar", "Babloo kumar singh"]
+if ret_df is not None and "Location" in ret_df.columns:
+    emp_names = ret_df[ret_df['Location'].astype(str).str.upper() == 'EMPLOYEE']['Retailer Name'].tolist()
+    fse_list = list(set(fse_list + emp_names))
+def verify_pin(n, p):
+    if n == "Avdhesh Kumar" and p == "9557": return True
+    if n == "Babloo kumar singh" and p == "2081": return True
+    if st.session_state.role == "Employee" and p == st.session_state.emp_pin: return True
+    return False
+
 # --- DASHBOARDS ---
 if st.session_state.current_page == "HOME":
     st.success(f"**Welcome To**\n\n👤 {st.session_state.emp_name} | 📞 {st.session_state.emp_mob}")
@@ -220,7 +230,7 @@ if st.session_state.current_page == "HOME":
         if st.button("💰 Today Collection", use_container_width=True, type="secondary"): go_to("COL"); st.rerun()
         if st.button("📦 Entry", use_container_width=True, type="secondary"): go_to("ENTRY"); st.rerun()
         if st.button("🚨 Urgent", use_container_width=True, type="secondary"): go_to("URGENT"); st.rerun()
-        if st.button("🚪 Logout", use_container_width=True, type="secondary"): do_logout(); st.rerun()
+        if st.button("🚪 Logout", use_container_width=True, on_click=do_logout, type="secondary"): pass
 
 elif st.session_state.current_page == "EMP_HOME":
     st.success(f"**Welcome To**\n\n👤 {st.session_state.emp_name} | 📞 {st.session_state.emp_mob}")
@@ -230,11 +240,11 @@ elif st.session_state.current_page == "EMP_HOME":
         if st.button("📦 Sim Stock", use_container_width=True, type="secondary"): go_to("STOCK"); st.rerun()
     with col2:
         if st.button("➕ Add Retailer", use_container_width=True, type="secondary"): go_to("ADD"); st.rerun()
-        if st.button("Exit", use_container_width=True, type="secondary"): do_logout(); st.rerun()
+        if st.button("Exit", use_container_width=True, on_click=do_logout, type="secondary"): pass
 
-# --- 💸 KHATABOOK 3D ---
+# --- 💸 KHATABOOK 3D (JOINED BOXES + FIXED LEDGER) ---
 elif st.session_state.current_page == "DUES":
-    if st.button("🔙 Back Menu", type="secondary"): go_to(get_home()); st.rerun()
+    st.button("🔙 Back Menu", on_click=lambda: go_to("HOME" if st.session_state.role=="Admin" else "EMP_HOME"), type="secondary")
     
     if st.session_state.kb_retailer is None:
         all_r = []; tm, ta = 0, 0
@@ -260,6 +270,7 @@ elif st.session_state.current_page == "DUES":
                 with c2: 
                     st.markdown(f"<div class='{cls}'>₹ {abs(i['Bal']):,.0f}</div>", unsafe_allow_html=True)
     else:
+        # SINGLE RETAILER VIEW
         name = st.session_state.kb_retailer
         r_info = next(v for k, v in retailers_dict.items() if v['Retailer Name'] == name)
         mob = str(r_info['Mobile Number']).split('.')[0]
@@ -280,6 +291,7 @@ elif st.session_state.current_page == "DUES":
                 
             rows.append({"d": r['Date'], "i": r['Product/Service'], "out": d, "in": c, "b": running_bal, "status": status_text})
 
+        # Header with Call/WA
         st.markdown(f"""
         <div style='background:#0b57d0; color:white; padding:15px; border-radius:12px; margin-bottom:10px; text-align:center;'>
             <h3 style='margin:0;'>{name}</h3>
@@ -291,6 +303,7 @@ elif st.session_state.current_page == "DUES":
         </div>
         """, unsafe_allow_html=True)
         
+        # 3-Status Boxes
         cur_bal = rows[-1]['b'] if rows else 0
         st.markdown(f"""
         <div class='status-container'>
@@ -335,9 +348,13 @@ elif st.session_state.current_page == "DUES":
                 elif t == "Sim Card": qty = st.number_input("Qty", min_value=1)
                 else: amt = st.number_input("Amount"); qty = st.number_input("Qty")
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
+                
+                # JAVASCRIPT HACK IN FORM FOR NUMERIC KEYBOARD
+                st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');i.setAttribute('pattern','[0-9]*');});</script>""", height=0, width=0)
+
                 if st.form_submit_button("Save", type="secondary"):
                     if verify_pin(f, p):
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"type":t,"qty":qty,"amt_out":amt,"amt_in":0,"fse":f,"txn_id":"KB"})
+                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":mob,"type":t,"qty":qty,"amt_out":amt,"amt_in":0,"fse":f,"txn_id":"KB"})
                         st.session_state.success_display_text = f"₹ {amt:,.0f}" if amt>0 else f"{int(qty)} SIMs"
                         st.session_state.success_txn_type = t
                         msg = urllib.parse.quote(f"*Sandhya Enterprises*\n{t} Done\nAmt: Rs {amt if amt>0 else qty}")
@@ -348,33 +365,40 @@ elif st.session_state.current_page == "DUES":
             with st.form("m_f"):
                 m = st.selectbox("Mode", ["Cash", "Online"]); a = st.number_input("Amount Received", min_value=0.0)
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
+                
+                st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');i.setAttribute('pattern','[0-9]*');});</script>""", height=0, width=0)
+
                 if st.form_submit_button("Save", type="secondary"):
                     if verify_pin(f, p):
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"type":f"Payment ({m})","amt_in":a,"fse":f,"txn_id":"KB"})
+                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":mob,"type":f"Payment ({m})","amt_in":a,"fse":f,"txn_id":"KB"})
                         st.session_state.success_display_text = f"₹ {a:,.0f}"; st.session_state.success_txn_type = f"Payment Received ({m})"
                         st.session_state.success_wa_link = f"https://wa.me/91{mob}?text=Payment%20Received%3A%20Rs%20{a}"
                         st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
 
 # --- OTHER PAGES ---
 elif st.session_state.current_page == "STOCK":
-    if st.button("🔙 Back", type="secondary"): go_to(get_home()); st.rerun()
+    st.button("🔙 Back", on_click=lambda: go_to(get_home()), type="secondary")
     st.header("📦 Inventory Stock")
     st.dataframe(led_df[led_df['Product/Service']=='Sim Allocation'] if st.session_state.role=="Admin" else led_df[led_df['FSE Name']==st.session_state.emp_name], hide_index=True)
 
 elif st.session_state.current_page == "ADD":
-    if st.button("🔙 Back", type="secondary"): go_to(get_home()); st.rerun()
+    st.button("🔙 Back", on_click=lambda: go_to(get_home()), type="secondary")
     with st.form("add_ret"):
         n=st.text_input("Retailer Name"); m=st.text_input("Mobile"); p=st.text_input("PRM ID"); l=st.text_input("Loc")
+        st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');i.setAttribute('pattern','[0-9]*');});</script>""", height=0, width=0)
         if st.form_submit_button("Save", type="secondary"):
             requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":l.upper(),"date":date.today().strftime("%d-%m-%Y")})
             st.success("Retailer Added!"); st.cache_data.clear()
 
 elif st.session_state.current_page == "COL":
-    if st.button("🔙 Back", type="secondary"): go_to(get_home()); st.rerun()
+    st.button("🔙 Back", on_click=lambda: go_to(get_home()), type="secondary")
     st.header("💰 Today's Collection")
     t_led = led_df[led_df['Date'] == date.today().strftime("%d-%m-%Y")]
     st.dataframe(t_led[pd.to_numeric(t_led['Amount In (Credit)'], errors='coerce') > 0], hide_index=True)
 
-elif st.session_state.current_page in ["ENTRY", "LEDGER", "URGENT"]:
-    if st.button("🔙 Back", type="secondary"): go_to(get_home()); st.rerun()
-    st.write(f"{st.session_state.current_page} System loaded.")
+elif st.session_state.current_page == "ENTRY":
+    st.button("🔙 Back", on_click=lambda: go_to(get_home()), type="secondary")
+    st.write("Record Entry System loaded.")
+elif st.session_state.current_page == "LEDGER":
+    st.button("🔙 Back", on_click=lambda: go_to(get_home()), type="secondary")
+    st.write("Ledger Reporting loaded.")
