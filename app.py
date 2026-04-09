@@ -14,7 +14,7 @@ except ImportError:
 # 1. Page Configuration (No Sidebar)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide", initial_sidebar_state="collapsed")
 
-# 💎 Global CSS Design (3D Effects & English UI)
+# 💎 Global CSS Design (3D Effects & Mobile Fixes)
 st.markdown("""
     <style>
     .stApp { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -35,12 +35,6 @@ st.markdown("""
     .stDataFrame, .stSelectbox, .stNumberInput, .stTextInput, .stDateInput {
         background-color: white; border-radius: 10px; padding: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
-    .wobble-btn > div > button {
-        background-color: #ffffff !important; color: #1a1a1a !important; border: none !important; border-radius: 12px !important;
-        font-size: 18px !important; font-weight: 700 !important; box-shadow: 0 6px 0 #d1d9e6 !important;
-        border-left: 6px solid #007bff !important; transition: 0.2s; height: 60px !important;
-    }
-    .wobble-btn > div > button:hover { top: -3px; box-shadow: 0 9px 0 #d1d9e6 !important; border-left: 6px solid #00c6ff !important; }
     
     /* 🔥 KHATABOOK SUPER 3D BOX CSS 🔥 */
     .kb-header-container { display: flex; justify-content: space-around; align-items: center; background: transparent; padding: 10px 0 20px 0; margin-bottom: 15px; }
@@ -66,10 +60,18 @@ st.markdown("""
     div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button { height: auto !important; min-height: 20px !important; background: transparent !important; border: none !important; box-shadow: none !important; color: #1f2937 !important; font-size: 16px !important; font-weight: 700 !important; padding: 0 !important; margin: 0 !important; justify-content: flex-start !important; }
     div[data-testid="stVerticalBlockBorderWrapper"] .stButton > button:hover { color: #0b57d0 !important; }
     
-    /* 📱 MOBILE GRID FIX */
+    /* 📱 MOBILE GRID FIX (Force Buttons Side-By-Side) */
     @media (max-width: 768px) {
-        div[data-testid="stHorizontalBlock"] { flex-wrap: nowrap !important; }
-        div[data-testid="column"] { min-width: calc(50% - 0.5rem) !important; }
+        div[data-testid="stHorizontalBlock"] {
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 10px !important;
+        }
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+            width: 100% !important;
+            flex: 1 1 0% !important;
+            min-width: 0 !important;
+        }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -196,15 +198,10 @@ if st.session_state.current_page == "LOGIN":
             log_mob = st.text_input("Mobile Number (10 Digits)")
             log_pin = st.text_input("4-Digit PIN", type="password")
             if st.button("Login securely", use_container_width=True):
-                # Admin Login
                 if log_mob == "7479584179" and log_pin == "9557":
                     st.session_state.role = "Admin"; go_to("HOME"); st.rerun()
-                # Hardcoded Babloo Ji Login
                 elif log_mob == "7254972081" and log_pin == "2081":
-                    st.session_state.role = "Employee"
-                    st.session_state.emp_name = "Babloo kumar singh"
-                    st.session_state.emp_pin = "2081"
-                    go_to("EMP_HOME"); st.rerun()
+                    st.session_state.role = "Employee"; st.session_state.emp_name = "Babloo kumar singh"; st.session_state.emp_pin = "2081"; go_to("EMP_HOME"); st.rerun()
                 else:
                     emp_found = False
                     if ret_df is not None and "Location" in ret_df.columns:
@@ -456,10 +453,10 @@ elif st.session_state.current_page == "LEDGER":
         st.dataframe(f_led.drop(columns=['DateObj']), use_container_width=True, hide_index=True)
         st.download_button("📥 Excel Download", f_led.to_csv(index=False).encode('utf-8-sig'), f"{r_name}_Ledger.csv")
 
-# --- 💸 7. DUES REMINDERS (🔥 KHATABOOK UI - UNIFIED LIST) ---
+# --- 💸 7. DUES REMINDERS (🔥 KHATABOOK UI) ---
 elif st.session_state.current_page == "DUES":
     
-    # CASE 1: SHOW UNIFIED LIST OF ALL RETAILERS (Dues, Advance, and 0)
+    # CASE 1: SHOW UNIFIED LIST OF RETAILERS
     if st.session_state.kb_retailer is None:
         c1, c2 = st.columns(2)
         if c1.button("🔙 Back Menu", use_container_width=True): go_to(get_home()); st.rerun()
@@ -470,7 +467,6 @@ elif st.session_state.current_page == "DUES":
         total_dene_hain = 0; total_milenge = 0
         all_retailers_list = []
         
-        # Calculate for all retailers
         for key, val in retailers_data.items():
             name = val["Name"]; mob = val["Mobile"]
             u_data = led_df[led_df['Retailer Name'] == name]
@@ -480,10 +476,16 @@ elif st.session_state.current_page == "DUES":
             
             if balance > 0: total_milenge += balance
             elif balance < 0: total_dene_hain += abs(balance)
-                
             all_retailers_list.append({"Name": name, "Mobile": mob, "Balance": balance})
+            
+        # 🟢 SORTING LOGIC: 1. Dues(>0), 2. Advance(<0), 3. Settled(0)
+        def sort_retailers(r):
+            if r['Balance'] > 0: return (0, -r['Balance']) # Dues sorted highest first
+            elif r['Balance'] < 0: return (1, r['Balance']) # Advance sorted highest first
+            else: return (2, 0) # Settled at the bottom
+            
+        all_retailers_list.sort(key=sort_retailers)
                 
-        # Top Header Boxes
         st.markdown(f'''
             <div class="kb-header-container">
                 <div class="kb-box">
@@ -498,38 +500,31 @@ elif st.session_state.current_page == "DUES":
             </div>
         ''', unsafe_allow_html=True)
         
-        # 🟢 SEARCH BAR
-        search_term = st.text_input("🔍 Customer search karein...", "")
+        # 🟢 SMART SEARCH BOX (Dropdown As-You-Type without Enter)
+        search_opts = ["All Customers"] + [f"{r['Name']} - {r['Mobile']}" for r in all_retailers_list]
+        selected_cust = st.selectbox("🔍 Customer search karein (Type Name or Mobile)...", search_opts)
         
-        if search_term:
-            filtered_list = [r for r in all_retailers_list if search_term.lower() in r['Name'].lower() or search_term in str(r['Mobile'])]
+        if selected_cust != "All Customers":
+            sel_name = selected_cust.split(" - ")[0]
+            filtered_list = [r for r in all_retailers_list if r['Name'] == sel_name]
         else:
             filtered_list = all_retailers_list
             
         st.markdown("<br>", unsafe_allow_html=True)
-            
-        # 🟢 UNIFIED LIST (ALL CUSTOMERS)
+        
+        # Display the filtered/sorted unified list
+        if not filtered_list: st.info("No matching customers found.")
+        
         for item in filtered_list:
             bal = item['Balance']
-            
-            # Determine color and status
-            if bal > 0:
-                color = "#b91c1c" # Red
-                status = "Pending"
-                amt_str = f"₹ {bal:,.0f}"
-            elif bal < 0:
-                color = "#15803d" # Green
-                status = "Advance"
-                amt_str = f"₹ {abs(bal):,.0f}"
-            else:
-                color = "#4b5563" # Grey
-                status = "Settled"
-                amt_str = "₹ 0"
+            if bal > 0: color = "#b91c1c"; status = "Pending"; amt_str = f"₹ {bal:,.0f}"
+            elif bal < 0: color = "#15803d"; status = "Advance"; amt_str = f"₹ {abs(bal):,.0f}"
+            else: color = "#4b5563"; status = "Settled"; amt_str = "₹ 0"
                 
             with st.container(border=True):
                 col1, col2 = st.columns([3, 2])
                 with col1: 
-                    if st.button(f"{item['Name']}", key=f"btn_all_{item['Name']}", use_container_width=True):
+                    if st.button(f"{item['Name']}", key=f"btn_all_{item['Name']}_{item['Mobile']}", use_container_width=True):
                         st.session_state.kb_retailer = item['Name']
                         st.rerun()
                     st.markdown(f"<div style='font-size:13px;color:#6b7280;margin-top:-5px;'>{item['Mobile']} • {status}</div>", unsafe_allow_html=True)
@@ -610,7 +605,6 @@ elif st.session_state.current_page == "DUES":
             running_bal += (debit - credit)
             rows_data.append({'date': row['Date'], 'item': row['Product/Service'], 'debit': debit, 'credit': credit, 'bal': running_bal})
             
-        # 🟢 Text Statement for WhatsApp
         stmt_text = f"*Sandhya Enterprises - Ledger*\n👤 Retailer: {kb_name}\n"
         if balance > 0: stmt_text += f"💰 Total Dues: ₹{balance:,.0f}\n\n*Recent Entries:*\n"
         elif balance < 0: stmt_text += f"💰 Total Advance: ₹{abs(balance):,.0f}\n\n*Recent Entries:*\n"
@@ -623,10 +617,8 @@ elif st.session_state.current_page == "DUES":
         stmt_text += "\nPlease clear your dues. Regards, Sandhya Enterprises."
         wa_link = f"https://wa.me/91{kb_mob}?text={urllib.parse.quote(stmt_text)}"
         
-        # 🟢 Show WhatsApp Link
         st.markdown(f"<div style='text-align:center; margin-bottom:15px;'><a href='{wa_link}' target='_blank' style='display:inline-block; padding:10px 20px; background-color:#eff6ff; color:#0b57d0; font-weight:700; border-radius:20px; text-decoration:none; border:1px solid #bfdbfe; box-shadow: 0 2px 5px rgba(0,0,0,0.05);'>📲 Send WhatsApp Reminder (With Ledger)</a></div>", unsafe_allow_html=True)
         
-        # 🟢 PDF and Excel Downloads
         dl_col1, dl_col2 = st.columns(2)
         with dl_col1:
             if not HAS_FPDF:
@@ -655,7 +647,6 @@ elif st.session_state.current_page == "DUES":
         ledger_html += "</div>"
         st.markdown(ledger_html, unsafe_allow_html=True)
         
-        # 🟢 Buttons side-by-side
         b1, b2 = st.columns(2)
         if b1.button("🔴 AAPNE DIYE", use_container_width=True): st.session_state.kb_action = "diye"; st.rerun()
         if b2.button("🟢 AAPKO MILE", use_container_width=True): st.session_state.kb_action = "mile"; st.rerun()
