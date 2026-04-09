@@ -400,8 +400,16 @@ elif st.session_state.current_page == "DUES":
                         requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":mob,"type":t,"qty":qty,"amt_out":amt,"amt_in":0,"fse":f,"txn_id":"KB"})
                         st.session_state.success_display_text = f"₹ {amt:,.0f}" if amt>0 else f"{int(qty)} SIMs"
                         st.session_state.success_txn_type = t
-                        msg = urllib.parse.quote(f"*Sandhya Enterprises*\n{t} Done\nAmt: Rs {amt if amt>0 else qty}")
-                        st.session_state.success_wa_link = f"https://wa.me/91{mob}?text={msg}"
+                        
+                        # 🟢 WHATSAPP MESSAGE (After Saving Transaction)
+                        msg = f"*Retailer:* {name} ({prm})\n"
+                        msg += f"*Aapka dues hai:* ₹ {abs(cur_bal + amt):,.0f}\n"
+                        msg += "*Aaj hi online ya cash de kar apna dues clear kare.*\n\n"
+                        msg += "*Recent Transaction:*\n"
+                        msg += f"🗓 {date.today().strftime('%d-%m-%Y')} | {t} | Diye (-): ₹{amt if amt>0 else qty}\n\n"
+                        msg += "Regards,\n*SANDHYA ENTERPRISES*\nAVDHESH KUMAR\n📞 7479584179"
+                        
+                        st.session_state.success_wa_link = f"https://wa.me/91{mob}?text={urllib.parse.quote(msg)}"
                         st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
 
         if st.session_state.kb_action == "mile":
@@ -415,7 +423,16 @@ elif st.session_state.current_page == "DUES":
                     if verify_pin(f, p):
                         requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":mob,"type":f"Payment ({m})","amt_in":a,"fse":f,"txn_id":"KB"})
                         st.session_state.success_display_text = f"₹ {a:,.0f}"; st.session_state.success_txn_type = f"Payment Received ({m})"
-                        st.session_state.success_wa_link = f"https://wa.me/91{mob}?text=Payment%20Received%3A%20Rs%20{a}"
+                        
+                        # 🟢 WHATSAPP MESSAGE (After Saving Payment)
+                        msg = f"*Retailer:* {name} ({prm})\n"
+                        msg += f"*Aapka dues hai:* ₹ {abs(cur_bal - a):,.0f}\n"
+                        msg += "*Payment ke liye Dhanyawad.*\n\n"
+                        msg += "*Recent Transaction:*\n"
+                        msg += f"🗓 {date.today().strftime('%d-%m-%Y')} | Payment Received | Mile (+): ₹{a}\n\n"
+                        msg += "Regards,\n*SANDHYA ENTERPRISES*\nAVDHESH KUMAR\n📞 7479584179"
+
+                        st.session_state.success_wa_link = f"https://wa.me/91{mob}?text={urllib.parse.quote(msg)}"
                         st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
 
 # --- OTHER PAGES ---
