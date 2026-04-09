@@ -39,19 +39,34 @@ st.markdown("""
     /* 🔥 KHATABOOK STYLE CSS 🔥 */
     .kb-header-container { display: flex; justify-content: space-between; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;}
     .kb-box { width: 48%; text-align: center; }
-    .kb-box h4 { font-size: 14px; color: #6b7280; margin: 0; font-weight: 500; }
-    .kb-give { color: #15803d; font-size: 22px; font-weight: bold; margin: 5px 0 0 0; }
-    .kb-get { color: #b91c1c; font-size: 22px; font-weight: bold; margin: 5px 0 0 0; }
+    .kb-box h4 { font-size: 15px; color: #6b7280; margin: 0; font-weight: 500; }
+    .kb-give { color: #15803d; font-size: 24px; font-weight: bold; margin: 5px 0 0 0; }
+    .kb-get { color: #b91c1c; font-size: 24px; font-weight: bold; margin: 5px 0 0 0; }
     .kb-divider { width: 1px; background: #e5e7eb; }
     
     /* 📝 KHATABOOK INSIDE LEDGER CSS */
     .kb-ledger-row { display: flex; justify-content: space-between; border-bottom: 1px solid #f3f4f6; background: white; align-items: center;}
     .kb-ledger-left { width: 40%; padding: 12px 15px; }
-    .kb-ledger-mid { width: 30%; text-align: right; color: #b91c1c; font-weight: 700; background: #fff5f5; padding: 12px 15px; font-size: 16px; border-left: 1px solid #f9fafb; height: 100%;}
-    .kb-ledger-right { width: 30%; text-align: right; color: #15803d; font-weight: 700; background: white; padding: 12px 15px; font-size: 16px; border-left: 1px solid #f9fafb; height: 100%;}
+    .kb-ledger-mid { width: 30%; text-align: right; color: #b91c1c; font-weight: 700; background: #fffcfc; padding: 12px 15px; font-size: 15px; border-left: 1px solid #f9fafb; height: 100%;}
+    .kb-ledger-right { width: 30%; text-align: right; color: #15803d; font-weight: 700; background: #f8faf9; padding: 12px 15px; font-size: 15px; border-left: 1px solid #f9fafb; height: 100%;}
     .kb-ledger-date { font-size: 12px; color: #6b7280; font-weight: 500; margin-bottom: 2px;}
     .kb-ledger-bal { font-size: 11px; color: #9ca3af; margin-bottom: 4px;}
-    .kb-ledger-item { font-size: 15px; color: #1f2937; font-weight: 600; text-transform: capitalize;}
+    .kb-ledger-item { font-size: 14px; color: #1f2937; font-weight: 600; text-transform: capitalize;}
+    .kb-ledger-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: white; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 15px;}
+    .kb-ledger-header h3 { margin:0; font-size: 16px; color: #374151; font-weight: 600;}
+    .kb-ledger-header h2 { margin:0; font-size: 22px; color: #b91c1c; font-weight: 700;} 
+    .kb-ledger-header h2.green { color: #15803d; }
+
+    /* 📱 MAKE NAME CLICKABLE IN KHATABOOK LIST */
+    div[data-testid="stTabs"] .stButton > button {
+        height: auto !important; min-height: 20px !important;
+        background: transparent !important; border: none !important;
+        box-shadow: none !important; color: #1f2937 !important;
+        font-size: 16px !important; font-weight: 700 !important;
+        padding: 0 !important; margin: 5px 0 -5px 0 !important;
+        justify-content: flex-start !important;
+    }
+    div[data-testid="stTabs"] .stButton > button:hover { color: #0b57d0 !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -304,7 +319,7 @@ elif st.session_state.current_page == "LEDGER":
 # --- 💸 6. DUES REMINDERS (🔥 KHATABOOK ISOLATED UI 🔥) ---
 elif st.session_state.current_page == "DUES":
     
-    # CASE 1: SHOW KHATABOOK LIST
+    # CASE 1: SHOW KHATABOOK LIST (No more "Ledger" button, name is clickable)
     if st.session_state.kb_retailer is None:
         c1, c2 = st.columns(2)
         if c1.button("🔙 Back Menu", use_container_width=True): go_to("HOME"); st.rerun()
@@ -348,28 +363,31 @@ elif st.session_state.current_page == "DUES":
         with tab1:
             if not dues_list: st.success("No dues pending!")
             for item in dues_list:
-                col1, col2, col3 = st.columns([4, 2, 1])
-                with col1: st.markdown(f"<div style='font-size:16px;font-weight:bold;color:#1f2937;'>{item['Name']}</div><div style='font-size:13px;color:#6b7280;'>{item['Mobile']} • Pending</div>", unsafe_allow_html=True)
-                with col2: 
-                    msg = urllib.parse.quote(f"Dear Partner, your pending dues are ₹{item['Balance']}. Please clear your payment. Regards, Sandhya Enterprises.")
-                    st.markdown(f"<div style='text-align:right;'><div style='font-size:16px;font-weight:bold;color:#b91c1c;'>₹ {item['Balance']:,.0f}</div><a href='https://wa.me/91{item['Mobile']}?text={msg}' target='_blank' style='font-size:12px;color:#2563eb;text-decoration:none;font-weight:bold;'>REMIND KARAYEIN ></a></div>", unsafe_allow_html=True)
-                with col3:
-                    if st.button("Ledger ➡️", key=f"btn_{item['Name']}", use_container_width=True):
+                col1, col2 = st.columns([3, 2])
+                with col1: 
+                    # 🟢 NAYA: Name is now the clickable button
+                    if st.button(f"{item['Name']}", key=f"btn_dues_{item['Name']}", use_container_width=True):
                         st.session_state.kb_retailer = item['Name']
                         st.rerun()
-                st.markdown("<hr style='margin:5px 0;border:none;border-bottom:1px solid #f3f4f6;'>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='font-size:13px;color:#6b7280;margin-top:-5px;margin-bottom:5px;'>{item['Mobile']} • Pending</div>", unsafe_allow_html=True)
+                with col2: 
+                    msg = urllib.parse.quote(f"Dear Partner, your pending dues are ₹{item['Balance']}. Please clear your payment. Regards, Sandhya Enterprises.")
+                    st.markdown(f"<div style='text-align:right; margin-top:5px;'><div style='font-size:16px;font-weight:bold;color:#b91c1c;'>₹ {item['Balance']:,.0f}</div><a href='https://wa.me/91{item['Mobile']}?text={msg}' target='_blank' style='font-size:12px;color:#2563eb;text-decoration:none;font-weight:bold;'>REMIND KARAYEIN ></a></div>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin:0;border:none;border-bottom:1px solid #f3f4f6;'>", unsafe_allow_html=True)
                 
         with tab2:
             if not adv_list: st.info("No advance balances.")
             for item in adv_list:
-                col1, col2, col3 = st.columns([4, 2, 1])
-                with col1: st.markdown(f"<div style='font-size:16px;font-weight:bold;color:#1f2937;'>{item['Name']}</div><div style='font-size:13px;color:#6b7280;'>{item['Mobile']} • Advance</div>", unsafe_allow_html=True)
-                with col2: st.markdown(f"<div style='text-align:right;'><div style='font-size:16px;font-weight:bold;color:#15803d;'>₹ {item['Balance']:,.0f}</div></div>", unsafe_allow_html=True)
-                with col3:
-                    if st.button("Ledger ➡️", key=f"btn_adv_{item['Name']}", use_container_width=True):
+                col1, col2 = st.columns([3, 2])
+                with col1: 
+                    # 🟢 NAYA: Name is now the clickable button
+                    if st.button(f"{item['Name']}", key=f"btn_adv_{item['Name']}", use_container_width=True):
                         st.session_state.kb_retailer = item['Name']
                         st.rerun()
-                st.markdown("<hr style='margin:5px 0;border:none;border-bottom:1px solid #f3f4f6;'>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='font-size:13px;color:#6b7280;margin-top:-5px;margin-bottom:5px;'>{item['Mobile']} • Advance</div>", unsafe_allow_html=True)
+                with col2: 
+                    st.markdown(f"<div style='text-align:right; margin-top:5px;'><div style='font-size:16px;font-weight:bold;color:#15803d;'>₹ {item['Balance']:,.0f}</div></div>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin:0;border:none;border-bottom:1px solid #f3f4f6;'>", unsafe_allow_html=True)
 
     # CASE 2: SHOW SINGLE RETAILER KHATABOOK LEDGER VIEW
     else:
@@ -378,14 +396,16 @@ elif st.session_state.current_page == "DUES":
         for k, v in retailers_data.items():
             if v["Name"] == kb_name: kb_mob = v["Mobile"]; break
             
-        if st.button("⬅️ Back to Customer List", use_container_width=True):
+        c1, c2 = st.columns([1, 4])
+        # 🟢 NAYA: Back button jesa screenshot me hai
+        if c1.button("⬅️ Back", use_container_width=True):
             st.session_state.kb_retailer = None
             st.session_state.kb_action = None
             st.rerun()
             
         # Khatabook Style Blue Header
         st.markdown(f"""
-        <div style="background-color: #0b57d0; padding: 15px; border-radius: 8px; display: flex; align-items: center; margin-bottom: 15px;">
+        <div style="background-color: #0b57d0; padding: 15px; border-radius: 8px; display: flex; align-items: center; margin-bottom: 15px; margin-top: 15px;">
             <div style="width: 45px; height: 45px; border-radius: 50%; background-color: white; color: #0b57d0; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 20px; margin-right: 15px;">{kb_name[:2].upper()}</div>
             <div>
                 <div style="color: white; font-size: 19px; font-weight: bold; margin-bottom:2px;">{kb_name}</div>
@@ -401,13 +421,15 @@ elif st.session_state.current_page == "DUES":
         
         # Summary Box
         if balance >= 0:
-            st.markdown(f'''<div style="background:white; padding:15px; border-radius:8px; border:1px solid #ddd; display:flex; justify-content:space-between; margin-bottom:15px;"><span style="font-size:16px; font-weight:bold; color:#333;">Aapko Milenge</span><span style="font-size:20px; font-weight:bold; color:#b91c1c;">₹ {balance:,.0f}</span></div>''', unsafe_allow_html=True)
+            st.markdown(f'''<div class="kb-ledger-header"><h3>Aapko Milenge</h3><h2>₹ {balance:,.0f}</h2></div>''', unsafe_allow_html=True)
+            msg = urllib.parse.quote(f"Dear Partner, your pending dues are ₹{balance}. Please clear your payment. Regards, Sandhya Enterprises.")
+            st.markdown(f"[📲 Send WhatsApp Reminder](https://wa.me/91{kb_mob}?text={msg})")
         else:
-            st.markdown(f'''<div style="background:white; padding:15px; border-radius:8px; border:1px solid #ddd; display:flex; justify-content:space-between; margin-bottom:15px;"><span style="font-size:16px; font-weight:bold; color:#333;">Aapko Dene Hain</span><span style="font-size:20px; font-weight:bold; color:#15803d;">₹ {abs(balance):,.0f}</span></div>''', unsafe_allow_html=True)
+            st.markdown(f'''<div class="kb-ledger-header"><h3>Aapko Dene Hain</h3><h2 class="green">₹ {abs(balance):,.0f}</h2></div>''', unsafe_allow_html=True)
             
         u_data = u_data.sort_values(by='DateObj', ascending=True) 
         running_bal = 0
-        ledger_html = "<div style='background:white; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; margin-bottom:15px;'>"
+        ledger_html = "<div style='background:white; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; margin-bottom:15px; margin-top:10px;'>"
         ledger_html += "<div style='display:flex; font-size:11px; color:#6b7280; font-weight:600; padding:10px 15px; background:#f9fafb; border-bottom:1px solid #e5e7eb;'><div style='width:40%'>ENTRIES</div><div style='width:30%; text-align:right'>AAPNE DIYE</div><div style='width:30%; text-align:right'>AAPKO MILE</div></div>"
         
         rows_data = []
@@ -419,7 +441,6 @@ elif st.session_state.current_page == "DUES":
             running_bal += (debit - credit)
             rows_data.append({'date': row['Date'], 'item': row['Product/Service'], 'debit': debit, 'credit': credit, 'bal': running_bal})
             
-        # Khatabook shows newest entries first
         for r in reversed(rows_data):
             d_str = f"₹ {r['debit']:,.0f}" if r['debit'] > 0 else ""
             c_str = f"₹ {r['credit']:,.0f}" if r['credit'] > 0 else ""
@@ -437,7 +458,7 @@ elif st.session_state.current_page == "DUES":
         ledger_html += "</div>"
         st.markdown(ledger_html, unsafe_allow_html=True)
         
-        # Bottom Buttons
+        # 🟢 Bottom Entry Buttons (Aapne Diye / Aapko Mile)
         b1, b2 = st.columns(2)
         if b1.button("🔴 AAPNE DIYE ₹ (Stock)", use_container_width=True): st.session_state.kb_action = "diye"; st.rerun()
         if b2.button("🟢 AAPKO MILE ₹ (Payment)", use_container_width=True): st.session_state.kb_action = "mile"; st.rerun()
@@ -533,10 +554,7 @@ elif st.session_state.current_page == "URGENT":
             net_dues = total_debit - total_credit
             
             if net_dues > 0:
-                is_urgent = False
-                u_reason = ""
-                u_date = ""
-                
+                is_urgent = False; u_reason = ""; u_date = ""
                 for _, row in u_data.iterrows():
                     r_date = row['DateObj']
                     if pd.notnull(r_date):
