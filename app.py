@@ -14,17 +14,17 @@ except ImportError:
 # 1. Page Configuration
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide", initial_sidebar_state="collapsed")
 
-# 🟢 PERSISTENT LOGIN SESSION
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-
-# 🟢 SUCCESS MODAL STATES
+# 🟢 INITIALIZE ALL SESSION STATES AT START (Fixes AttributeError)
+if "authenticated" not in st.session_state: st.session_state.authenticated = False
+if "kb_retailer" not in st.session_state: st.session_state.kb_retailer = None
+if "kb_action" not in st.session_state: st.session_state.kb_action = None
 if "show_success_modal" not in st.session_state: st.session_state.show_success_modal = False
 if "success_display_text" not in st.session_state: st.session_state.success_display_text = ""
 if "success_txn_type" not in st.session_state: st.session_state.success_txn_type = ""
 if "success_wa_link" not in st.session_state: st.session_state.success_wa_link = ""
+if "role" not in st.session_state: st.session_state.role = None
 
-# 💎 Full Screen Success Overlay
+# 🟢 PROFESSIONAL SUCCESS POPUP & SOUND 🟢
 if st.session_state.show_success_modal:
     st.markdown('<audio autoplay style="display:none;"><source src="https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3" type="audio/mpeg"></audio>', unsafe_allow_html=True)
     st.markdown(f"""
@@ -53,7 +53,7 @@ st.markdown("""
     .kb-header-container { display: flex; justify-content: space-around; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-bottom: 15px; }
     .kb-box { width: 45%; text-align: center; }
     .kb-ledger-row { display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; background: white; padding: 10px; align-items: center; }
-    .kb-ledger-left { width: 40%; }
+    .kb-ledger-left { width: 40%; text-align: left; }
     .kb-ledger-mid { width: 30%; text-align: right; color: #b91c1c; font-weight: 700; }
     .kb-ledger-right { width: 30%; text-align: right; color: #15803d; font-weight: 700; }
     @media (max-width: 768px) { div[data-testid="stHorizontalBlock"] { flex-direction: row !important; flex-wrap: nowrap !important; gap: 5px !important; } }
@@ -63,9 +63,9 @@ st.markdown("""
 # 🛑 CONFIGURATION
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyH_oGxKbNZQj2azNOR0FgkLyAKxBfaAoE0Yo3DHmRpNOFZczJRayBhPd056SGUVWbxWQ/exec"
 sheet_id = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
-retailers_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Retailers"
-inventory_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Inventory"
-ledger_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Ledger"
+retailers_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx:out:csv&sheet=Retailers"
+inventory_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx:out:csv&sheet=Inventory"
+ledger_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx:out:csv&sheet=Ledger"
 
 def create_pdf(r_name, r_mob, bal, r_data):
     if not HAS_FPDF: return None
@@ -97,10 +97,14 @@ def load_data():
 
 ret_df, inv_df, led_df = load_data()
 
-# 🔐 LOGIN SYSTEM
+# Separate Employees and Retailers
+valid_ret = ret_df[ret_df['Location'].astype(str).str.upper() != 'EMPLOYEE'] if ret_df is not None else None
+retailers_data = {f"{r['Retailer Name']} ({str(r['Mobile Number']).split('.')[0]})": r for _, r in valid_ret.iterrows()} if valid_ret is not None else {}
+
+# --- 🔐 LOGIN SYSTEM ---
 if not st.session_state.authenticated:
     st.markdown('<div class="app-header"><h1>🏢 Sandhya Enterprises</h1><p>Smart Management Login</p></div>', unsafe_allow_html=True)
-    tab1, tab2 = st.tabs(["🔑 Login", "📝 Register"])
+    tab1, tab2 = st.tabs(["🔑 Login", "📝 New Registration"])
     with tab1:
         l_mob = st.text_input("Mobile Number")
         l_pin = st.text_input("PIN", type="password")
@@ -114,7 +118,7 @@ if not st.session_state.authenticated:
                 for _, r in emps.iterrows():
                     if str(r.get("Mobile Number")).split('.')[0] == l_mob and str(r.get("PRM ID")).replace("EMP_","") == l_pin:
                         st.session_state.role = "Employee"; st.session_state.emp_name = r["Retailer Name"]; st.session_state.emp_pin = l_pin; st.session_state.authenticated = True; st.rerun()
-            st.error("❌ Wrong Details")
+            st.error("❌ Invalid Details")
     with tab2:
         reg_n = st.text_input("Name"); reg_m = st.text_input("Mobile"); reg_p = st.text_input("4-Digit PIN", type="password")
         if st.button("Register Now"):
@@ -132,15 +136,12 @@ def verify_pin(n, p):
     if st.session_state.role == "Employee" and p == st.session_state.emp_pin: return True
     return False
 
-valid_ret = ret_df[ret_df['Location'].astype(str).str.upper() != 'EMPLOYEE'] if ret_df is not None else None
-retailers_data = {f"{r['PRM ID']} - {r['Retailer Name']}": r for _, r in valid_ret.iterrows()} if valid_ret is not None else {}
-
 if "current_page" not in st.session_state: st.session_state.current_page = "HOME" if st.session_state.role == "Admin" else "EMP_HOME"
-def go_to(p): st.session_state.current_page = p; st.session_state.kb_retailer = None
+def go_to(p): st.session_state.current_page = p; st.session_state.kb_retailer = None; st.session_state.kb_action = None
 
-# --- NAVIGATION ROUTES ---
+# --- DASHBOARDS ---
 if st.session_state.current_page == "HOME":
-    c1, c2 = st.columns([3, 1]); c2.button("Logout", on_click=lambda: st.session_state.update({"authenticated":False}))
+    c1, c2 = st.columns([3, 1]); c2.button("🚪 Logout", on_click=lambda: st.session_state.update({"authenticated":False}))
     col1, col2 = st.columns(2)
     with col1:
         if st.button("📊 Live Stock", use_container_width=True): go_to("STOCK"); st.rerun()
@@ -161,27 +162,31 @@ elif st.session_state.current_page == "EMP_HOME":
         if st.button("📦 My Stock", use_container_width=True): go_to("STOCK"); st.rerun()
 
 elif st.session_state.current_page == "DUES":
-    st.button("⬅️ Back", on_click=lambda: go_to("HOME" if st.session_state.role == "Admin" else "EMP_HOME"))
+    if st.button("⬅️ Back"): go_to("HOME" if st.session_state.role == "Admin" else "EMP_HOME"); st.rerun()
+    
     if st.session_state.kb_retailer is None:
         all_r = []
         for n, r in retailers_data.items():
             u_led = led_df[led_df['Retailer Name'] == r['Retailer Name']]
-            # 🟢 ERROR FIX: pd.to_numeric logic corrected
             bal = pd.to_numeric(u_led['Amount Out (Debit)'], errors='coerce').sum() - pd.to_numeric(u_led['Amount In (Credit)'], errors='coerce').sum()
-            all_r.append({"Name": r['Retailer Name'], "Mob": r['Mobile Number'], "Bal": bal})
+            all_r.append({"Name": r['Retailer Name'], "Mob": r['Mobile Number'], "Bal": bal, "Disp": n})
+        
         all_r.sort(key=lambda x: (0 if x['Bal'] > 0 else 1 if x['Bal'] < 0 else 2, -abs(x['Bal'])))
-        sel = st.selectbox("🔍 Search...", ["All"] + [f"{x['Name']} ({x['Mob']})" for x in all_r])
-        for item in all_r:
-            if sel == "All" or f"{item['Name']} ({item['Mob']})" == sel:
-                with st.container(border=True):
-                    col1, col2 = st.columns([3, 2])
-                    if col1.button(item['Name'], key=f"r_{item['Name']}_{item['Mob']}"): st.session_state.kb_retailer = item['Name']; st.rerun()
-                    col2.markdown(f"<div style='text-align:right; font-weight:bold; color:{'#b91c1c' if item['Bal']>0 else '#15803d'};'>₹ {abs(item['Bal']):,.0f}</div>", unsafe_allow_html=True)
+        sel = st.selectbox("🔍 Search Customer...", ["All Customers"] + [x['Disp'] for x in all_r])
+        display_list = [x for x in all_r if sel == "All Customers" or x['Disp'] == sel]
+        
+        for item in display_list:
+            c = "#b91c1c" if item['Bal'] > 0 else "#15803d" if item['Bal'] < 0 else "#6b7280"
+            with st.container(border=True):
+                col1, col2 = st.columns([3, 2])
+                if col1.button(item['Name'], key=f"r_{item['Name']}"): st.session_state.kb_retailer = item['Name']; st.rerun()
+                col2.markdown(f"<div style='text-align:right; font-size:18px; font-weight:bold; color:{c};'>₹ {abs(item['Bal']):,.0f}</div>", unsafe_allow_html=True)
     else:
         name = st.session_state.kb_retailer
         r_info = next(v for k, v in retailers_data.items() if v['Retailer Name'] == name)
         mob = r_info['Mobile Number']
         st.markdown(f"<div style='background:#0b57d0; color:white; padding:15px; border-radius:10px;'><h3>{name}</h3><p>{mob}</p></div>", unsafe_allow_html=True)
+        
         u_led = led_df[led_df['Retailer Name'] == name].sort_values('DateObj')
         bal = 0; rows = []
         for _, r in u_led.iterrows():
@@ -192,7 +197,6 @@ elif st.session_state.current_page == "DUES":
         
         st.markdown(f"<div style='background:white; padding:20px; border-radius:10px; margin:10px 0; text-align:center;'><h4>Balance</h4><h2 style='color:#b91c1c;'>₹ {bal:,.0f}</h2></div>", unsafe_allow_html=True)
         
-        # 🟢 LEDGER HTML FIX
         for r in reversed(rows):
             st.markdown(f"<div class='kb-ledger-row'><div class='kb-ledger-left'><b>{r['d']}</b><br>{r['i']}<br><small>Bal: ₹{r['b']}</small></div><div class='kb-ledger-mid'>{f'₹{r['out']:,.0f}' if r['out']>0 else ''}</div><div class='kb-ledger-right'>{f'₹{r['in']:,.0f}' if r['in']>0 else ''}</div></div>", unsafe_allow_html=True)
         
@@ -204,30 +208,32 @@ elif st.session_state.current_page == "DUES":
         if st.session_state.kb_action == "diye":
             with st.form("d_f"):
                 t = st.selectbox("Type", ["Etop Transfer", "JPB V4", "Sim Card"])
-                amt = 0; qty = 0
+                amt, qty = 0, 0
                 if t == "Etop Transfer": 
                     o = st.selectbox("Amount", ["5000","3000","2000","1500","500","Manual"])
                     amt = float(o) if o!="Manual" else st.number_input("Enter Amount")
                 elif t == "Sim Card": qty = st.number_input("Qty", min_value=1)
                 else: amt = st.number_input("Amount"); qty = st.number_input("Qty")
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
-                if st.form_submit_button("Save"):
+                if st.form_submit_button("Save Entry"):
                     if verify_pin(f, p):
                         requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":mob,"type":t,"qty":qty,"amt_out":amt,"amt_in":0,"fse":f,"txn_id":"KB"})
                         st.session_state.success_display_text = f"₹{amt}" if amt>0 else f"{int(qty)} SIM"
                         st.session_state.success_txn_type = t; st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
-        
+                    else: st.error("❌ Wrong PIN")
+
         if st.session_state.kb_action == "mile":
             with st.form("m_f"):
-                m = st.selectbox("Mode", ["Cash", "Online"]); amt = st.number_input("Amount", min_value=1)
+                m_mode = st.selectbox("Mode", ["Cash", "Online"]); amt = st.number_input("Amount", min_value=1)
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
-                if st.form_submit_button("Save"):
+                if st.form_submit_button("Save Entry"):
                     if verify_pin(f, p):
-                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":mob,"type":f"Payment ({m})","qty":0,"amt_out":0,"amt_in":amt,"fse":f,"txn_id":"KB"})
-                        st.session_state.success_display_text = f"₹{amt}"; st.session_state.success_txn_type = f"Payment ({m})"; st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
+                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":mob,"type":f"Payment ({m_mode})","qty":0,"amt_out":0,"amt_in":amt,"fse":f,"txn_id":"KB"})
+                        st.session_state.success_display_text = f"₹{amt}"; st.session_state.success_txn_type = f"Payment ({m_mode})"; st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
+                    else: st.error("❌ Wrong PIN")
 
 elif st.session_state.current_page == "STOCK":
-    st.button("🔙 Back", on_click=lambda: go_to(get_home()))
+    st.button("⬅️ Back", on_click=lambda: go_to(get_home()))
     if st.session_state.role == "Admin": st.dataframe(inv_df, use_container_width=True)
     else:
         q_c = 'Qty'
@@ -236,12 +242,12 @@ elif st.session_state.current_page == "STOCK":
         st.metric("SIM Stock Balance", int(alloc - dist))
 
 elif st.session_state.current_page == "URGENT":
-    st.button("🔙 Back", on_click=lambda: go_to(get_home()))
+    st.button("⬅️ Back", on_click=lambda: go_to(get_home()))
     st.error("🚨 Urgent Recovery List")
-    st.write("Checking records...")
+    st.write("Record loading...")
 
 elif st.session_state.current_page == "ADD":
-    st.button("🔙 Back", on_click=lambda: go_to(get_home()))
+    st.button("⬅️ Back", on_click=lambda: go_to(get_home()))
     with st.form("add_r"):
         n = st.text_input("Name"); m = st.text_input("Mobile"); p = st.text_input("PRM"); l = st.text_input("Location")
         if st.form_submit_button("Save"):
