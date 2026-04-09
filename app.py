@@ -14,7 +14,7 @@ except ImportError:
 # 1. Page Configuration (A4 Scale & Fixed Layout)
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="centered", initial_sidebar_state="collapsed")
 
-# 🟢 NAVIGATION FUNCTIONS
+# 🟢 GLOBAL FUNCTIONS (Defined at top to prevent NameError)
 def go_to(p): 
     st.session_state.current_page = p
     st.session_state.kb_retailer = None
@@ -45,7 +45,6 @@ def verify_pin(n, p):
 # 🟢 PERSISTENT LOGIN (URL Smart Token)
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
-    
     if "auth" in st.query_params:
         st.session_state.authenticated = True
         st.session_state.role = st.query_params.get("role", "Employee")
@@ -119,7 +118,7 @@ st.markdown("""
         border-radius: 12px !important; height: 70px !important; font-weight: 700 !important; font-size: 15px !important; margin-bottom: 12px !important; border: 1.5px solid #e2e8f0 !important; background: white !important; color: #1e293b !important; width: 100% !important; 
     }
     
-    /* 📱 RETAILER LIST BOX (Soothing Slate-Blue Color + White Text + Joined Shape) */
+    /* 📱 RETAILER LIST BOX (Soothing Slate-Blue Color) */
     .stButton > button[kind="primary"] { 
         border-radius: 12px 0 0 12px !important; background: #475569 !important; color: #ffffff !important; height: 70px !important; font-weight: 700 !important; font-size: 15px !important; margin-bottom: 12px !important; border: none !important; text-align: left !important; padding-left: 15px !important; width: 100% !important; 
     }
@@ -187,6 +186,11 @@ ret_df, led_df = load_data()
 valid_ret = ret_df[ret_df['Location'].astype(str).str.upper() != 'EMPLOYEE'] if ret_df is not None else None
 retailers_dict = {f"{r['Retailer Name']} ({str(r['Mobile Number']).split('.')[0]})": r for _, r in valid_ret.iterrows()} if valid_ret is not None else {}
 
+fse_list = ["Avdhesh Kumar", "Babloo kumar singh"]
+if ret_df is not None and "Location" in ret_df.columns:
+    emp_names = ret_df[ret_df['Location'].astype(str).str.upper() == 'EMPLOYEE']['Retailer Name'].tolist()
+    fse_list = list(set(fse_list + emp_names))
+
 # 🔐 LOGIN SYSTEM
 if not st.session_state.authenticated:
     st.markdown('<div class="login-spacer"></div>', unsafe_allow_html=True)
@@ -246,11 +250,6 @@ st.markdown("""
     <p style="margin: 2px 0px; font-size: 14px;">📞 7479584179</p>
 </div>
 """, unsafe_allow_html=True)
-
-fse_list = ["Avdhesh Kumar", "Babloo kumar singh"]
-if ret_df is not None and "Location" in ret_df.columns:
-    emp_names = ret_df[ret_df['Location'].astype(str).str.upper() == 'EMPLOYEE']['Retailer Name'].tolist()
-    fse_list = list(set(fse_list + emp_names))
 
 # --- DASHBOARDS ---
 if st.session_state.current_page == "HOME":
@@ -325,7 +324,7 @@ elif st.session_state.current_page == "DUES":
                 
             rows.append({"d": r['Date'], "i": r['Product/Service'], "out": d, "in": c, "b": running_bal, "status": status_text})
 
-        # 🟢 NEW WHATSAPP REMINDER MESSAGE FORMAT
+        # 🟢 WHATSAPP REMINDER MESSAGE FORMAT
         wa_msg = f"*Retailer:* {name} ({prm})\n"
         wa_msg += f"*Aapka dues hai:* ₹ {abs(running_bal):,.0f}\n"
         wa_msg += "*Aaj hi online ya cash de kar apna dues clear kare.*\n\n"
@@ -334,7 +333,6 @@ elif st.session_state.current_page == "DUES":
             amt_str = f"Diye (-): ₹{r['out']:,.0f}" if r['out']>0 else f"Mile (+): ₹{r['in']:,.0f}" if r['in']>0 else "₹0"
             wa_msg += f"🗓 {r['d']} | {r['i']} | {amt_str}\n"
         wa_msg += "\nRegards,\n*SANDHYA ENTERPRISES*\nAVDHESH KUMAR\n📞 7479584179"
-        
         encoded_wa_msg = urllib.parse.quote(wa_msg)
 
         st.markdown(f"""
@@ -401,7 +399,6 @@ elif st.session_state.current_page == "DUES":
                         st.session_state.success_display_text = f"₹ {amt:,.0f}" if amt>0 else f"{int(qty)} SIMs"
                         st.session_state.success_txn_type = t
                         
-                        # 🟢 WHATSAPP MESSAGE (After Saving Transaction)
                         msg = f"*Retailer:* {name} ({prm})\n"
                         msg += f"*Aapka dues hai:* ₹ {abs(cur_bal + amt):,.0f}\n"
                         msg += "*Aaj hi online ya cash de kar apna dues clear kare.*\n\n"
@@ -424,7 +421,6 @@ elif st.session_state.current_page == "DUES":
                         requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"r_mob":mob,"type":f"Payment ({m})","amt_in":a,"fse":f,"txn_id":"KB"})
                         st.session_state.success_display_text = f"₹ {a:,.0f}"; st.session_state.success_txn_type = f"Payment Received ({m})"
                         
-                        # 🟢 WHATSAPP MESSAGE (After Saving Payment)
                         msg = f"*Retailer:* {name} ({prm})\n"
                         msg += f"*Aapka dues hai:* ₹ {abs(cur_bal - a):,.0f}\n"
                         msg += "*Payment ke liye Dhanyawad.*\n\n"
@@ -437,38 +433,33 @@ elif st.session_state.current_page == "DUES":
 
 # --- OTHER PAGES ---
 elif st.session_state.current_page == "STOCK":
-    st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
+    st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
     st.header("📦 Inventory Stock")
-    
-    if led_df is not None and not led_df.empty:
-        if 'Product/Service' in led_df.columns and 'FSE Name' in led_df.columns:
-            if st.session_state.role == "Admin":
-                stock_data = led_df[led_df['Product/Service'] == 'Sim Allocation']
-            else:
-                stock_data = led_df[led_df['FSE Name'] == st.session_state.emp_name]
-            st.dataframe(stock_data, hide_index=True)
+    if led_df is not None and not led_df.empty and 'Product/Service' in led_df.columns and 'FSE Name' in led_df.columns:
+        if st.session_state.role == "Admin":
+            stock_data = led_df[led_df['Product/Service'] == 'Sim Allocation']
         else:
-            st.info("Stock data format is currently unavailable.")
+            stock_data = led_df[led_df['FSE Name'] == st.session_state.emp_name]
+        st.dataframe(stock_data, hide_index=True)
     else:
-        st.info("No Stock Data Available.")
+        st.info("Stock data is currently unavailable.")
 
 elif st.session_state.current_page == "ADD":
-    st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
+    st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
     with st.form("add_ret"):
         n=st.text_input("Retailer Name"); m=st.text_input("Mobile"); p=st.text_input("PRM ID"); l=st.text_input("Loc")
         st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');i.setAttribute('pattern','[0-9]*');});</script>""", height=0, width=0)
-        if st.form_submit_button("Save", type="secondary"):
+        if st.form_submit_button("Save Retailer", type="secondary"):
             requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":l.upper(),"date":date.today().strftime("%d-%m-%Y")})
             st.success("Retailer Added!"); st.cache_data.clear()
 
 elif st.session_state.current_page == "COL":
-    st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
+    st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
     st.header("💰 Today's Collection")
     
     if led_df is not None and not led_df.empty and 'Date' in led_df.columns and 'Amount In (Credit)' in led_df.columns:
         t_led = led_df[led_df['Date'] == date.today().strftime("%d-%m-%Y")].copy()
         t_led['Amount In (Credit)'] = pd.to_numeric(t_led['Amount In (Credit)'], errors='coerce').fillna(0)
-        
         coll_df = t_led[t_led['Amount In (Credit)'] > 0]
         
         if st.session_state.role == "Employee" and 'FSE Name' in coll_df.columns:
@@ -483,23 +474,45 @@ elif st.session_state.current_page == "COL":
                 
             disp_df = coll_df[cols_to_get].copy()
             disp_df.columns = disp_cols
-            
             st.dataframe(disp_df, hide_index=True)
             st.write(f"**Total Collected Today: ₹ {disp_df['Amount (₹)'].sum():,.0f}**")
-            
             csv = disp_df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Download Excel (CSV)",
-                data=csv,
-                file_name=f"Today_Collection_{date.today().strftime('%d-%m-%Y')}.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
+            st.download_button(label="📥 Download Excel (CSV)", data=csv, file_name=f"Today_Collection_{date.today().strftime('%d-%m-%Y')}.csv", mime="text/csv", use_container_width=True)
         else:
             st.info("No collection data available today for your account.")
     else:
         st.info("No collection data available today.")
 
-elif st.session_state.current_page in ["ENTRY", "LEDGER", "URGENT"]:
-    st.button("🔙 Back", type="secondary", on_click=go_to, args=(get_home(),))
-    st.write(f"{st.session_state.current_page} System loaded.")
+# 🟢 RESTORED: ENTRY & LEDGER & URGENT PAGES
+elif st.session_state.current_page == "ENTRY":
+    st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
+    st.header("📦 Direct Stock/Payment Entry")
+    with st.form("entry_form"):
+        r_sel = st.selectbox("Select Retailer", list(retailers_dict.keys()))
+        t_type = st.selectbox("Transaction Type", ["Etop Transfer", "Payment Received", "JPB V4", "Sim Card"])
+        amt = st.number_input("Amount / Qty", min_value=0.0)
+        f_n = st.selectbox("FSE Name", fse_list)
+        f_p = st.text_input("4-Digit PIN", type="password")
+        
+        st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');i.setAttribute('pattern','[0-9]*');});</script>""", height=0, width=0)
+        
+        if st.form_submit_button("Save Transaction", type="secondary"):
+            if verify_pin(f_n, f_p):
+                r_info = retailers_dict[r_sel]
+                requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":r_info['Retailer Name'],"r_mob":str(r_info['Mobile Number']).split('.')[0],"type":t_type,"qty":amt if t_type=="Sim Card" else 0,"amt_out":amt if t_type in ["Etop Transfer", "JPB V4"] else 0,"amt_in":amt if t_type=="Payment Received" else 0,"fse":f_n,"txn_id":"E"})
+                st.session_state.success_display_text = f"₹ {amt:,.0f}" if t_type != "Sim Card" else f"{int(amt)} SIMs"
+                st.session_state.success_txn_type = t_type
+                st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
+
+elif st.session_state.current_page == "LEDGER":
+    st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
+    st.header("📜 Ledger Report")
+    sel = st.selectbox("Choose Retailer", list(retailers_dict.keys()))
+    if sel:
+        r_name = sel.split(" (")[0]
+        st.dataframe(led_df[led_df['Retailer Name'] == r_name].sort_values('DateObj', ascending=False), hide_index=True)
+
+elif st.session_state.current_page == "URGENT":
+    st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
+    st.error("🚨 Pending Recovery List (Dues > 24 Hours)")
+    st.info("Loading urgent records from database...")
