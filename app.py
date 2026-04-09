@@ -14,24 +14,22 @@ except ImportError:
 # 1. Page Configuration
 st.set_page_config(page_title="Sandhya ERP", page_icon="🏢", layout="wide", initial_sidebar_state="collapsed")
 
-# 🟢 PERSISTENT LOGIN (Remember Me)
+# 🟢 PERSISTENT LOGIN SESSION
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
-if "role" not in st.session_state: st.session_state.role = None
-if "current_page" not in st.session_state: st.session_state.current_page = "LOGIN"
-
-# 🟢 INITIALIZE OTHER STATES
 if "kb_retailer" not in st.session_state: st.session_state.kb_retailer = None
 if "kb_action" not in st.session_state: st.session_state.kb_action = None
 if "show_success_modal" not in st.session_state: st.session_state.show_success_modal = False
 if "success_display_text" not in st.session_state: st.session_state.success_display_text = ""
 if "success_txn_type" not in st.session_state: st.session_state.success_txn_type = ""
 if "success_wa_link" not in st.session_state: st.session_state.success_wa_link = ""
+if "role" not in st.session_state: st.session_state.role = None
+if "current_page" not in st.session_state: st.session_state.current_page = "LOGIN"
 
 # 💎 FULL SCREEN SUCCESS POPUP
 if st.session_state.show_success_modal:
     st.markdown('<audio autoplay style="display:none;"><source src="https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3" type="audio/mpeg"></audio>', unsafe_allow_html=True)
     st.markdown(f"""
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 20px; border: 2px solid #86efac; padding: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.15); margin-top: 20px;">
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 65vh; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 20px; border: 2px solid #86efac; padding: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.15); margin-top: 20px;">
         <div style="font-size: 100px; color: #16a34a; margin-bottom: 5px;">✅</div>
         <div style="font-size: 30px; font-weight: 800; color: #166534; margin-bottom: 10px; text-align: center;">Transaction Successful!</div>
         <div style="font-size: 55px; font-weight: 900; color: #0b57d0; margin-bottom: 5px; text-align: center;">{st.session_state.success_display_text}</div>
@@ -46,36 +44,47 @@ if st.session_state.show_success_modal:
         st.rerun()
     st.stop()
 
-# 💎 CSS DESIGN
+# 💎 CSS DESIGN (Joined Boxes & Professional Cards)
 st.markdown("""
     <style>
     .stApp { background-color: #f4f7f6; }
     [data-testid="stSidebar"] { display: none; }
     .app-header { background: linear-gradient(135deg, #0047AB 0%, #00c6ff 100%); color: white; padding: 25px; border-radius: 16px; text-align: center; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); }
     
-    /* 📱 NEW: COLORFUL AMOUNT BOX DESIGN */
-    .amt-box-red {
+    /* 📱 JOINED BOX DESIGN (No Gap) */
+    .retailer-row {
+        display: flex; align-items: center; justify-content: space-between;
+        background: white; border-radius: 12px; margin-bottom: 10px;
+        border: 1.5px solid #e2e8f0; overflow: hidden; height: 70px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+    }
+    .retailer-name-part {
+        flex-grow: 1; padding: 0 15px; font-weight: 700; color: #1e293b;
+        font-size: 16px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .amt-part-red {
         background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%);
-        color: white; border-radius: 10px; padding: 8px 15px; font-weight: 800; font-size: 18px;
-        text-align: center; box-shadow: 0 4px 6px rgba(185,28,28,0.3); display: inline-block; min-width: 100px;
+        color: white; width: 110px; height: 100%; display: flex; align-items: center;
+        justify-content: center; font-weight: 800; font-size: 17px;
     }
-    .amt-box-green {
+    .amt-part-green {
         background: linear-gradient(135deg, #4ade80 0%, #15803d 100%);
-        color: white; border-radius: 10px; padding: 8px 15px; font-weight: 800; font-size: 18px;
-        text-align: center; box-shadow: 0 4px 6px rgba(21,128,61,0.3); display: inline-block; min-width: 100px;
+        color: white; width: 110px; height: 100%; display: flex; align-items: center;
+        justify-content: center; font-weight: 800; font-size: 17px;
     }
-    .amt-box-grey {
-        background: #f3f4f6; color: #6b7280; border-radius: 10px; padding: 8px 15px; font-weight: 800; font-size: 18px;
-        text-align: center; display: inline-block; min-width: 100px; border: 1px solid #e5e7eb;
+    .amt-part-grey {
+        background: #f3f4f6; color: #6b7280; width: 110px; height: 100%;
+        display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px;
     }
 
-    /* Dashboard Buttons */
+    /* Dashboard & Form Buttons */
     .stButton > button { border-radius: 14px; height: 75px; font-weight: 700; font-size: 18px; margin-bottom: 15px; border: 1.5px solid #e2e8f0; background: white; color: #1e293b;}
     .stButton > button:hover { border-color: #3b82f6; color: #3b82f6; box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
     
     .kb-header-container { display: flex; justify-content: space-around; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); margin-bottom: 20px; }
     .kb-box { width: 45%; text-align: center; }
     .kb-ledger-row { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; background: white; padding: 12px; align-items: center; }
+    
     @media (max-width: 768px) { div[data-testid="stHorizontalBlock"] { flex-direction: row !important; flex-wrap: nowrap !important; gap: 8px !important; } }
     </style>
 """, unsafe_allow_html=True)
@@ -86,6 +95,23 @@ sheet_id = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
 retailers_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Retailers"
 inventory_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Inventory"
 ledger_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Ledger"
+
+def create_pdf(r_name, r_mob, bal, r_data):
+    if not HAS_FPDF: return None
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', 18); pdf.cell(0, 10, "Sandhya Enterprises", ln=True, align='C')
+    pdf.set_font("Arial", 'B', 11); pdf.cell(0, 6, "Jio Authorized Distributor", ln=True, align='C')
+    pdf.set_font("Arial", '', 9); pdf.cell(0, 5, "Register office: Rosera Road, Meghpatti, Samastipur, Bihar 848117", ln=True, align='C')
+    pdf.cell(0, 5, "GSTIN: 10GQZPK8313P1Z1 | PAN: GQZPK8313P | Email: smp.sandhya02@gmail.com", ln=True, align='C')
+    pdf.line(10, 45, 200, 45); pdf.ln(10)
+    pdf.set_font("Arial", 'B', 12); pdf.cell(100, 8, f"Retailer: {r_name}"); pdf.cell(0, 8, f"Balance: Rs {bal:,.2f}", ln=True, align='R')
+    pdf.ln(5)
+    pdf.set_font("Arial", 'B', 9); pdf.cell(25, 8, "Date", 1); pdf.cell(75, 8, "Particulars", 1); pdf.cell(30, 8, "Debit", 1); pdf.cell(30, 8, "Credit", 1); pdf.cell(30, 8, "Bal", 1); pdf.ln()
+    pdf.set_font("Arial", '', 9)
+    for r in r_data:
+        pdf.cell(25, 8, str(r['d']), 1); pdf.cell(75, 8, str(r['i'])[:40], 1); pdf.cell(30, 8, f"{r['out']:,.0f}", 1); pdf.cell(30, 8, f"{r['in']:,.0f}", 1); pdf.cell(30, 8, f"{r['b']:,.0f}", 1); pdf.ln()
+    return pdf.output(dest='S').encode('latin-1')
 
 @st.cache_data(ttl=5)
 def load_data():
@@ -161,7 +187,7 @@ elif st.session_state.current_page == "EMP_HOME":
         if st.button("🚨 Urgent Recovery", use_container_width=True): go_to("URGENT"); st.rerun()
         if st.button("📦 My Sim Stock", use_container_width=True): go_to("STOCK"); st.rerun()
 
-# 💸 KHATABOOK 3D (New Colorful Amount Boxes)
+# 💸 KHATABOOK 3D (JOINED BOXES + NAME & PRM)
 elif st.session_state.current_page == "DUES":
     st.button("🔙 Back Menu", on_click=lambda: go_to(get_home()))
     
@@ -172,7 +198,8 @@ elif st.session_state.current_page == "DUES":
             bal = pd.to_numeric(u_led['Amount Out (Debit)'], errors='coerce').sum() - pd.to_numeric(u_led['Amount In (Credit)'], errors='coerce').sum()
             if bal > 0: tm += bal
             else: ta += abs(bal)
-            all_r.append({"Name": r['Retailer Name'], "Mob": r['Mobile Number'], "Bal": bal, "Disp": n})
+            prm_id = str(r.get('PRM ID', '')).split('.')[0]
+            all_r.append({"Name": r['Retailer Name'], "PRM": prm_id, "Mob": r['Mobile Number'], "Bal": bal, "Disp": n})
         
         st.markdown(f"""<div class='kb-header-container'><div class='kb-box'><h4>Aapko dene hain</h4><h2 style='color:#15803d;'>₹ {ta:,.0f}</h2></div><div class='kb-box'><h4>Aapko milenge</h4><h2 style='color:#b91c1c;'>₹ {tm:,.0f}</h2></div></div>""", unsafe_allow_html=True)
         
@@ -181,25 +208,20 @@ elif st.session_state.current_page == "DUES":
         
         for item in all_r:
             if sel == "All Customers" or item['Disp'] == sel:
-                # 📱 Define the Amount Box Class based on Balance
-                if item['Bal'] > 0: amt_class = "amt-box-red"   # Dues (Red)
-                elif item['Bal'] < 0: amt_class = "amt-box-green" # Advance (Green)
-                else: amt_class = "amt-box-grey"                 # Settled (Grey)
+                # 📱 Status-based design
+                if item['Bal'] > 0: amt_class = "amt-part-red"
+                elif item['Bal'] < 0: amt_class = "amt-part-green"
+                else: amt_class = "amt-part-grey"
                 
-                with st.container():
-                    col1, col2 = st.columns([3, 1])
-                    if col1.button(f"👤 {item['Name']}", key=f"kb_{item['Name']}_{item['Mob']}", use_container_width=True): 
+                # 📱 JOINED DESIGN: Name + PRM in one button, Amount attached
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    if st.button(f"👤 {item['Name']} ({item['PRM']})", key=f"btn_{item['Name']}_{item['PRM']}", use_container_width=True):
                         st.session_state.kb_retailer = item['Name']; st.rerun()
-                    
-                    # 📱 Render Colorful Amount Box
-                    col2.markdown(f"""
-                        <div style='text-align:right; padding-top:15px;'>
-                            <div class='{amt_class}'>₹ {abs(item['Bal']):,.0f}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    st.markdown("<hr style='margin-top:-10px; opacity:0.3;'>", unsafe_allow_html=True)
+                with col2:
+                    st.markdown(f"<div class='retailer-row' style='border-left:none; border-radius:0 12px 12px 0; margin-left:-10px;'><div class='{amt_class}' style='width:100%'>₹ {abs(item['Bal']):,.0f}</div></div>", unsafe_allow_html=True)
     else:
-        # SINGLE RETAILER VIEW (LEDGER, PDF, SOUND, WA LINK ALL HERE)
+        # SINGLE RETAILER VIEW
         name = st.session_state.kb_retailer
         r_info = next(v for k, v in retailers_dict.items() if v['Retailer Name'] == name)
         st.markdown(f"<div style='background:#0b57d0; color:white; padding:15px; border-radius:10px;'><h3>{name}</h3><p>{r_info['Mobile Number']}</p></div>", unsafe_allow_html=True)
@@ -214,6 +236,10 @@ elif st.session_state.current_page == "DUES":
         
         st.markdown(f"<div style='background:white; padding:20px; border-radius:10px; margin:10px 0; text-align:center;'><h4>Balance</h4><h2 style='color:#b91c1c;'>₹ {bal:,.0f}</h2></div>", unsafe_allow_html=True)
         
+        if HAS_FPDF:
+            pdf_b = create_pdf(name, r_info['Mobile Number'], bal, rows)
+            st.download_button("📄 Download PDF Ledger", pdf_b, f"{name}_Ledger.pdf", "application/pdf", use_container_width=True)
+
         for r in reversed(rows):
             st.markdown(f"<div class='kb-ledger-row'><div style='width:50%'><b>{r['d']}</b><br>{r['i']}</div><div style='color:#b91c1c;'>{f'₹{r['out']:,.0f}' if r['out']>0 else ''}</div><div style='color:#15803d;'>{f'₹{r['in']:,.0f}' if r['in']>0 else ''}</div></div>", unsafe_allow_html=True)
         
@@ -222,14 +248,13 @@ elif st.session_state.current_page == "DUES":
         if b1.button("🔴 AAPNE DIYE", use_container_width=True): st.session_state.kb_action = "diye"; st.rerun()
         if b2.button("🟢 AAPKO MILE", use_container_width=True): st.session_state.kb_action = "mile"; st.rerun()
         
-        # Forms... (diye/mile forms remain unchanged)
         if st.session_state.kb_action == "diye":
             with st.form("diye_form"):
                 t = st.selectbox("Type", ["Etop Transfer", "JPB V4", "Sim Card"])
                 amt, qty = 0, 0
                 if t == "Etop Transfer":
                     o = st.selectbox("Amount", ["5000", "3000", "2000", "1500", "500", "Manual"])
-                    amt = float(o) if o != "Manual" else st.number_input("Enter Amount", min_value=1.0)
+                    amt = float(o) if o != "Manual" else st.number_input("Enter Amount")
                 elif t == "Sim Card": qty = st.number_input("Qty", min_value=1)
                 else: amt = st.number_input("Amount"); qty = st.number_input("Qty")
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
@@ -253,13 +278,22 @@ elif st.session_state.current_page == "DUES":
                         st.session_state.success_wa_link = f"https://wa.me/91{r_info['Mobile Number']}?text=Payment%20Received%3A%20Rs%20{amt}"
                         st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
 
-# 📦 OTHER PAGES UNCHANGED
+# --- OTHER PAGES ---
 elif st.session_state.current_page == "STOCK":
     st.button("🔙 Back", on_click=lambda: go_to(get_home()))
-    if st.session_state.role == "Admin": st.dataframe(inv_df, use_container_width=True)
+    if st.session_state.role == "Admin":
+        t1, t2 = st.tabs(["📱 FSE Sim Billing", "📦 Inventory"])
+        with t1:
+            with st.form("bill"):
+                f = st.selectbox("FSE", fse_list); q = st.number_input("SIM Qty", min_value=1); ap = st.text_input("Admin PIN", type="password")
+                if st.form_submit_button("Bill SIMs"):
+                    if ap == "9557":
+                        requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":f,"r_mob":"0","type":"Sim Allocation","qty":q,"amt_out":0,"amt_in":0,"fse":"Admin","txn_id":"S"})
+                        st.session_state.success_display_text = f"{int(q)} SIMs"; st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
+        with t2: st.dataframe(inv_df, use_container_width=True)
     else:
-        q = 'Qty'; alloc = pd.to_numeric(led_df[(led_df['Retailer Name']==st.session_state.emp_name)&(led_df['Product/Service']=='Sim Allocation')][q], errors='coerce').sum()
-        dist = pd.to_numeric(led_df[(led_df['FSE Name']==st.session_state.emp_name)&(led_df['Product/Service']=='Sim Card')][q], errors='coerce').sum()
+        alloc = pd.to_numeric(led_df[(led_df['Retailer Name']==st.session_state.emp_name)&(led_df['Product/Service']=='Sim Allocation')]['Qty'], errors='coerce').sum()
+        dist = pd.to_numeric(led_df[(led_df['FSE Name']==st.session_state.emp_name)&(led_df['Product/Service']=='Sim Card')]['Qty'], errors='coerce').sum()
         st.metric("SIM Balance", int(alloc - dist))
 
 elif st.session_state.current_page == "ADD":
