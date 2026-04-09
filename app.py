@@ -40,7 +40,7 @@ if st.session_state.show_success_modal:
         st.rerun()
     st.stop()
 
-# 💎 CSS UI (A4 Scale & Professional Ledger)
+# 💎 CSS UI (A4 Scale & Box Ledger)
 st.markdown("""
     <style>
     .main .block-container { max-width: 480px; padding: 1.5rem; background: white; box-shadow: 0 0 15px rgba(0,0,0,0.1); min-height: 100vh; margin: auto; }
@@ -48,15 +48,14 @@ st.markdown("""
     [data-testid="stSidebar"] { display: none; }
     .app-header { background: linear-gradient(135deg, #0047AB 0%, #00c6ff 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; }
     
+    /* 📝 ENTRY BOX STYLING */
+    .ledger-entry-box {
+        background: white; border: 1.1px solid #e5e7eb; border-radius: 10px;
+        padding: 12px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    }
     .stButton > button { border-radius: 12px; height: 70px; font-weight: 700; border: 1.5px solid #e2e8f0; background: white; }
-    .amt-box-red { background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%); color: white; border-radius: 10px; padding: 8px 12px; font-weight: 800; font-size: 16px; text-align: center; min-width: 90px; }
-    .amt-box-green { background: linear-gradient(135deg, #4ade80 0%, #15803d 100%); color: white; border-radius: 10px; padding: 8px 12px; font-weight: 800; font-size: 16px; text-align: center; min-width: 90px; }
-    
-    /* 📝 LEDGER ROW STYLING */
-    .ledger-card { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0; padding: 12px 0; }
-    .ledger-info { flex: 2; text-align: left; }
-    .ledger-debit { flex: 1; text-align: right; color: #b91c1c; font-weight: 700; font-size: 15px; }
-    .ledger-credit { flex: 1; text-align: right; color: #15803d; font-weight: 700; font-size: 15px; }
+    .amt-part-red { background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%); color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; border-radius: 0 12px 12px 0; margin-left: -15px; margin-bottom: 15px;}
+    .amt-part-green { background: linear-gradient(135deg, #4ade80 0%, #15803d 100%); color: white; height: 70px; display: flex; align-items: center; justify-content: center; font-weight: 800; border-radius: 0 12px 12px 0; margin-left: -15px; margin-bottom: 15px;}
     
     @media (max-width: 768px) { div[data-testid="stHorizontalBlock"] { gap: 0px !important; } }
     </style>
@@ -84,107 +83,114 @@ retailers_dict = {f"{r['Retailer Name']} ({str(r['Mobile Number']).split('.')[0]
 
 # 🔐 LOGIN
 if not st.session_state.authenticated:
-    st.markdown('<div class="app-header"><h1>🏢 Sandhya Enterprises</h1><p>Smart Login Portal</p></div>', unsafe_allow_html=True)
-    l_mob = st.text_input("Mobile")
-    l_pin = st.text_input("PIN", type="password")
-    if st.button("🚀 LOGIN", use_container_width=True):
+    st.markdown('<div class="app-header"><h1>🏢 Sandhya ERP</h1><p>Login to Continue</p></div>', unsafe_allow_html=True)
+    l_mob = st.text_input("Mobile Number")
+    l_pin = st.text_input("4-Digit PIN", type="password")
+    if st.button("🚀 UNLOCK DASHBOARD", use_container_width=True):
         if l_mob == "7479584179" and l_pin == "9557":
             st.session_state.role = "Admin"; st.session_state.authenticated = True; st.session_state.current_page = "HOME"; st.rerun()
         elif l_mob == "7254972081" and l_pin == "2081":
             st.session_state.role = "Employee"; st.session_state.emp_name = "Babloo kumar singh"; st.session_state.authenticated = True; st.session_state.current_page = "EMP_HOME"; st.rerun()
-        st.error("Invalid Details")
+        st.error("Invalid Login")
     st.stop()
 
 def go_to(p): st.session_state.current_page = p; st.session_state.kb_retailer = None; st.session_state.kb_action = None
 
 # --- DASHBOARDS ---
 if st.session_state.current_page == "HOME":
-    st.markdown('<div class="app-header"><h3>Admin Dashboard</h3></div>', unsafe_allow_html=True)
+    st.markdown('<div class="app-header"><h3>Admin Panel</h3></div>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
         if st.button("💸 Khatabook 3D", use_container_width=True): go_to("DUES"); st.rerun()
         if st.button("📊 Live Stock", use_container_width=True): go_to("STOCK"); st.rerun()
-        if st.button("➕ Add Retailer", use_container_width=True): go_to("ADD"); st.rerun()
     with col2:
-        if st.button("💰 Today Collection", use_container_width=True): go_to("COL"); st.rerun()
-        if st.button("📦 Entry", use_container_width=True): go_to("ENTRY"); st.rerun()
+        if st.button("➕ Add Retailer", use_container_width=True): go_to("ADD"); st.rerun()
         if st.button("🚪 Logout", use_container_width=True): st.session_state.authenticated = False; st.rerun()
 
 elif st.session_state.current_page == "EMP_HOME":
-    st.info(f"👤 User: {st.session_state.emp_name}")
+    st.info(f"👤 {st.session_state.emp_name}")
     col1, col2 = st.columns(2)
     with col1:
         if st.button("📖 Khatabook", use_container_width=True): go_to("DUES"); st.rerun()
-        if st.button("📦 Sim Stock", use_container_width=True): go_to("STOCK"); st.rerun()
-    with col2:
         if st.button("➕ Add Retailer", use_container_width=True): go_to("ADD"); st.rerun()
+    with col2:
+        if st.button("📦 Sim Stock", use_container_width=True): go_to("STOCK"); st.rerun()
         if st.button("Exit", use_container_width=True): st.session_state.authenticated = False; st.rerun()
 
-# --- 💸 KHATABOOK & LEDGER ---
+# --- 📲 KHATABOOK & BOX LEDGER ---
 elif st.session_state.current_page == "DUES":
     st.button("🔙 Back Menu", on_click=lambda: go_to("HOME" if st.session_state.role=="Admin" else "EMP_HOME"))
     if st.session_state.kb_retailer is None:
         all_r = []; tm, ta = 0, 0
         for n, r in retailers_dict.items():
             u_led = led_df[led_df['Retailer Name'] == r['Retailer Name']]
-            bal = pd.to_numeric(u_led['Amount Out (Debit)'], 0).sum() - pd.to_numeric(u_led['Amount In (Credit)'], 0).sum()
+            bal = pd.to_numeric(u_led['Amount Out (Debit)'], errors='coerce').sum() - pd.to_numeric(u_led['Amount In (Credit)'], errors='coerce').sum()
             if bal > 0: tm += bal
             else: ta += abs(bal)
-            all_r.append({"Name": r['Retailer Name'], "PRM": str(r.get('PRM ID','')).split('.')[0], "Mob": str(r['Mobile Number']).split('.')[0], "Bal": bal, "Disp": n})
+            prm = str(r.get('PRM ID','')).split('.')[0]
+            all_r.append({"Name": r['Retailer Name'], "PRM": prm, "Bal": bal, "Disp": n})
         
         st.markdown(f"<div class='kb-header-container'><div class='kb-box'><h4>Dene hain</h4><h2 style='color:#15803d;'>₹ {ta:,.0f}</h2></div><div class='kb-box'><h4>Milenge</h4><h2 style='color:#b91c1c;'>₹ {tm:,.0f}</h2></div></div>", unsafe_allow_html=True)
         all_r.sort(key=lambda x: -abs(x['Bal']))
         sel = st.selectbox("🔍 Search...", ["All Customers"] + [x['Disp'] for x in all_r])
         for i in all_r:
             if sel == "All Customers" or i['Disp'] == sel:
-                box_cls = "amt-box-red" if i['Bal'] > 0 else "amt-box-green"
+                cls = "amt-part-red" if i['Bal'] > 0 else "amt-part-green"
                 c1, c2 = st.columns([3, 1])
-                if c1.button(f"👤 {i['Name']} ({i['PRM']})", key=f"b_{i['Disp']}", use_container_width=True):
+                if c1.button(f"👤 {i['Name']} ({i['PRM']})", key=f"kb_{i['Disp']}", use_container_width=True):
                     st.session_state.kb_retailer = i['Name']; st.rerun()
-                c2.markdown(f"<div style='padding-top:15px;'><div class='{box_cls}'>₹ {abs(i['Bal']):,.0f}</div></div>", unsafe_allow_html=True)
+                c2.markdown(f"<div class='{cls}'>₹ {abs(i['Bal']):,.0f}</div>", unsafe_allow_html=True)
     else:
-        # SINGLE RETAILER LEDGER VIEW
         name = st.session_state.kb_retailer
         r_info = next(v for k, v in retailers_dict.items() if v['Retailer Name'] == name)
         mob = str(r_info['Mobile Number']).split('.')[0]
         
-        # 🟢 CALCULATION LOGIC
-        u_led = led_df[led_df['Retailer Name'] == name].sort_values('DateObj')
-        bal = 0; rows = []
-        for _, r in u_led.iterrows():
-            d = pd.to_numeric(r['Amount Out (Debit)'], errors='coerce') if pd.notnull(r['Amount Out (Debit)']) else 0
-            c = pd.to_numeric(r['Amount In (Credit)'], errors='coerce') if pd.notnull(r['Amount In (Credit)']) else 0
-            bal += (d - c)
-            rows.append({"d": r['Date'], "i": r['Product/Service'], "out": d, "in": c, "b": bal})
-
-        # HEADER & ACTION BUTTONS
+        # Header with Calling & Reminder
         st.markdown(f"""
         <div style='background:#0b57d0; color:white; padding:15px; border-radius:12px; margin-bottom:10px; text-align:center;'>
-            <h3>{name}</h3><p>{mob}</p>
-            <div style='display:flex; justify-content:space-around;'>
-                <a href='tel:{mob}' style='background:white; color:#0b57d0; padding:10px 25px; border-radius:8px; text-decoration:none; font-weight:800;'>📞 CALL</a>
-                <a href='https://wa.me/91{mob}?text=Namaste%2C%20Sandhya%20ERP%20Reminder%3A%20Balance%20Rs%20{abs(bal)}' style='background:#25D366; color:white; padding:10px 25px; border-radius:8px; text-decoration:none; font-weight:800;'>📲 WA</a>
+            <h3>{name}</h3>
+            <div style='display:flex; justify-content:space-around; margin-top:10px;'>
+                <a href='tel:{mob}' style='background:white; color:#0b57d0; padding:10px 20px; border-radius:8px; text-decoration:none; font-weight:800;'>📞 CALL</a>
+                <a href='https://wa.me/91{mob}?text=Namaste%2C%20Sandhya%20ERP%20Reminder' style='background:#25D366; color:white; padding:10px 20px; border-radius:8px; text-decoration:none; font-weight:800;'>📲 WA</a>
             </div>
         </div>
         """, unsafe_allow_html=True)
         
-        st.markdown(f"<div style='background:white; padding:20px; border-radius:10px; text-align:center;'><h4>Current Balance</h4><h2 style='color:#b91c1c;'>₹ {bal:,.0f}</h2></div>", unsafe_allow_html=True)
+        # 🟢 LEDGER WITH BOXES & RUNNING BALANCE
+        u_led = led_df[led_df['Retailer Name'] == name].sort_values('DateObj')
+        running_bal = 0
+        rows_to_show = []
+        for _, r in u_led.iterrows():
+            d = pd.to_numeric(r['Amount Out (Debit)'], errors='coerce') if pd.notnull(r['Amount Out (Debit)']) else 0
+            c = pd.to_numeric(r['Amount In (Credit)'], errors='coerce') if pd.notnull(r['Amount In (Credit)']) else 0
+            running_bal += (d - c)
+            status_text = f"🚩 Dues: ₹{running_bal:,.0f}" if running_bal >= 0 else f"✅ Adv: ₹{abs(running_bal):,.0f}"
+            rows_to_show.append({"date": r['Date'], "item": r['Product/Service'], "debit": d, "credit": c, "status": status_text})
 
-        # 🟢 LEDGER TABLE (Debit, Credit, Bal)
-        st.markdown("<div style='background:#f9fafb; padding:10px; font-weight:800; display:flex; justify-content:space-between;'><div style='width:40%'>Entries</div><div style='width:30%; text-align:right'>Debit (-)</div><div style='width:30%; text-align:right'>Credit (+)</div></div>", unsafe_allow_html=True)
-        for r in reversed(rows):
+        st.write(f"### Current: {rows_to_show[-1]['status'] if rows_to_show else '₹ 0'}")
+        
+        for r in reversed(rows_to_show):
+            box_color = "#fff5f5" if r['debit'] > 0 else "#f0fdf4"
             st.markdown(f"""
-            <div class='ledger-card'>
-                <div class='ledger-info'><b>{r['d']}</b><br><small>{r['i']}</small><br><span style='color:#6b7280; font-size:11px;'>Bal: ₹{r['b']:,.0f}</span></div>
-                <div class='ledger-debit'>{f"₹{r['out']:,.0f}" if r['out']>0 else ""}</div>
-                <div class='ledger-credit'>{f"₹{r['in']:,.0f}" if r['in']>0 else ""}</div>
+            <div class="ledger-entry-box" style="background: {box_color};">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div style="width:60%;">
+                        <div style="font-size:12px; color:#6b7280;">{r['date']}</div>
+                        <div style="font-weight:700; font-size:15px; color:#1e293b;">{r['item']}</div>
+                        <div style="font-size:13px; color:#4b5563; margin-top:5px; font-weight:600;">{r['status']}</div>
+                    </div>
+                    <div style="width:35%; text-align:right;">
+                        <div style="color:#b91c1c; font-weight:800;">{f'- ₹{r["debit"]:,.0f}' if r['debit']>0 else ''}</div>
+                        <div style="color:#15803d; font-weight:800;">{f'+ ₹{r["credit"]:,.0f}' if r['credit']>0 else ''}</div>
+                    </div>
+                </div>
             </div>
             """, unsafe_allow_html=True)
 
         st.markdown("---")
         b1, b2 = st.columns(2)
-        if b1.button("🔴 DIYE (Stock)", use_container_width=True): st.session_state.kb_action = "diye"; st.rerun()
-        if b2.button("🟢 MILE (Payment)", use_container_width=True): st.session_state.kb_action = "mile"; st.rerun()
+        if b1.button("🔴 DIYE (Debit)", use_container_width=True): st.session_state.kb_action = "diye"; st.rerun()
+        if b2.button("🟢 MILE (Credit)", use_container_width=True): st.session_state.kb_action = "mile"; st.rerun()
         
         if st.session_state.kb_action == "diye":
             with st.form("d_f"):
@@ -200,16 +206,10 @@ elif st.session_state.current_page == "DUES":
                     requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":name,"type":f"Payment ({m})","amt_in":a,"txn_id":"KB"})
                     st.session_state.success_display_text = f"₹ {a}"; st.session_state.show_success_modal = True; st.cache_data.clear(); st.rerun()
 
-# --- OTHER PAGES (ADD, STOCK) ---
 elif st.session_state.current_page == "ADD":
-    st.button("⬅️ Back Menu", on_click=lambda: go_to(get_home()))
-    with st.form("add_ret"):
-        n=st.text_input("Retailer Name"); m=st.text_input("Mobile"); p=st.text_input("PRM ID"); l=st.text_input("Loc")
-        if st.form_submit_button("Save"):
+    st.button("🔙 Back", on_click=lambda: go_to("HOME"))
+    with st.form("add"):
+        n=st.text_input("Name"); m=st.text_input("Mob"); p=st.text_input("PRM"); l=st.text_input("Loc")
+        if st.form_submit_button("Add"):
             requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":l.upper(),"date":date.today().strftime("%d-%m-%Y")})
-            st.success("Retailer Added!"); st.cache_data.clear()
-
-elif st.session_state.current_page == "STOCK":
-    st.button("⬅️ Back Menu", on_click=lambda: go_to(get_home()))
-    st.header("📦 Inventory Stock")
-    st.dataframe(led_df[led_df['Product/Service']=='Sim Allocation'] if st.session_state.role=="Admin" else led_df[led_df['FSE Name']==st.session_state.emp_name], hide_index=True)
+            st.success("Added!"); st.cache_data.clear()
