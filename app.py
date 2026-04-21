@@ -39,7 +39,7 @@ def get_home():
 def verify_pin(n, p):
     if n == "Avdhesh Kumar" and p == "9557": return True
     if n == "Babloo kumar singh" and p == "2081": return True
-    if n == "Sunil Kumar" and p == "0785": return True
+    if n == "Sunil Kumar" and p == "0788": return True
     if n == "Munna kumar" and p == "7302": return True
     if st.session_state.get("role") == "Employee" and p == st.session_state.get("emp_pin"): return True
     return False
@@ -224,7 +224,7 @@ if not st.session_state.authenticated:
             st.session_state.role = "Admin"; st.session_state.emp_name = "Admin"; st.session_state.emp_mob = l_mob
         elif l_mob == "7254972081" and l_pin == "2081":
             st.session_state.role = "Employee"; st.session_state.emp_name = "Babloo kumar singh"; st.session_state.emp_mob = l_mob
-        elif l_mob == "9507070785" and l_pin == "0785":
+        elif l_mob == "9507070788" and l_pin == "0788":
             st.session_state.role = "Employee"; st.session_state.emp_name = "Sunil Kumar"; st.session_state.emp_mob = l_mob
         elif l_mob == "8969957302" and l_pin == "7302":
             st.session_state.role = "Employee"; st.session_state.emp_name = "Munna kumar"; st.session_state.emp_mob = l_mob
