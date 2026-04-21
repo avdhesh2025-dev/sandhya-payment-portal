@@ -117,10 +117,6 @@ st.markdown("""
     .stButton > button[kind="primary"] { border-radius: 12px 0 0 12px !important; background: #475569 !important; color: #ffffff !important; padding: 20px 15px !important; height: auto !important; min-height: 70px !important; font-weight: 700 !important; font-size: 15px !important; border: none !important; text-align: left !important; width: 100% !important; }
     .stDownloadButton > button { border-radius: 12px !important; background: #15803d !important; color: white !important; padding: 20px 10px !important; height: auto !important; font-weight: 800 !important; font-size: 16px !important; width: 100% !important; margin-top: 15px !important; }
     
-    /* BEAT TRACKING BUTTONS */
-    .btn-beat-in > button { background: #dcfce7 !important; border-color: #22c55e !important; color: #166534 !important; border-radius: 12px !important; }
-    .btn-beat-out > button { background: #fee2e2 !important; border-color: #ef4444 !important; color: #991b1b !important; border-radius: 12px !important; }
-
     .amt-joined-red { background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%); color: white; min-height: 70px; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; border: 1px solid #b91c1c;}
     .amt-joined-green { background: linear-gradient(135deg, #4ade80 0%, #15803d 100%); color: white; min-height: 70px; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; border: 1px solid #15803d;}
     .amt-joined-grey { background: #94a3b8; color: white; min-height: 70px; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; border: 1px solid #94a3b8;}
@@ -224,7 +220,6 @@ if not st.session_state.authenticated:
     st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');});</script>""", height=0, width=0)
 
     if st.button("🚀 LOGIN", use_container_width=True, type="secondary"):
-        # 🟢 UPDATED EMPLOYEES LOGIN
         if l_mob == "7479584179" and l_pin == "9557":
             st.session_state.role = "Admin"; st.session_state.emp_name = "Admin"; st.session_state.emp_mob = l_mob
         elif l_mob == "7254972081" and l_pin == "2081":
@@ -290,10 +285,35 @@ elif st.session_state.current_page == "EMP_HOME":
         st.button("➕ Add Retailer", use_container_width=True, type="secondary", on_click=go_to, args=("ADD",))
         st.button("Exit", use_container_width=True, type="secondary", on_click=do_logout)
 
-# --- 📍 BEAT TRACKING (IN/OUT) ---
+# --- 📍 BEAT TRACKING (IN/OUT) WITH GPS AUTO-FILL ---
 elif st.session_state.current_page == "BEAT":
     st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
     st.header("📍 Daily Beat Tracking")
+    
+    # 🟢 JAVASCRIPT HACK: Auto Fetch GPS Location & Fill Input
+    st.components.v1.html("""
+        <script>
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                let lat = position.coords.latitude;
+                let lon = position.coords.longitude;
+                let map_url = "https://maps.google.com/?q=" + lat + "," + lon;
+                
+                let inputs = window.parent.document.querySelectorAll('input[type="text"]');
+                inputs.forEach(inp => {
+                    if(inp.getAttribute('aria-label') === '📍 Live Location (Auto-filled)') {
+                        let lastValue = inp.value;
+                        if (lastValue !== map_url) {
+                            let nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                            nativeInputValueSetter.call(inp, map_url);
+                            inp.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                    }
+                });
+            });
+        }
+        </script>
+    """, height=0)
     
     tab1, tab2 = st.tabs(["🟢 PUNCH IN (Start)", "🔴 PUNCH OUT (End)"])
     
@@ -301,13 +321,15 @@ elif st.session_state.current_page == "BEAT":
         st.info("Start your market day. Capture your bike meter reading and a selfie.")
         with st.form("form_in"):
             start_km = st.number_input("Start Odometer Reading (KM)", min_value=0)
+            loc_in = st.text_input("📍 Live Location (Auto-filled)", key="loc_in_key")
             photo_in = st.camera_input("📸 Take Selfie with Meter (IN)")
             
             if st.form_submit_button("Save PUNCH IN", type="primary"):
                 if photo_in is not None and start_km > 0:
-                    # In a real app, photo gets uploaded to cloud. Here we just log the event.
-                    requests.post(WEBHOOK_URL, json={"action":"add_txn","date":datetime.now().strftime("%d-%m-%Y %H:%M:%S"),"r_name":st.session_state.emp_name,"r_mob":st.session_state.emp_mob,"type":"Beat Punch IN","qty":start_km,"amt_out":0,"amt_in":0,"fse":"System","txn_id":"BEAT"})
+                    log_type = f"Beat Punch IN | {loc_in}" if loc_in else "Beat Punch IN"
+                    requests.post(WEBHOOK_URL, json={"action":"add_txn","date":datetime.now().strftime("%d-%m-%Y %H:%M:%S"),"r_name":st.session_state.emp_name,"r_mob":st.session_state.emp_mob,"type":log_type,"qty":start_km,"amt_out":0,"amt_in":0,"fse":"System","txn_id":"BEAT"})
                     st.success("✅ Punch IN Recorded Successfully!")
+                    st.cache_data.clear(); time.sleep(1.5); st.rerun()
                 else:
                     st.error("Please enter Start KM and capture a photo.")
                     
@@ -316,13 +338,16 @@ elif st.session_state.current_page == "BEAT":
         with st.form("form_out"):
             s_km = st.number_input("Today's Start KM (Verify)", min_value=0)
             end_km = st.number_input("End Odometer Reading (KM)", min_value=0)
+            loc_out = st.text_input("📍 Live Location (Auto-filled)", key="loc_out_key")
             photo_out = st.camera_input("📸 Take Final Meter Photo (OUT)")
             
             if st.form_submit_button("Save PUNCH OUT", type="primary"):
                 if photo_out is not None and end_km >= s_km > 0:
                     total_km = end_km - s_km
-                    requests.post(WEBHOOK_URL, json={"action":"add_txn","date":datetime.now().strftime("%d-%m-%Y %H:%M:%S"),"r_name":st.session_state.emp_name,"r_mob":st.session_state.emp_mob,"type":f"Beat Punch OUT (Total KM: {total_km})","qty":end_km,"amt_out":total_km,"amt_in":0,"fse":"System","txn_id":"BEAT"})
+                    log_type = f"Beat Punch OUT (Total: {total_km} KM) | {loc_out}" if loc_out else f"Beat Punch OUT (Total: {total_km} KM)"
+                    requests.post(WEBHOOK_URL, json={"action":"add_txn","date":datetime.now().strftime("%d-%m-%Y %H:%M:%S"),"r_name":st.session_state.emp_name,"r_mob":st.session_state.emp_mob,"type":log_type,"qty":end_km,"amt_out":total_km,"amt_in":0,"fse":"System","txn_id":"BEAT"})
                     st.success(f"✅ Punch OUT Recorded! Total Driven: {total_km} KM.")
+                    st.cache_data.clear(); time.sleep(1.5); st.rerun()
                 else:
                     st.error("Please enter correct Start/End KM and capture a photo.")
 
@@ -334,7 +359,7 @@ elif st.session_state.current_page == "BEAT_REPORT":
         beat_data = led_df[led_df['Product/Service'].str.contains("Beat Punch", na=False)]
         if not beat_data.empty:
             disp_b = beat_data[['Date', 'Retailer Name', 'Product/Service', 'Qty']].copy()
-            disp_b.columns = ['Date & Time', 'Employee Name', 'Action / Total KM', 'Odometer Reading']
+            disp_b.columns = ['Date & Time', 'Employee Name', 'Action & Location Link', 'Odometer Reading']
             st.dataframe(disp_b, hide_index=True)
         else:
             st.info("No Beat Tracking data available yet.")
@@ -459,7 +484,6 @@ elif st.session_state.current_page == "DUES":
         b1.button("🔴 DIYE (Stock)", use_container_width=True, type="secondary", on_click=set_kb_action, args=("diye",))
         b2.button("🟢 MILE (Payment)", use_container_width=True, type="secondary", on_click=set_kb_action, args=("mile",))
         
-        # 🟢 DYNAMIC FORM + SMART QTY MULTIPLIER + SAFE-SYNC DELAY
         if st.session_state.kb_action == "diye":
             t = st.selectbox("👉 Select Type", ["Etop Transfer", "Sim Card", "JPB V4", "Other"])
             with st.form("d_f"):
@@ -471,14 +495,11 @@ elif st.session_state.current_page == "DUES":
                     input_qty = st.number_input("Qty", min_value=1)
                     input_price = 0.0
                 else:
-                    # 🟢 FIX: Clean Price x Qty Calculation
                     input_price = st.number_input("Price Per Piece (₹)", min_value=0.0)
                     input_qty = st.number_input("Quantity", min_value=1, value=1)
                     st.info(f"💡 Total Amount will be saved as: **₹ {input_price * input_qty:,.0f}**")
                 
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
-                
-                st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');});</script>""", height=0, width=0)
 
                 if st.form_submit_button("Save", type="secondary"):
                     if verify_pin(f, p):
@@ -504,19 +525,15 @@ elif st.session_state.current_page == "DUES":
                         msg += "Regards,\n*SANDHYA ENTERPRISES*\nAVDHESH KUMAR\n📞 7479584179"
                         
                         st.session_state.success_wa_link = f"https://wa.me/91{mob}?text={urllib.parse.quote(msg)}"
-                        
-                        # 🟢 SMART SYNC DELAY
                         st.session_state.show_success_modal = True
                         st.cache_data.clear()
-                        time.sleep(2.5) # Wait for Google Sheet to save
+                        time.sleep(2.5) 
                         st.rerun()
 
         if st.session_state.kb_action == "mile":
             with st.form("m_f"):
                 m = st.selectbox("Mode", ["Cash", "Online"]); a = st.number_input("Amount Received", min_value=0.0)
                 f = st.selectbox("FSE", fse_list); p = st.text_input("PIN", type="password")
-                
-                st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');});</script>""", height=0, width=0)
 
                 if st.form_submit_button("Save", type="secondary"):
                     if verify_pin(f, p):
@@ -531,7 +548,6 @@ elif st.session_state.current_page == "DUES":
                         msg += "Regards,\n*SANDHYA ENTERPRISES*\nAVDHESH KUMAR\n📞 7479584179"
 
                         st.session_state.success_wa_link = f"https://wa.me/91{mob}?text={urllib.parse.quote(msg)}"
-                        
                         st.session_state.show_success_modal = True
                         st.cache_data.clear()
                         time.sleep(2.5)
@@ -562,16 +578,13 @@ elif st.session_state.current_page == "STOCK":
                 f = st.selectbox("Select FSE", fse_list)
                 q = st.number_input("SIM Qty", min_value=1)
                 ap = st.text_input("Admin PIN", type="password")
-                st.components.v1.html("""<script>window.parent.document.querySelectorAll('input[type="password"], input[type="number"]').forEach(i=>{i.setAttribute('inputmode','numeric');});</script>""", height=0, width=0)
                 if st.form_submit_button("Bill SIMs", type="secondary"):
                     if ap == "9557":
                         requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":f,"r_mob":"0","type":"Sim Allocation","qty":q,"amt_out":0,"amt_in":0,"fse":"Admin","txn_id":"S"})
                         st.session_state.success_display_text = f"{int(q)} SIMs"
                         st.session_state.success_txn_type = f"Billed to {f}"
                         st.session_state.show_success_modal = True
-                        st.cache_data.clear()
-                        time.sleep(2.5)
-                        st.rerun()
+                        st.cache_data.clear(); time.sleep(2.5); st.rerun()
                     else: st.error("Wrong Admin PIN")
             
             st.write("---")
@@ -603,11 +616,9 @@ elif st.session_state.current_page == "ADD":
     st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
     with st.form("add_ret"):
         n=st.text_input("Retailer Name"); m=st.text_input("Mobile"); p=st.text_input("PRM ID"); l=st.text_input("Loc")
-        st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');});</script>""", height=0, width=0)
         if st.form_submit_button("Save Retailer", type="secondary"):
             requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":l.upper(),"date":date.today().strftime("%d-%m-%Y")})
-            st.success("Retailer Added!")
-            st.cache_data.clear()
+            st.success("Retailer Added!"); st.cache_data.clear()
 
 elif st.session_state.current_page == "COL":
     st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
@@ -623,10 +634,8 @@ elif st.session_state.current_page == "COL":
     if not coll_df.empty:
         disp_df = coll_df[['Retailer Name', 'Amount In (Credit)', 'Product/Service', 'FSE Name']].copy()
         disp_df.columns = ['Retailer Name', 'Amount (₹)', 'Payment Mode', 'Received By']
-        
         st.dataframe(disp_df, hide_index=True)
         st.write(f"**Total Collected Today: ₹ {disp_df['Amount (₹)'].sum():,.0f}**")
-        
         csv = disp_df.to_csv(index=False).encode('utf-8')
         st.download_button(label="📥 Download Excel (CSV)", data=csv, file_name=f"Today_Collection_{date.today().strftime('%d-%m-%Y')}.csv", mime="text/csv", use_container_width=True)
     else:
@@ -653,8 +662,6 @@ elif st.session_state.current_page == "ENTRY":
             
         f_n = st.selectbox("FSE Name", fse_list)
         f_p = st.text_input("4-Digit PIN", type="password")
-        
-        st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');});</script>""", height=0, width=0)
         
         if st.form_submit_button("Save Transaction", type="secondary"):
             if verify_pin(f_n, f_p):
