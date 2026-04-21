@@ -39,6 +39,8 @@ def get_home():
 def verify_pin(n, p):
     if n == "Avdhesh Kumar" and p == "9557": return True
     if n == "Babloo kumar singh" and p == "2081": return True
+    if n == "Sunil Kumar" and p == "0788": return True
+    if n == "Munna kumar" and p == "7302": return True
     if st.session_state.get("role") == "Employee" and p == st.session_state.get("emp_pin"): return True
     return False
 
@@ -96,7 +98,7 @@ if st.session_state.show_success_modal:
         st.rerun()
     st.stop()
 
-# 💎 CSS DESIGN (A4 FIXED LAYOUT + SOOTHING COLORS + ANTI-ZOOM)
+# 💎 CSS DESIGN (A4 FIXED LAYOUT + SOOTHING COLORS + ANTI-ZOOM + BEAT CARDS)
 st.markdown("""
     <style>
     /* 🚫 PREVENT AUTO-ZOOM ON MOBILE */
@@ -115,6 +117,10 @@ st.markdown("""
     .stButton > button[kind="primary"] { border-radius: 12px 0 0 12px !important; background: #475569 !important; color: #ffffff !important; padding: 20px 15px !important; height: auto !important; min-height: 70px !important; font-weight: 700 !important; font-size: 15px !important; border: none !important; text-align: left !important; width: 100% !important; }
     .stDownloadButton > button { border-radius: 12px !important; background: #15803d !important; color: white !important; padding: 20px 10px !important; height: auto !important; font-weight: 800 !important; font-size: 16px !important; width: 100% !important; margin-top: 15px !important; }
     
+    /* BEAT TRACKING BUTTONS */
+    .btn-beat-in > button { background: #dcfce7 !important; border-color: #22c55e !important; color: #166534 !important; border-radius: 12px !important; }
+    .btn-beat-out > button { background: #fee2e2 !important; border-color: #ef4444 !important; color: #991b1b !important; border-radius: 12px !important; }
+
     .amt-joined-red { background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%); color: white; min-height: 70px; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; border: 1px solid #b91c1c;}
     .amt-joined-green { background: linear-gradient(135deg, #4ade80 0%, #15803d 100%); color: white; min-height: 70px; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; border: 1px solid #15803d;}
     .amt-joined-grey { background: #94a3b8; color: white; min-height: 70px; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; border-radius: 0 12px 12px 0; margin-left: -2px; border: 1px solid #94a3b8;}
@@ -173,7 +179,6 @@ def create_pdf(r_name, r_mob, bal, r_data):
         pdf.cell(25, 8, str(r['d']), 1); pdf.cell(75, 8, str(r['i'])[:40], 1); pdf.cell(30, 8, f"{r['out']:,.0f}", 1); pdf.cell(30, 8, f"{r['in']:,.0f}", 1); pdf.cell(30, 8, f"{r['b']:,.0f}", 1); pdf.ln()
     return pdf.output(dest='S').encode('latin-1')
 
-# 🟢 SMART STRING FORMATTER FOR DETAILED QTY & PRICE
 def get_detail_string(prod_name, qty, amt_out):
     p = str(prod_name).strip()
     q = pd.to_numeric(qty, errors='coerce')
@@ -185,7 +190,7 @@ def get_detail_string(prod_name, qty, amt_out):
             return f"{p} (Qty: {int(q)})"
     return p
 
-@st.cache_data(ttl=3) # Low TTL to fetch fresh data quickly
+@st.cache_data(ttl=3)
 def load_data():
     try:
         cb = int(time.time())
@@ -193,7 +198,6 @@ def load_data():
         inv = pd.read_csv(f"{inventory_csv}&cb={cb}").dropna(how="all").fillna("")
         led = pd.read_csv(f"{ledger_csv}&cb={cb}").dropna(how="all").fillna("")
         
-        # 🟢 SUPER SAFE-GUARD
         for col in ['Date', 'Retailer Name', 'Product/Service', 'Amount Out (Debit)', 'Amount In (Credit)', 'Qty', 'FSE Name']:
             if col not in led.columns: led[col] = ""
                 
@@ -203,7 +207,6 @@ def load_data():
 
 ret_df, inv_df, led_df = load_data()
 
-# Fail-safe injection just in case
 if led_df is not None:
     for col in ['Date', 'Retailer Name', 'Product/Service', 'Amount Out (Debit)', 'Amount In (Credit)', 'Qty', 'FSE Name']:
         if col not in led_df.columns: led_df[col] = ""
@@ -221,25 +224,28 @@ if not st.session_state.authenticated:
     st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');});</script>""", height=0, width=0)
 
     if st.button("🚀 LOGIN", use_container_width=True, type="secondary"):
+        # 🟢 UPDATED EMPLOYEES LOGIN
         if l_mob == "7479584179" and l_pin == "9557":
-            st.session_state.role = "Admin"; st.session_state.authenticated = True; st.session_state.current_page = "HOME"
-            st.session_state.emp_name = "Admin"; st.session_state.emp_mob = l_mob
-            st.query_params["auth"] = "true"; st.query_params["role"] = "Admin"; st.query_params["pin"] = l_pin; st.query_params["mob"] = l_mob; st.query_params["page"] = "HOME"
-            st.rerun()
+            st.session_state.role = "Admin"; st.session_state.emp_name = "Admin"; st.session_state.emp_mob = l_mob
         elif l_mob == "7254972081" and l_pin == "2081":
-            st.session_state.role = "Employee"; st.session_state.emp_name = "Babloo kumar singh"; st.session_state.authenticated = True; st.session_state.current_page = "EMP_HOME"
-            st.session_state.emp_mob = l_mob
-            st.query_params["auth"] = "true"; st.query_params["role"] = "Employee"; st.query_params["name"] = "Babloo kumar singh"; st.query_params["pin"] = l_pin; st.query_params["mob"] = l_mob; st.query_params["page"] = "EMP_HOME"
-            st.rerun()
+            st.session_state.role = "Employee"; st.session_state.emp_name = "Babloo kumar singh"; st.session_state.emp_mob = l_mob
+        elif l_mob == "9507070788" and l_pin == "0788":
+            st.session_state.role = "Employee"; st.session_state.emp_name = "Sunil Kumar"; st.session_state.emp_mob = l_mob
+        elif l_mob == "8969957302" and l_pin == "7302":
+            st.session_state.role = "Employee"; st.session_state.emp_name = "Munna kumar"; st.session_state.emp_mob = l_mob
         elif ret_df is not None:
             emps = ret_df[ret_df['Location'].astype(str).str.upper() == 'EMPLOYEE']
             for _, r in emps.iterrows():
                 if str(r.get("Mobile Number")).split('.')[0] == l_mob and str(r.get("PRM ID")).replace("EMP_","") == l_pin:
-                    st.session_state.role = "Employee"; st.session_state.emp_name = r["Retailer Name"]; st.session_state.emp_pin = l_pin; st.session_state.authenticated = True; st.session_state.current_page = "EMP_HOME"
-                    st.session_state.emp_mob = l_mob
-                    st.query_params["auth"] = "true"; st.query_params["role"] = "Employee"; st.query_params["name"] = r["Retailer Name"]; st.query_params["pin"] = l_pin; st.query_params["mob"] = l_mob; st.query_params["page"] = "EMP_HOME"
-                    st.rerun()
-        st.error("Invalid Login Details")
+                    st.session_state.role = "Employee"; st.session_state.emp_name = r["Retailer Name"]; st.session_state.emp_pin = l_pin; st.session_state.emp_mob = l_mob
+        
+        if st.session_state.role:
+            st.session_state.authenticated = True
+            st.session_state.current_page = "HOME" if st.session_state.role == "Admin" else "EMP_HOME"
+            st.query_params["auth"] = "true"; st.query_params["role"] = st.session_state.role; st.query_params["name"] = st.session_state.emp_name; st.query_params["pin"] = l_pin; st.query_params["mob"] = l_mob; st.query_params["page"] = st.session_state.current_page
+            st.rerun()
+        else:
+            st.error("Invalid Login Details")
     st.stop()
 
 # 🟢 MAIN APP HEADER
@@ -252,7 +258,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-fse_list = ["Avdhesh Kumar", "Babloo kumar singh"]
+fse_list = ["Avdhesh Kumar", "Babloo kumar singh", "Sunil Kumar", "Munna kumar"]
 if ret_df is not None and "Location" in ret_df.columns:
     emp_names = ret_df[ret_df['Location'].astype(str).str.upper() == 'EMPLOYEE']['Retailer Name'].tolist()
     fse_list = list(set(fse_list + emp_names))
@@ -268,8 +274,8 @@ if st.session_state.current_page == "HOME":
         st.button("📜 Ledger Report", use_container_width=True, type="secondary", on_click=go_to, args=("LEDGER",))
     with col2:
         st.button("💰 Today Collection", use_container_width=True, type="secondary", on_click=go_to, args=("COL",))
+        st.button("🗺️ Beat Report", use_container_width=True, type="secondary", on_click=go_to, args=("BEAT_REPORT",))
         st.button("📦 Entry", use_container_width=True, type="secondary", on_click=go_to, args=("ENTRY",))
-        st.button("🚨 Urgent", use_container_width=True, type="secondary", on_click=go_to, args=("URGENT",))
         st.button("🚪 Logout", use_container_width=True, type="secondary", on_click=do_logout)
 
 elif st.session_state.current_page == "EMP_HOME":
@@ -278,10 +284,62 @@ elif st.session_state.current_page == "EMP_HOME":
     with col1:
         st.button("📖 Khatabook", use_container_width=True, type="secondary", on_click=go_to, args=("DUES",))
         st.button("📦 Sim Stock", use_container_width=True, type="secondary", on_click=go_to, args=("STOCK",))
-        st.button("💰 Today Collection", use_container_width=True, type="secondary", on_click=go_to, args=("COL",))
+        st.button("📍 Beat (In/Out)", use_container_width=True, type="secondary", on_click=go_to, args=("BEAT",))
     with col2:
+        st.button("💰 Collection", use_container_width=True, type="secondary", on_click=go_to, args=("COL",))
         st.button("➕ Add Retailer", use_container_width=True, type="secondary", on_click=go_to, args=("ADD",))
         st.button("Exit", use_container_width=True, type="secondary", on_click=do_logout)
+
+# --- 📍 BEAT TRACKING (IN/OUT) ---
+elif st.session_state.current_page == "BEAT":
+    st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
+    st.header("📍 Daily Beat Tracking")
+    
+    tab1, tab2 = st.tabs(["🟢 PUNCH IN (Start)", "🔴 PUNCH OUT (End)"])
+    
+    with tab1:
+        st.info("Start your market day. Capture your bike meter reading and a selfie.")
+        with st.form("form_in"):
+            start_km = st.number_input("Start Odometer Reading (KM)", min_value=0)
+            photo_in = st.camera_input("📸 Take Selfie with Meter (IN)")
+            
+            if st.form_submit_button("Save PUNCH IN", type="primary"):
+                if photo_in is not None and start_km > 0:
+                    # In a real app, photo gets uploaded to cloud. Here we just log the event.
+                    requests.post(WEBHOOK_URL, json={"action":"add_txn","date":datetime.now().strftime("%d-%m-%Y %H:%M:%S"),"r_name":st.session_state.emp_name,"r_mob":st.session_state.emp_mob,"type":"Beat Punch IN","qty":start_km,"amt_out":0,"amt_in":0,"fse":"System","txn_id":"BEAT"})
+                    st.success("✅ Punch IN Recorded Successfully!")
+                else:
+                    st.error("Please enter Start KM and capture a photo.")
+                    
+    with tab2:
+        st.warning("End your day. Capture your final meter reading.")
+        with st.form("form_out"):
+            s_km = st.number_input("Today's Start KM (Verify)", min_value=0)
+            end_km = st.number_input("End Odometer Reading (KM)", min_value=0)
+            photo_out = st.camera_input("📸 Take Final Meter Photo (OUT)")
+            
+            if st.form_submit_button("Save PUNCH OUT", type="primary"):
+                if photo_out is not None and end_km >= s_km > 0:
+                    total_km = end_km - s_km
+                    requests.post(WEBHOOK_URL, json={"action":"add_txn","date":datetime.now().strftime("%d-%m-%Y %H:%M:%S"),"r_name":st.session_state.emp_name,"r_mob":st.session_state.emp_mob,"type":f"Beat Punch OUT (Total KM: {total_km})","qty":end_km,"amt_out":total_km,"amt_in":0,"fse":"System","txn_id":"BEAT"})
+                    st.success(f"✅ Punch OUT Recorded! Total Driven: {total_km} KM.")
+                else:
+                    st.error("Please enter correct Start/End KM and capture a photo.")
+
+elif st.session_state.current_page == "BEAT_REPORT":
+    st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
+    st.header("🗺️ Employee Beat Report")
+    
+    if led_df is not None and not led_df.empty:
+        beat_data = led_df[led_df['Product/Service'].str.contains("Beat Punch", na=False)]
+        if not beat_data.empty:
+            disp_b = beat_data[['Date', 'Retailer Name', 'Product/Service', 'Qty']].copy()
+            disp_b.columns = ['Date & Time', 'Employee Name', 'Action / Total KM', 'Odometer Reading']
+            st.dataframe(disp_b, hide_index=True)
+        else:
+            st.info("No Beat Tracking data available yet.")
+    else:
+        st.info("Database is empty.")
 
 # --- 💸 KHATABOOK 3D ---
 elif st.session_state.current_page == "DUES":
@@ -328,7 +386,6 @@ elif st.session_state.current_page == "DUES":
             elif running_bal < 0: status_text = f"✅ Adv: ₹{abs(running_bal):,.0f}"
             else: status_text = "⚪ Settled: ₹0"
             
-            # 🟢 Detailed String Formatter applied here
             detailed_prod = get_detail_string(r['Product/Service'], r['Qty'], d)
             rows.append({"d": r['Date'], "i": detailed_prod, "out": d, "in": c, "b": running_bal, "status": status_text})
 
@@ -402,7 +459,7 @@ elif st.session_state.current_page == "DUES":
         b1.button("🔴 DIYE (Stock)", use_container_width=True, type="secondary", on_click=set_kb_action, args=("diye",))
         b2.button("🟢 MILE (Payment)", use_container_width=True, type="secondary", on_click=set_kb_action, args=("mile",))
         
-        # 🟢 DYNAMIC FORM + SMART QTY MULTIPLIER
+        # 🟢 DYNAMIC FORM + SMART QTY MULTIPLIER + SAFE-SYNC DELAY
         if st.session_state.kb_action == "diye":
             t = st.selectbox("👉 Select Type", ["Etop Transfer", "Sim Card", "JPB V4", "Other"])
             with st.form("d_f"):
@@ -414,7 +471,7 @@ elif st.session_state.current_page == "DUES":
                     input_qty = st.number_input("Qty", min_value=1)
                     input_price = 0.0
                 else:
-                    # For JPB V4 & Other
+                    # 🟢 FIX: Clean Price x Qty Calculation
                     input_price = st.number_input("Price Per Piece (₹)", min_value=0.0)
                     input_qty = st.number_input("Quantity", min_value=1, value=1)
                     st.info(f"💡 Total Amount will be saved as: **₹ {input_price * input_qty:,.0f}**")
@@ -448,10 +505,10 @@ elif st.session_state.current_page == "DUES":
                         
                         st.session_state.success_wa_link = f"https://wa.me/91{mob}?text={urllib.parse.quote(msg)}"
                         
-                        # 🟢 DELAY TO ENSURE DB UPDATES BEFORE CACHE REFRESH
+                        # 🟢 SMART SYNC DELAY
                         st.session_state.show_success_modal = True
                         st.cache_data.clear()
-                        time.sleep(1.5)
+                        time.sleep(2.5) # Wait for Google Sheet to save
                         st.rerun()
 
         if st.session_state.kb_action == "mile":
@@ -477,7 +534,7 @@ elif st.session_state.current_page == "DUES":
                         
                         st.session_state.show_success_modal = True
                         st.cache_data.clear()
-                        time.sleep(1.5)
+                        time.sleep(2.5)
                         st.rerun()
 
 # --- OTHER PAGES ---
@@ -492,7 +549,6 @@ elif st.session_state.current_page == "STOCK":
             fse_stock_data = []
             for f_name in fse_list:
                 f_name_clean = f_name.strip().upper()
-                # matching exactly by converting both to upper case
                 al = pd.to_numeric(led_df[(led_df['Retailer Name'].str.strip().str.upper()==f_name_clean)&(led_df['Product/Service']=='Sim Allocation')]['Qty'], errors='coerce').sum()
                 di = pd.to_numeric(led_df[(led_df['FSE Name'].str.strip().str.upper()==f_name_clean)&(led_df['Product/Service']=='Sim Card')]['Qty'], errors='coerce').sum()
                 if al > 0 or di > 0:
@@ -506,14 +562,16 @@ elif st.session_state.current_page == "STOCK":
                 f = st.selectbox("Select FSE", fse_list)
                 q = st.number_input("SIM Qty", min_value=1)
                 ap = st.text_input("Admin PIN", type="password")
-                st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');});</script>""", height=0, width=0)
+                st.components.v1.html("""<script>window.parent.document.querySelectorAll('input[type="password"], input[type="number"]').forEach(i=>{i.setAttribute('inputmode','numeric');});</script>""", height=0, width=0)
                 if st.form_submit_button("Bill SIMs", type="secondary"):
                     if ap == "9557":
                         requests.post(WEBHOOK_URL, json={"action":"add_txn","date":date.today().strftime("%d-%m-%Y"),"r_name":f,"r_mob":"0","type":"Sim Allocation","qty":q,"amt_out":0,"amt_in":0,"fse":"Admin","txn_id":"S"})
                         st.session_state.success_display_text = f"{int(q)} SIMs"
                         st.session_state.success_txn_type = f"Billed to {f}"
                         st.session_state.show_success_modal = True
-                        st.cache_data.clear(); time.sleep(1.5); st.rerun()
+                        st.cache_data.clear()
+                        time.sleep(2.5)
+                        st.rerun()
                     else: st.error("Wrong Admin PIN")
             
             st.write("---")
@@ -523,7 +581,6 @@ elif st.session_state.current_page == "STOCK":
             if inv_df is not None and not inv_df.empty: st.dataframe(inv_df, use_container_width=True, hide_index=True)
             else: st.info("Inventory data not available.")
     else:
-        # FSE View
         emp_clean = st.session_state.emp_name.strip().upper()
         alloc = pd.to_numeric(led_df[(led_df['Retailer Name'].str.strip().str.upper()==emp_clean)&(led_df['Product/Service']=='Sim Allocation')]['Qty'], errors='coerce').sum()
         dist = pd.to_numeric(led_df[(led_df['FSE Name'].str.strip().str.upper()==emp_clean)&(led_df['Product/Service']=='Sim Card')]['Qty'], errors='coerce').sum()
@@ -549,7 +606,8 @@ elif st.session_state.current_page == "ADD":
         st.components.v1.html("""<script>window.parent.document.querySelectorAll('input').forEach(i=>{i.setAttribute('inputmode','numeric');});</script>""", height=0, width=0)
         if st.form_submit_button("Save Retailer", type="secondary"):
             requests.post(WEBHOOK_URL, json={"action":"add_retailer","name":n.upper(),"mobile":m,"prm":p,"location":l.upper(),"date":date.today().strftime("%d-%m-%Y")})
-            st.success("Retailer Added!"); st.cache_data.clear()
+            st.success("Retailer Added!")
+            st.cache_data.clear()
 
 elif st.session_state.current_page == "COL":
     st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
@@ -565,8 +623,10 @@ elif st.session_state.current_page == "COL":
     if not coll_df.empty:
         disp_df = coll_df[['Retailer Name', 'Amount In (Credit)', 'Product/Service', 'FSE Name']].copy()
         disp_df.columns = ['Retailer Name', 'Amount (₹)', 'Payment Mode', 'Received By']
+        
         st.dataframe(disp_df, hide_index=True)
         st.write(f"**Total Collected Today: ₹ {disp_df['Amount (₹)'].sum():,.0f}**")
+        
         csv = disp_df.to_csv(index=False).encode('utf-8')
         st.download_button(label="📥 Download Excel (CSV)", data=csv, file_name=f"Today_Collection_{date.today().strftime('%d-%m-%Y')}.csv", mime="text/csv", use_container_width=True)
     else:
@@ -606,7 +666,7 @@ elif st.session_state.current_page == "ENTRY":
                 st.session_state.success_display_text = f"₹ {final_amt:,.0f}" if t_type != "Sim Card" else f"{int(input_qty)} SIMs"
                 st.session_state.success_txn_type = t_type
                 st.session_state.show_success_modal = True
-                st.cache_data.clear(); time.sleep(1.5); st.rerun()
+                st.cache_data.clear(); time.sleep(2.5); st.rerun()
 
 elif st.session_state.current_page == "LEDGER":
     st.button("🔙 Back Menu", type="secondary", on_click=go_to, args=(get_home(),))
