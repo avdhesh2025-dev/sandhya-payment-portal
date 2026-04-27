@@ -44,8 +44,10 @@ with tab1:
     
     if scan_method == "📷 Mobile Camera (मोबाइल कैमरा)":
         if HAS_SCANNER:
-            st.info("👇 नीचे दिए कैमरे से QR कोड की साफ़ फोटो खींचें।")
-            img_file = st.camera_input("📷 QR Code की फोटो लें")
+            st.info("👇 नीचे क्लिक करें और 'Camera' चुनें। आपके मोबाइल का असली कैमरा (HD Focus के साथ) खुलेगा!")
+            
+            # 🟢 SMART FIX: Using file_uploader to trigger Native Mobile Camera with Autofocus
+            img_file = st.file_uploader("📷 QR Code की फोटो लें (Click Here)", type=['png', 'jpg', 'jpeg'])
             
             if img_file is not None:
                 try:
@@ -55,7 +57,7 @@ with tab1:
                         qr_data = decoded[0].data.decode('utf-8')
                         st.success(f"✅ QR Successfully Read: {qr_data}")
                     else:
-                        st.error("❌ QR कोड पढ़ा नहीं जा सका। कृपया थोड़ी पास से और साफ़ फोटो लें।")
+                        st.error("❌ QR कोड पढ़ा नहीं जा सका। कृपया फोकस करके साफ़ फोटो लें।")
                 except Exception as e:
                     st.error("Error processing image.")
         else:
