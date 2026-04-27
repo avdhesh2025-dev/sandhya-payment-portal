@@ -42,7 +42,6 @@ if 'service_db' not in st.session_state:
 if 'sales_db' not in st.session_state:
     st.session_state.sales_db = pd.DataFrame()
 
-# 🟢 SMART KEY TO PREVENT RED ERRORS
 if 'scan_key' not in st.session_state:
     st.session_state.scan_key = 0
 
@@ -133,26 +132,29 @@ with tab1:
 
     else:
         st.markdown("### 🔍 Step 1: Scan QR Code")
-        scan_method = st.radio("स्कैन का तरीका चुनें:", ["📷 Live Mobile Camera (लाइव कैमरा)", "🔫 Scanner Machine (गन स्कैनर)"])
+        scan_method = st.radio("स्कैन का तरीका चुनें:", ["📷 Live HD Camera (लाइव स्कैनर)", "🔫 Scanner Machine (गन स्कैनर)"])
         
         qr_data = ""
 
-        if scan_method == "📷 Live Mobile Camera (लाइव कैमरा)":
-            st.info("💡 **TIP:** डब्बे से **कैमरे को 4-5 इंच दूर रखें** ताकि QR कोड एकदम साफ़ (Clear) दिखे!")
+        if scan_method == "📷 Live HD Camera (लाइव स्कैनर)":
+            st.info("💡 **TIP:** कैमरे को डब्बे से थोड़ा दूर रखें ताकि कोड साफ़ (Clear) दिखे।")
             
-            # 🟢 DATA MATRIX ENABLED SCANNER
+            # 🟢 HD CAMERA HACK: Forcing 1080p resolution and continuous focus
             scanner_html = """
             <script src="https://unpkg.com/html5-qrcode"></script>
             <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
             <script>
                 const html5QrCode = new Html5Qrcode("reader");
                 
-                // 🟢 Added Data Matrix Support explicitly
+                // 🟢 Forcing HD Resolution (1080p) to read dense Data Matrix
                 const config = { 
                     fps: 10, 
                     qrbox: { width: 250, height: 250 }, 
-                    formatsToSupport: [ Html5QrcodeSupportedFormats.DATA_MATRIX, Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128 ],
-                    experimentalFeatures: { useBarCodeDetectorIfSupported: true } 
+                    videoConstraints: {
+                        facingMode: "environment",
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
                 };
 
                 function setNativeValue(element, value) {
@@ -186,7 +188,6 @@ with tab1:
         else:
             qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", placeholder="Scanner will type data here...", key=f"qr_manual_{st.session_state.scan_key}")
 
-        # 🟢 SAFE RESET BUTTON (No API Exception)
         if st.button("🔄 Reset Scanner / Clear Data"):
             st.session_state.scan_key += 1 
             st.rerun()
@@ -272,7 +273,7 @@ with tab1:
                     
                     try:
                         if WEBHOOK_URL != "यहाँ_अपना_नया_WEBHOOK_URL_डालें":
-                            requests.post(WEBHOOK_URL, json=new_data, timeout=3) # Silent save
+                            requests.post(WEBHOOK_URL, json=new_data, timeout=3)
                     except: 
                         pass 
                     
