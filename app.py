@@ -18,8 +18,8 @@ st.set_page_config(page_title="Jio Phone Service", page_icon="📱", layout="cen
 # ==========================================
 # 🔴 यहाँ अपना नया WEBHOOK और SHEET ID डालें 🔴
 # ==========================================
-WEBHOOK_URL = "https://docs.google.com/spreadsheets/d/17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM/edit?usp=sharing"
-SHEET_ID = "यहाँ_अपनी_नई_Google_Sheet_की_ID_डालें"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwhA1SOh-V4HiHn_k7Fo3W5erJWqfeDUz5a6w3IpLUsVU7XlU7RgbooUjivtcxgXrcMPQ/exec"
+SHEET_ID = "https://docs.google.com/spreadsheets/d/17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM/edit?usp=sharing"
 # ==========================================
 
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=ServiceDB"
