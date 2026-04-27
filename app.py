@@ -131,28 +131,22 @@ with tab1:
 
     else:
         st.markdown("### 🔍 Step 1: Scan QR Code")
-        scan_method = st.radio("स्कैन का तरीका चुनें:", ["📷 Live HD Camera (फुल डिस्प्ले)", "🔫 Scanner Machine / Paste (मशीन/पेस्ट)"])
+        scan_method = st.radio("स्कैन का तरीका चुनें:", ["📷 Live Mobile Camera (लाइव कैमरा)", "🔫 Scanner Machine / Paste (मशीन/पेस्ट)"])
         
         qr_data = ""
 
-        if scan_method == "📷 Live HD Camera (फुल डिस्प्ले)":
-            st.info("💡 **TIP:** कैमरा पूरे डिस्प्ले पर है। फ़ोन को 5-6 इंच दूर रखें, QR कहीं भी हो यह तुरंत पकड़ लेगा!")
+        if scan_method == "📷 Live Mobile Camera (लाइव कैमरा)":
+            st.info("💡 **TIP:** डब्बे का चौकोर कोड (Data Matrix) या IMEI का लम्बा बारकोड (Barcode), दोनों में से कोई भी स्कैन करें!")
             
-            # 🟢 FULL DISPLAY HD SCANNER (No Zoom Hack, No Inner Box, Just Pure 1080p Width)
+            # 🟢 STABLE SCANNER (NO HACKS, PERFECT FOCUS)
             scanner_html = """
             <script src="https://unpkg.com/html5-qrcode"></script>
-            <div id="reader" style="width: 100%; max-width: 100%; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
+            <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
             <script>
                 const html5QrCode = new Html5Qrcode("reader");
-                
-                // 🟢 Requesting Ideal 1080p resolution and NO inner qrbox (full screen scan)
                 const config = { 
                     fps: 15, 
-                    videoConstraints: {
-                        facingMode: "environment",
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 }
-                    },
+                    qrbox: { width: 250, height: 250 }, 
                     formatsToSupport: [ Html5QrcodeSupportedFormats.DATA_MATRIX, Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128 ] 
                 };
 
@@ -172,21 +166,20 @@ with tab1:
                             }
                         });
                         html5QrCode.stop().then(() => {
-                            document.getElementById('reader').innerHTML = '<div style="padding: 100px 0; text-align: center; color: #15803d; font-size: 24px; font-weight: bold; background: #dcfce7; height: 100%;">✅ Code Caught! Scroll Down 👇</div>';
+                            document.getElementById('reader').innerHTML = '<div style="padding: 60px 0; text-align: center; color: #15803d; font-size: 22px; font-weight: bold; background: #dcfce7; height: 100%;">✅ Code Caught! Scroll Down 👇</div>';
                         });
                     }, 
                     (errorMessage) => { /* Ignore errors */ }
                 ).catch(err => {
-                    document.getElementById('reader').innerHTML = '<div style="color:red; padding:20px; background:white;">Camera Error! Please allow camera permissions in Chrome.</div>';
+                    document.getElementById('reader').innerHTML = '<div style="color:red; padding:20px; background:white;">Camera Error! Please allow camera permissions.</div>';
                 });
             </script>
             """
-            # 🟢 Increased height to 500 for a massive full-display feel
-            st.components.v1.html(scanner_html, height=500)
+            st.components.v1.html(scanner_html, height=350)
             qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", key=f"qr_auto_{st.session_state.scan_key}")
             
         else:
-            st.info("💡 यहाँ अपनी 'गन स्कैनर मशीन' से स्कैन करें, या अपने 'QR Scanner App' से कॉपी करके पेस्ट कर दें!")
+            st.info("💡 अपने 'QR Scanner App' से कोड स्कैन करके यहाँ पेस्ट कर दें, या गन स्कैनर का इस्तेमाल करें!")
             qr_data = st.text_input("📷 Scanned Data (Paste Here)", placeholder="यहाँ पेस्ट करें या गन से स्कैन करें...", key=f"qr_manual_{st.session_state.scan_key}")
 
         if st.button("🔄 Reset Scanner / Clear Data"):
@@ -228,17 +221,18 @@ with tab1:
                     auto_retailer_name = str(match_df.iloc[0][ret_cols[0]])
                     st.success(f"🤖 Retailer Auto-Found in Database: **{auto_retailer_name}**")
 
+        # 🟢 LOCKED BOXES (READ-ONLY) AS REQUESTED
         with st.form("service_form"):
-            st.markdown("### 📋 Step 2: Scanned Details (Auto-Boxed)")
+            st.markdown("### 📋 Step 2: Scanned Details (Read-Only)")
             st.text_input("Manufacturer Name (MFRNAME)", value=parsed_data["MFRNAME"], disabled=True)
             c1, c2 = st.columns(2)
             with c1:
-                st.text_input("Model Number", value=parsed_data["MODELNO"])
-                st.text_input("MRP", value=parsed_data["MRP"])
-                st.text_input("Serial No (SRNO)", value=parsed_data["SRNO"])
+                st.text_input("Model Number", value=parsed_data["MODELNO"], disabled=True)
+                st.text_input("MRP", value=parsed_data["MRP"], disabled=True)
+                st.text_input("Serial No (SRNO)", value=parsed_data["SRNO"], disabled=True)
             with c2:
-                st.text_input("IMEI Number*", value=parsed_data["IMEI"])
-                st.text_input("EAN", value=parsed_data["EAN"])
+                st.text_input("IMEI Number*", value=parsed_data["IMEI"], disabled=True)
+                st.text_input("EAN", value=parsed_data["EAN"], disabled=True)
 
             st.markdown("---")
             st.markdown("### 🛠️ Step 3: Service Information & Options")
