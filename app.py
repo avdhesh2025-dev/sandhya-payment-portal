@@ -21,13 +21,17 @@ if 'service_db' not in st.session_state:
         "Retailer", "Problem", "Action", "Status"
     ])
 
+# 🟢 SALES DATABASE (For Auto-Filling Retailer Name)
+if 'sales_db' not in st.session_state:
+    st.session_state.sales_db = pd.DataFrame()
+
 if 'scan_key' not in st.session_state:
     st.session_state.scan_key = 0
 
 if 'last_bill_data' not in st.session_state:
     st.session_state.last_bill_data = None
 
-# 🟢 PDF BILL GENERATOR FUNCTION (FIXED FOR HINDI TEXT ERROR)
+# PDF BILL GENERATOR FUNCTION
 def generate_service_bill(data):
     if not HAS_FPDF: return None
     pdf = FPDF()
@@ -47,11 +51,9 @@ def generate_service_bill(data):
     # Details
     pdf.set_font("Arial", 'B', 10)
     
-    # Table Rows
     def print_row(col1, col2):
         pdf.cell(60, 8, col1, border=1)
         pdf.set_font("Arial", '', 10)
-        # 🟢 FIX: Remove non-English characters so PDF doesn't crash
         clean_col2 = str(col2).encode('latin-1', 'ignore').decode('latin-1')
         pdf.cell(0, 8, f" {clean_col2}", border=1, ln=True)
         pdf.set_font("Arial", 'B', 10)
@@ -63,7 +65,6 @@ def generate_service_bill(data):
     print_row("Model Number:", data['Model'])
     print_row("Manufacturer:", data['MFRNAME'])
     
-    # 🟢 Clean the Hindi brackets out for the Bill
     prob_clean = str(data['Problem']).split(' (')[0]
     act_clean = str(data['Action']).split(' (')[0]
     status_clean = str(data['Status']).split(' (')[0]
@@ -87,8 +88,8 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# 4. Dashboard Tabs
-tab1, tab2, tab3, tab4 = st.tabs(["📝 New Entry", "⏳ Pending", "✅ History", "🖨️ Re-Print Bill"])
+# 4. Dashboard Tabs (Added Sales Data Tab)
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📝 New Entry", "⏳ Pending", "✅ History", "🖨️ Re-Print Bill", "📂 Auto-Fill Setup"])
 
 # ==========================================
 # TAB 1: NEW ENTRY & LIVE SCANNER
@@ -97,7 +98,6 @@ with tab1:
     if st.session_state.last_bill_data is not None:
         bill_data = st.session_state.last_bill_data
         st.success(f"🎉 Entry Saved Successfully! ID: {bill_data['ID']}")
-        
         st.markdown(f"### 📄 Bill Generated for {bill_data['Retailer']}")
         
         if HAS_FPDF:
@@ -125,25 +125,18 @@ with tab1:
 
         if scan_method == "📷 Live Mobile Camera (लाइव कैमरा)":
             st.info("👇 ख़राब QR कोड के लिए भी 'Live Scanner' को पास ले जाएं।")
-            
             scanner_html = """
             <script src="https://unpkg.com/html5-qrcode"></script>
             <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
             <script>
                 const html5QrCode = new Html5Qrcode("reader");
-                const config = { 
-                    fps: 20, 
-                    qrbox: { width: 250, height: 250 },
-                    experimentalFeatures: { useBarCodeDetectorIfSupported: true }
-                };
-
+                const config = { fps: 20, qrbox: { width: 250, height: 250 }, experimentalFeatures: { useBarCodeDetectorIfSupported: true } };
                 function setNativeValue(element, value) {
                     const prototype = Object.getPrototypeOf(element);
                     const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, 'value').set;
                     prototypeValueSetter.call(element, value);
                     element.dispatchEvent(new Event('input', { bubbles: true }));
                 }
-
                 html5QrCode.start({ facingMode: "environment" }, config, 
                     (decodedText) => {
                         let inputs = window.parent.document.querySelectorAll('input[type="text"]');
@@ -172,6 +165,7 @@ with tab1:
             st.session_state.scan_key += 1 
             st.rerun()
 
+        # XML & Comma Decoder
         parsed_data = { "MFRNAME": "", "MODELNO": "", "IMEI": "", "MRP": "", "EAN": "", "SRNO": "" }
         
         if qr_data:
@@ -187,10 +181,24 @@ with tab1:
                     st.success("✅ Simple QR Code Successfully Read!")
                 else:
                     parsed_data["IMEI"] = qr_data 
-                    st.warning("⚠️ Scanner read the data, but format is unknown. Raw data filled in IMEI.")
+                    st.warning("⚠️ Unknown format. Raw data filled in IMEI.")
             else:
                 parsed_data["IMEI"] = qr_data
                 st.warning("⚠️ Raw data filled in IMEI.")
+
+        # 🟢 AUTO-FILL RETAILER LOGIC
+        auto_retailer_name = ""
+        if parsed_data["IMEI"] and not st.session_state.sales_db.empty:
+            search_imei = str(parsed_data["IMEI"]).strip()
+            # Find columns matching IMEI and Retailer in the uploaded Excel
+            imei_cols = [c for c in st.session_state.sales_db.columns if 'IMEI' in str(c).upper()]
+            ret_cols = [c for c in st.session_state.sales_db.columns if 'RETAILER' in str(c).upper() or 'NAME' in str(c).upper()]
+            
+            if imei_cols and ret_cols:
+                match_df = st.session_state.sales_db[st.session_state.sales_db[imei_cols[0]].astype(str).str.strip() == search_imei]
+                if not match_df.empty:
+                    auto_retailer_name = str(match_df.iloc[0][ret_cols[0]])
+                    st.success(f"🤖 Retailer Auto-Found in Database: **{auto_retailer_name}**")
 
         with st.form("service_form"):
             st.markdown("### 📋 Step 2: Scanned Details (Auto-Boxed)")
@@ -205,9 +213,12 @@ with tab1:
                 st.text_input("EAN", value=parsed_data["EAN"], disabled=True)
 
             st.markdown("---")
-            st.markdown("### 🛠️ Step 3: Service Information")
-            retailer = st.text_input("👤 Retailer Name (किस रिटेलर का फ़ोन है?)*")
-            problem = st.selectbox("⚠️ Phone Problem*", ["-- Select --", "Battery Issue (बैटरी ख़राब)", "Software Dead (सॉफ्टवेयर डेड)", "Display Broken (डिस्प्ले टूटा है)", "Keypad Issue (कीपैड ख़राब)", "Charging Issue (चार्ज नहीं हो रहा)", "Other (अन्य)"])
+            st.markdown("### 🛠️ Step 3: Service Information & Options")
+            
+            # 🟢 Retailer input gets Auto-Filled here
+            retailer = st.text_input("👤 Retailer Name (किस रिटेलर का फ़ोन है?)*", value=auto_retailer_name)
+            
+            problem = st.selectbox("⚠️ Phone Problem (दिक्कत क्या है?)*", ["-- Select --", "Damage / Broken (टूटा/डैमेज है)", "Battery Issue (बैटरी ख़राब)", "Software Dead (सॉफ्टवेयर डेड)", "Display Broken (डिस्प्ले टूटा है)", "Keypad Issue (कीपैड ख़राब)", "Charging Issue (चार्ज नहीं हो रहा)", "Other (अन्य)"])
             action = st.radio("🔄 Action Required*", ["Replace with New Phone (नया बदल कर देना है)", "Repair Same Phone (वही ठीक करके देना है)"])
             status = st.radio("📦 Current Status*", ["Pending (फ़ोन अभी पेंडिंग है)", "Delivered (दे दिया गया है)"])
 
@@ -229,7 +240,6 @@ with tab1:
                         "Retailer": retailer.upper(), "Problem": problem, "Action": action, 
                         "Status": "Pending" if "Pending" in status else "Delivered"
                     }
-                    
                     st.session_state.service_db = pd.concat([st.session_state.service_db, pd.DataFrame([new_data])], ignore_index=True)
                     st.session_state.last_bill_data = new_data
                     st.rerun()
@@ -282,9 +292,7 @@ with tab3:
 with tab4:
     st.markdown("### 🖨️ Re-Print Old Bill")
     st.info("किसी भी पुराने फ़ोन का बिल दोबारा निकालने के लिए उसका IMEI नंबर डालें।")
-    
     search_imei = st.text_input("🔍 Enter IMEI Number to Search:")
-    
     if st.button("Search & Print Bill", type="primary"):
         if search_imei:
             result = st.session_state.service_db[st.session_state.service_db['IMEI'] == search_imei]
@@ -292,17 +300,37 @@ with tab4:
                 st.success("✅ Record Found!")
                 found_data = result.iloc[0].to_dict()
                 st.markdown(f"**Retailer:** {found_data['Retailer']} | **Status:** {found_data['Status']}")
-                
                 if HAS_FPDF:
                     pdf_bytes = generate_service_bill(found_data)
-                    st.download_button(
-                        label="📥 Download Bill (PDF)",
-                        data=pdf_bytes,
-                        file_name=f"Jio_Bill_{found_data['IMEI']}.pdf",
-                        mime="application/pdf",
-                        use_container_width=True
-                    )
+                    st.download_button("📥 Download Bill (PDF)", data=pdf_bytes, file_name=f"Jio_Bill_{found_data['IMEI']}.pdf", mime="application/pdf", use_container_width=True)
+            else: st.error(f"❌ No record found for IMEI: {search_imei}")
+        else: st.warning("Please enter an IMEI number first.")
+
+# ==========================================
+# TAB 5: AUTO-FILL SALES DATA SETUP
+# ==========================================
+with tab5:
+    st.markdown("### 📂 Upload Sales Data (For Auto-Fill)")
+    st.info("""
+        **ऑटोमैटिक रिटेलर का नाम कैसे लाएं?**
+        यहाँ अपनी उस Excel या CSV फाइल को अपलोड करें जिसमें आपने रिकॉर्ड रखा है कि कौन सा IMEI किस रिटेलर को बेचा गया है। 
+        - उस फाइल में कम से कम **'IMEI'** और **'Retailer'** नाम के कॉलम होने चाहिए।
+        - एक बार फाइल डालने के बाद, जब भी आप फ़ोन स्कैन करेंगे, रिटेलर का नाम अपने आप आ जाएगा!
+    """)
+    
+    uploaded_file = st.file_uploader("📥 Upload Sales/Dispatch Excel File", type=["xlsx", "xls", "csv"])
+    
+    if uploaded_file is not None:
+        try:
+            if uploaded_file.name.endswith('.csv'):
+                df = pd.read_csv(uploaded_file)
             else:
-                st.error(f"❌ No record found for IMEI: {search_imei}")
-        else:
-            st.warning("Please enter an IMEI number first.")
+                df = pd.read_excel(uploaded_file)
+            
+            st.session_state.sales_db = df
+            st.success(f"✅ Data Loaded Successfully! ({len(df)} Records Found)")
+            
+            st.write("📊 Data Preview:")
+            st.dataframe(df.head(5), use_container_width=True)
+        except Exception as e:
+            st.error(f"❌ Error reading file: {e}")
