@@ -4,6 +4,13 @@ from datetime import datetime
 import time
 import re
 
+# FPDF for Bill Generation
+try:
+    from fpdf import FPDF
+    HAS_FPDF = True
+except ImportError:
+    HAS_FPDF = False
+
 # 1. Page Configuration
 st.set_page_config(page_title="Jio Phone Service", page_icon="📱", layout="centered")
 
@@ -14,9 +21,55 @@ if 'service_db' not in st.session_state:
         "Retailer", "Problem", "Action", "Status"
     ])
 
-# 🟢 SMART FIX: Dynamic key counter to reset scanner without errors
 if 'scan_key' not in st.session_state:
     st.session_state.scan_key = 0
+
+if 'last_bill_data' not in st.session_state:
+    st.session_state.last_bill_data = None
+
+# 🟢 PDF BILL GENERATOR FUNCTION
+def generate_service_bill(data):
+    if not HAS_FPDF: return None
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Header
+    pdf.set_font("Arial", 'B', 18)
+    pdf.cell(0, 10, "SANDHYA ENTERPRISES", ln=True, align='C')
+    pdf.set_font("Arial", 'B', 11)
+    pdf.cell(0, 6, "Jio Phone Service & Return Receipt", ln=True, align='C')
+    pdf.set_font("Arial", '', 9)
+    pdf.cell(0, 5, "Register office: Rosera Road, Meghpatti, Samastipur, Bihar", ln=True, align='C')
+    pdf.cell(0, 5, "Contact: 7479584179 | Email: smp.sandhya02@gmail.com", ln=True, align='C')
+    pdf.line(10, 38, 200, 38)
+    pdf.ln(10)
+
+    # Details
+    pdf.set_font("Arial", 'B', 10)
+    
+    # Table Rows
+    def print_row(col1, col2):
+        pdf.cell(60, 8, col1, border=1)
+        pdf.set_font("Arial", '', 10)
+        pdf.cell(0, 8, f" {col2}", border=1, ln=True)
+        pdf.set_font("Arial", 'B', 10)
+
+    print_row("Receipt ID:", data['ID'])
+    print_row("Date & Time:", data['Date'])
+    print_row("Retailer Name:", data['Retailer'])
+    print_row("IMEI Number:", data['IMEI'])
+    print_row("Model Number:", data['Model'])
+    print_row("Manufacturer:", data['MFRNAME'])
+    print_row("Reported Problem:", data['Problem'])
+    print_row("Requested Action:", data['Action'])
+    print_row("Current Status:", data['Status'])
+
+    pdf.ln(15)
+    pdf.set_font("Arial", 'I', 8)
+    pdf.cell(0, 5, "This is a computer generated service receipt.", ln=True, align='C')
+    
+    return pdf.output(dest='S').encode('latin-1')
+
 
 # 3. Main Header UI
 st.markdown("""
@@ -26,184 +79,173 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# 4. Single Dashboard Tabs
-tab1, tab2, tab3 = st.tabs(["📝 New Scan & Entry", "⏳ Pending Phones", "✅ Delivered History"])
+# 4. Dashboard Tabs
+tab1, tab2, tab3, tab4 = st.tabs(["📝 New Entry", "⏳ Pending", "✅ History", "🖨️ Re-Print Bill"])
 
 # ==========================================
-# TAB 1: NEW ENTRY & LIVE BACK-CAMERA QR SCAN
+# TAB 1: NEW ENTRY & LIVE SCANNER
 # ==========================================
 with tab1:
-    st.markdown("### 🔍 Step 1: Scan QR Code")
-    
-    # स्कैन का तरीका
-    scan_method = st.radio("स्कैन का तरीका चुनें:", ["📷 Live Mobile Camera (लाइव कैमरा)", "🔫 Scanner Machine (गन स्कैनर)"])
-    
-    qr_data = ""
-
-    if scan_method == "📷 Live Mobile Camera (लाइव कैमरा)":
-        st.info("👇 डब्बे में QR कोड लाएं। पीछे वाला कैमरा (Back Camera) अपने-आप स्कैन कर लेगा।")
+    # 🟢 If a bill was just generated, show it FIRST so user can download it safely
+    if st.session_state.last_bill_data is not None:
+        bill_data = st.session_state.last_bill_data
+        st.success(f"🎉 Entry Saved Successfully! ID: {bill_data['ID']}")
         
-        # 🟢 HTML/JS Scanner Code
-        scanner_html = """
-        <script src="https://unpkg.com/html5-qrcode"></script>
-        <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
-        <script>
-            const html5QrCode = new Html5Qrcode("reader");
-            const config = { fps: 15, qrbox: { width: 220, height: 220 } };
-
-            function setNativeValue(element, value) {
-                const prototype = Object.getPrototypeOf(element);
-                const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, 'value').set;
-                prototypeValueSetter.call(element, value);
-                element.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-
-            html5QrCode.start({ facingMode: "environment" }, config, 
-                (decodedText) => {
-                    let inputs = window.parent.document.querySelectorAll('input[type="text"]');
-                    inputs.forEach(inp => {
-                        if(inp.getAttribute('aria-label') && inp.getAttribute('aria-label').includes('Scanned Data')) {
-                            setNativeValue(inp, decodedText);
-                        }
-                    });
-                    
-                    html5QrCode.stop().then(() => {
-                        document.getElementById('reader').innerHTML = '<div style="padding: 80px 0; text-align: center; color: #15803d; font-size: 24px; font-weight: bold; background: #dcfce7; height: 100%;">✅ Scan Successful! नीचे चेक करें 👇</div>';
-                    });
-                }, 
-                (errorMessage) => { /* Ignore errors */ }
-            ).catch(err => {
-                document.getElementById('reader').innerHTML = '<div style="color:red; padding:20px; background:white;">Camera Error! Refresh page and allow permissions.</div>';
-            });
-        </script>
-        """
-        st.components.v1.html(scanner_html, height=350)
+        st.markdown(f"### 📄 Bill Generated for {bill_data['Retailer']}")
         
-        qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", key=f"qr_auto_{st.session_state.scan_key}")
-        
-    else:
-        st.info("👇 नीचे क्लिक करें और मशीन से स्कैन करें।")
-        qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", placeholder="Scanner will type data here...", key=f"qr_manual_{st.session_state.scan_key}")
-
-    # Reset Button
-    if st.button("🔄 Reset Scanner / Clear Data"):
-        st.session_state.scan_key += 1 
-        st.rerun()
-
-    # 🟢 EXACT PARSING LOGIC BASED ON YOUR JIO XML DATA
-    parsed_data = {
-        "MFRNAME": "",
-        "MODELNO": "",
-        "IMEI": "",
-        "MRP": "",
-        "EAN": "",
-        "SRNO": ""
-    }
-    
-    if qr_data:
-        # Check if it contains Jio XML tags
-        if "<IMEI>" in qr_data.upper() or "<?XML" in qr_data.upper():
-            st.success("✅ Jio QR (XML) Successfully Detected & Decoded!")
-            
-            # Extract data using exact tags
-            for key in parsed_data.keys():
-                match = re.search(f'<{key}>(.*?)</{key}>', qr_data, re.IGNORECASE)
-                if match:
-                    parsed_data[key] = match.group(1)
-        
-        # Fallback for simple comma-separated
-        elif ',' in qr_data:
-            parts = qr_data.split(',')
-            if len(parts) >= 5:
-                parsed_data["MODELNO"] = parts[0]
-                parsed_data["IMEI"] = parts[1]
-                parsed_data["MRP"] = parts[2]
-                parsed_data["EAN"] = parts[3]
-                parsed_data["SRNO"] = parts[4]
-                st.success("✅ Simple QR Code Successfully Read!")
-            else:
-                parsed_data["IMEI"] = qr_data 
-                st.warning("⚠️ Scanner read the data, but format is unknown. Raw data filled in IMEI.")
+        if HAS_FPDF:
+            pdf_bytes = generate_service_bill(bill_data)
+            st.download_button(
+                label="📥 Download Service Bill (PDF)",
+                data=pdf_bytes,
+                file_name=f"Jio_Bill_{bill_data['IMEI']}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
         else:
-            parsed_data["IMEI"] = qr_data
-            st.warning("⚠️ Raw data filled in IMEI.")
+            st.error("PDF Generator is missing. Please add 'fpdf' to requirements.txt")
+            
+        if st.button("➕ Start New Scan & Entry", type="primary", use_container_width=True):
+            st.session_state.last_bill_data = None
+            st.session_state.scan_key += 1
+            st.rerun()
 
-    # FORM DETAILS
-    with st.form("service_form"):
-        st.markdown("### 📋 Step 2: Scanned Details (Auto-Boxed)")
+    else:
+        # Show normal scanning UI
+        st.markdown("### 🔍 Step 1: Scan QR Code")
+        scan_method = st.radio("स्कैन का तरीका चुनें:", ["📷 Live Mobile Camera (लाइव कैमरा)", "🔫 Scanner Machine (गन स्कैनर)"])
         
-        st.text_input("Manufacturer Name (MFRNAME)", value=parsed_data["MFRNAME"], disabled=True)
-        
-        c1, c2 = st.columns(2)
-        with c1:
-            st.text_input("Model Number", value=parsed_data["MODELNO"], disabled=True)
-            st.text_input("MRP", value=parsed_data["MRP"], disabled=True)
-            st.text_input("Serial No (SRNO)", value=parsed_data["SRNO"], disabled=True)
-        with c2:
-            st.text_input("IMEI Number*", value=parsed_data["IMEI"], disabled=True)
-            st.text_input("EAN", value=parsed_data["EAN"], disabled=True)
+        qr_data = ""
 
-        st.markdown("---")
-        st.markdown("### 🛠️ Step 3: Service Information")
-        retailer = st.text_input("👤 Retailer Name (किस रिटेलर का फ़ोन है?)*")
-        
-        problem = st.selectbox(
-            "⚠️ Phone Problem (फ़ोन में क्या दिक्कत है?)*",
-            ["-- Select --", "Battery Issue (बैटरी ख़राब)", "Software Dead (सॉफ्टवेयर डेड)", "Display Broken (डिस्प्ले टूटा है)", "Keypad Issue (कीपैड ख़राब)", "Charging Issue (चार्ज नहीं हो रहा)", "Other (अन्य)"]
-        )
-        
-        action = st.radio(
-            "🔄 Action Required (क्या करना है?)*",
-            ["Replace with New Phone (नया बदल कर देना है)", "Repair Same Phone (वही ठीक करके देना है)"]
-        )
-        
-        status = st.radio(
-            "📦 Current Status (स्टेटस क्या है?)*",
-            ["Pending (फ़ोन अभी पेंडिंग है)", "Delivered (दे दिया गया है)"]
-        )
+        if scan_method == "📷 Live Mobile Camera (लाइव कैमरा)":
+            st.info("👇 ख़राब QR कोड के लिए भी 'Live Scanner' को पास ले जाएं। यह हार्डवेयर स्कैनर का उपयोग करेगा।")
+            
+            # 🟢 SMART SCANNER: Using Native Barcode Detector for heavily damaged codes
+            scanner_html = """
+            <script src="https://unpkg.com/html5-qrcode"></script>
+            <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
+            <script>
+                const html5QrCode = new Html5Qrcode("reader");
+                // HIGH FPS & Native detector for damaged codes
+                const config = { 
+                    fps: 20, 
+                    qrbox: { width: 250, height: 250 },
+                    experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+                };
 
-        submit = st.form_submit_button("💾 Save Entry", type="primary", use_container_width=True)
-
-        if submit:
-            if problem == "-- Select --" or not retailer:
-                st.error("❌ Please enter Retailer Name and select a Problem.")
-            elif not parsed_data["IMEI"]:
-                st.error("❌ Please Scan a valid QR Code first.")
-            else:
-                new_id = f"JIO-{len(st.session_state.service_db)+1:04d}"
-                new_data = {
-                    "ID": new_id, 
-                    "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
-                    "MFRNAME": parsed_data["MFRNAME"], "Model": parsed_data["MODELNO"], 
-                    "IMEI": parsed_data["IMEI"], "MRP": parsed_data["MRP"], 
-                    "EAN": parsed_data["EAN"], "SRNO": parsed_data["SRNO"],
-                    "Retailer": retailer.upper(), "Problem": problem, "Action": action, 
-                    "Status": "Pending" if "Pending" in status else "Delivered"
+                function setNativeValue(element, value) {
+                    const prototype = Object.getPrototypeOf(element);
+                    const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, 'value').set;
+                    prototypeValueSetter.call(element, value);
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
                 }
-                
-                st.session_state.service_db = pd.concat([st.session_state.service_db, pd.DataFrame([new_data])], ignore_index=True)
-                st.success(f"🎉 Saved Successfully! ID: {new_id} is marked as **{new_data['Status']}**")
-                
-                st.session_state.scan_key += 1
-                time.sleep(1.5)
-                st.rerun()
+
+                html5QrCode.start({ facingMode: "environment" }, config, 
+                    (decodedText) => {
+                        let inputs = window.parent.document.querySelectorAll('input[type="text"]');
+                        inputs.forEach(inp => {
+                            if(inp.getAttribute('aria-label') && inp.getAttribute('aria-label').includes('Scanned Data')) {
+                                setNativeValue(inp, decodedText);
+                            }
+                        });
+                        html5QrCode.stop().then(() => {
+                            document.getElementById('reader').innerHTML = '<div style="padding: 80px 0; text-align: center; color: #15803d; font-size: 24px; font-weight: bold; background: #dcfce7; height: 100%;">✅ Code Caught! Scroll Down 👇</div>';
+                        });
+                    }, 
+                    (errorMessage) => { /* Ignore errors */ }
+                ).catch(err => {
+                    document.getElementById('reader').innerHTML = '<div style="color:red; padding:20px; background:white;">Camera Error! Allow permissions.</div>';
+                });
+            </script>
+            """
+            st.components.v1.html(scanner_html, height=350)
+            qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", key=f"qr_auto_{st.session_state.scan_key}")
+            
+        else:
+            qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", placeholder="Scanner will type data here...", key=f"qr_manual_{st.session_state.scan_key}")
+
+        if st.button("🔄 Reset Scanner / Clear Data"):
+            st.session_state.scan_key += 1 
+            st.rerun()
+
+        # 🟢 XML & Comma Decoder
+        parsed_data = { "MFRNAME": "", "MODELNO": "", "IMEI": "", "MRP": "", "EAN": "", "SRNO": "" }
+        
+        if qr_data:
+            if "<IMEI>" in qr_data.upper() or "<?XML" in qr_data.upper():
+                st.success("✅ Jio QR (XML) Successfully Decoded!")
+                for key in parsed_data.keys():
+                    match = re.search(f'<{key}>(.*?)</{key}>', qr_data, re.IGNORECASE)
+                    if match: parsed_data[key] = match.group(1)
+            elif ',' in qr_data:
+                parts = qr_data.split(',')
+                if len(parts) >= 5:
+                    parsed_data["MODELNO"] = parts[0]; parsed_data["IMEI"] = parts[1]; parsed_data["MRP"] = parts[2]; parsed_data["EAN"] = parts[3]; parsed_data["SRNO"] = parts[4]
+                    st.success("✅ Simple QR Code Successfully Read!")
+                else:
+                    parsed_data["IMEI"] = qr_data 
+                    st.warning("⚠️ Scanner read the data, but format is unknown. Raw data filled in IMEI.")
+            else:
+                parsed_data["IMEI"] = qr_data
+                st.warning("⚠️ Raw data filled in IMEI.")
+
+        # FORM DETAILS
+        with st.form("service_form"):
+            st.markdown("### 📋 Step 2: Scanned Details (Auto-Boxed)")
+            st.text_input("Manufacturer Name (MFRNAME)", value=parsed_data["MFRNAME"], disabled=True)
+            c1, c2 = st.columns(2)
+            with c1:
+                st.text_input("Model Number", value=parsed_data["MODELNO"], disabled=True)
+                st.text_input("MRP", value=parsed_data["MRP"], disabled=True)
+                st.text_input("Serial No (SRNO)", value=parsed_data["SRNO"], disabled=True)
+            with c2:
+                st.text_input("IMEI Number*", value=parsed_data["IMEI"], disabled=True)
+                st.text_input("EAN", value=parsed_data["EAN"], disabled=True)
+
+            st.markdown("---")
+            st.markdown("### 🛠️ Step 3: Service Information")
+            retailer = st.text_input("👤 Retailer Name (किस रिटेलर का फ़ोन है?)*")
+            problem = st.selectbox("⚠️ Phone Problem*", ["-- Select --", "Battery Issue (बैटरी ख़राब)", "Software Dead (सॉफ्टवेयर डेड)", "Display Broken (डिस्प्ले टूटा है)", "Keypad Issue (कीपैड ख़राब)", "Charging Issue (चार्ज नहीं हो रहा)", "Other (अन्य)"])
+            action = st.radio("🔄 Action Required*", ["Replace with New Phone (नया बदल कर देना है)", "Repair Same Phone (वही ठीक करके देना है)"])
+            status = st.radio("📦 Current Status*", ["Pending (फ़ोन अभी पेंडिंग है)", "Delivered (दे दिया गया है)"])
+
+            submit = st.form_submit_button("💾 Save Entry & Print Bill", type="primary", use_container_width=True)
+
+            if submit:
+                if problem == "-- Select --" or not retailer:
+                    st.error("❌ Please enter Retailer Name and select a Problem.")
+                elif not parsed_data["IMEI"]:
+                    st.error("❌ Please Scan a valid QR Code first.")
+                else:
+                    new_id = f"JIO-{len(st.session_state.service_db)+1:04d}"
+                    new_data = {
+                        "ID": new_id, 
+                        "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
+                        "MFRNAME": parsed_data["MFRNAME"], "Model": parsed_data["MODELNO"], 
+                        "IMEI": parsed_data["IMEI"], "MRP": parsed_data["MRP"], 
+                        "EAN": parsed_data["EAN"], "SRNO": parsed_data["SRNO"],
+                        "Retailer": retailer.upper(), "Problem": problem, "Action": action, 
+                        "Status": "Pending" if "Pending" in status else "Delivered"
+                    }
+                    
+                    st.session_state.service_db = pd.concat([st.session_state.service_db, pd.DataFrame([new_data])], ignore_index=True)
+                    
+                    # 🟢 Trigger Bill generation UI instead of instant clear
+                    st.session_state.last_bill_data = new_data
+                    st.rerun()
 
 # ==========================================
 # TAB 2: PENDING PHONES DASHBOARD
 # ==========================================
 with tab2:
     st.markdown("### ⏳ Pending Action Board")
-    
     pending_df = st.session_state.service_db[st.session_state.service_db["Status"] == "Pending"]
-    
-    if pending_df.empty:
-        st.info("🎉 Good Job! No pending phones right now.")
+    if pending_df.empty: st.info("🎉 Good Job! No pending phones right now.")
     else:
         st.error(f"🚨 You have {len(pending_df)} phone(s) pending for service!")
-        
         for idx, row in pending_df.iterrows():
             st.markdown(f"""
-                <div style='border: 1px solid #f87171; padding: 15px; border-radius: 10px; background: #fef2f2; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);'>
+                <div style='border: 1px solid #f87171; padding: 15px; border-radius: 10px; background: #fef2f2; margin-bottom: 10px;'>
                     <div style='display: flex; justify-content: space-between;'>
                         <h4 style='color: #b91c1c; margin: 0;'>👤 Retailer: {row['Retailer']}</h4>
                         <span style='background: #b91c1c; color: white; padding: 3px 8px; border-radius: 5px; font-size: 12px;'>{row['ID']}</span>
@@ -214,12 +256,9 @@ with tab2:
                     <p style='margin: 6px 0 0 0; font-size: 12px; color: #9ca3af;'>📅 Received On: {row['Date']}</p>
                 </div>
             """, unsafe_allow_html=True)
-            
             c1, c2 = st.columns(2)
             if c1.button(f"✅ Mark Delivered", key=f"del_{row['ID']}", type="secondary", use_container_width=True):
                 st.session_state.service_db.loc[st.session_state.service_db['ID'] == row['ID'], 'Status'] = "Delivered"
-                st.success(f"{row['ID']} marked as Delivered!")
-                time.sleep(1)
                 st.rerun()
             if c2.button(f"🗑️ Delete", key=f"rm_{row['ID']}", use_container_width=True):
                 st.session_state.service_db = st.session_state.service_db[st.session_state.service_db['ID'] != row['ID']]
@@ -230,23 +269,43 @@ with tab2:
 # ==========================================
 with tab3:
     st.markdown("### ✅ Delivered / Completed Phones")
-    
     delivered_df = st.session_state.service_db[st.session_state.service_db["Status"] == "Delivered"]
-    
-    if delivered_df.empty:
-        st.info("No completed services yet.")
+    if delivered_df.empty: st.info("No completed services yet.")
     else:
-        st.dataframe(
-            delivered_df[["ID", "Date", "Retailer", "IMEI", "Problem", "Action"]].sort_values("ID", ascending=False), 
-            hide_index=True, 
-            use_container_width=True
-        )
-        
+        st.dataframe(delivered_df[["ID", "Date", "Retailer", "IMEI", "Problem", "Action"]].sort_values("ID", ascending=False), hide_index=True, use_container_width=True)
         csv = delivered_df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 Download Delivered History (Excel)",
-            data=csv,
-            file_name=f"Jio_Service_History_{datetime.now().strftime('%d-%m-%Y')}.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
+        st.download_button("📥 Download Delivered History (Excel)", data=csv, file_name=f"Jio_Service_History_{datetime.now().strftime('%d-%m-%Y')}.csv", mime="text/csv", use_container_width=True)
+
+# ==========================================
+# TAB 4: RE-PRINT BILL (SEARCH BY IMEI)
+# ==========================================
+with tab4:
+    st.markdown("### 🖨️ Re-Print Old Bill")
+    st.info("किसी भी पुराने फ़ोन का बिल दोबारा निकालने के लिए उसका IMEI नंबर डालें।")
+    
+    search_imei = st.text_input("🔍 Enter IMEI Number to Search:")
+    
+    if st.button("Search & Print Bill", type="primary"):
+        if search_imei:
+            # Search in DB
+            result = st.session_state.service_db[st.session_state.service_db['IMEI'] == search_imei]
+            
+            if not result.empty:
+                st.success("✅ Record Found!")
+                found_data = result.iloc[0].to_dict()
+                
+                st.markdown(f"**Retailer:** {found_data['Retailer']} | **Status:** {found_data['Status']}")
+                
+                if HAS_FPDF:
+                    pdf_bytes = generate_service_bill(found_data)
+                    st.download_button(
+                        label="📥 Download Bill (PDF)",
+                        data=pdf_bytes,
+                        file_name=f"Jio_Bill_{found_data['IMEI']}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+            else:
+                st.error(f"❌ No record found for IMEI: {search_imei}")
+        else:
+            st.warning("Please enter an IMEI number first.")
