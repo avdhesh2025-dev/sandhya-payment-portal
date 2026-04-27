@@ -19,7 +19,7 @@ st.set_page_config(page_title="Jio Phone Service", page_icon="📱", layout="cen
 # 🔴 यहाँ अपना नया WEBHOOK और SHEET ID डालें 🔴
 # ==========================================
 WEBHOOK_URL = "यहाँ_अपना_नया_WEBHOOK_URL_डालें"
-SHEET_ID = "यहाँ_अपनी_नई_Google_Sheet_की_ID_डालें"
+SHEET_ID = "यहाँ_अपनी_Google_Sheet_की_ID_डालें"
 # ==========================================
 
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=ServiceDB"
@@ -42,6 +42,7 @@ if 'service_db' not in st.session_state:
 if 'sales_db' not in st.session_state:
     st.session_state.sales_db = pd.DataFrame()
 
+# 🟢 SMART KEY TO PREVENT RED ERRORS
 if 'scan_key' not in st.session_state:
     st.session_state.scan_key = 0
 
@@ -137,22 +138,30 @@ with tab1:
         qr_data = ""
 
         if scan_method == "📷 Live Mobile Camera (लाइव कैमरा)":
-            st.info("💡 **TIP:** डब्बे के **4-कोने वाले चौकोर कोड** को इस लाल डब्बे के बीच में लाएं।")
+            st.info("💡 **TIP:** डब्बे से **कैमरे को 4-5 इंच दूर रखें** ताकि QR कोड एकदम साफ़ (Clear) दिखे!")
             
-            # 🟢 PERFECT SQUARE SCANNER FOR 4-CORNER DATA MATRIX
+            # 🟢 DATA MATRIX ENABLED SCANNER
             scanner_html = """
             <script src="https://unpkg.com/html5-qrcode"></script>
             <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
             <script>
                 const html5QrCode = new Html5Qrcode("reader");
-                // Square box to easily catch the 4-corner Data Matrix
-                const config = { fps: 20, qrbox: { width: 250, height: 250 }, experimentalFeatures: { useBarCodeDetectorIfSupported: true } };
+                
+                // 🟢 Added Data Matrix Support explicitly
+                const config = { 
+                    fps: 10, 
+                    qrbox: { width: 250, height: 250 }, 
+                    formatsToSupport: [ Html5QrcodeSupportedFormats.DATA_MATRIX, Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128 ],
+                    experimentalFeatures: { useBarCodeDetectorIfSupported: true } 
+                };
+
                 function setNativeValue(element, value) {
                     const prototype = Object.getPrototypeOf(element);
                     const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, 'value').set;
                     prototypeValueSetter.call(element, value);
                     element.dispatchEvent(new Event('input', { bubbles: true }));
                 }
+
                 html5QrCode.start({ facingMode: "environment" }, config, 
                     (decodedText) => {
                         let inputs = window.parent.document.querySelectorAll('input[type="text"]');
@@ -177,6 +186,7 @@ with tab1:
         else:
             qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", placeholder="Scanner will type data here...", key=f"qr_manual_{st.session_state.scan_key}")
 
+        # 🟢 SAFE RESET BUTTON (No API Exception)
         if st.button("🔄 Reset Scanner / Clear Data"):
             st.session_state.scan_key += 1 
             st.rerun()
@@ -198,6 +208,10 @@ with tab1:
                     parsed_data["IMEI"] = qr_data 
             else:
                 parsed_data["IMEI"] = qr_data
+                if len(qr_data) > 10 and qr_data.isdigit():
+                    st.success("✅ IMEI Barcode Successfully Read!")
+                else:
+                    st.warning("⚠️ Raw data filled in IMEI.")
 
         # AUTO-FILL RETAILER LOGIC
         auto_retailer_name = ""
@@ -256,12 +270,11 @@ with tab1:
                     st.session_state.service_db = pd.concat([st.session_state.service_db, pd.DataFrame([new_data])], ignore_index=True)
                     st.session_state.last_bill_data = new_data
                     
-                    # 🟢 FIX: SILENT WEBHOOK POST (No Timeout Errors on Screen)
                     try:
                         if WEBHOOK_URL != "यहाँ_अपना_नया_WEBHOOK_URL_डालें":
-                            requests.post(WEBHOOK_URL, json=new_data, timeout=3) # Only waits 3 seconds
+                            requests.post(WEBHOOK_URL, json=new_data, timeout=3) # Silent save
                     except: 
-                        pass # Ignores error entirely so your app never hangs!
+                        pass 
                     
                     st.rerun()
 
