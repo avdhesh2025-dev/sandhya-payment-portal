@@ -12,8 +12,21 @@ try:
 except ImportError:
     HAS_FPDF = False
 
-# 1. Page Configuration
+# 1. Page Configuration & A4 CSS Design
 st.set_page_config(page_title="Jio Phone Service", page_icon="📱", layout="centered")
+
+# 🟢 A4 Page Design CSS (साफ़-सुथरा और प्रीमियम लुक)
+st.markdown("""
+    <style>
+    .main .block-container {
+        background-color: #ffffff;
+        padding: 2rem;
+        border-radius: 12px;
+        box-shadow: 0px 8px 20px rgba(0,0,0,0.1);
+        max-width: 800px;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # ==========================================
 # 🔴 यहाँ अपना नया WEBHOOK और SHEET ID डालें 🔴
@@ -96,7 +109,7 @@ def generate_service_bill(data):
 
 # 3. Main Header UI
 st.markdown("""
-    <div style='background: linear-gradient(135deg, #0b57d0 0%, #00c6ff 100%); padding: 20px; border-radius: 12px; text-align: center; color: white; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);'>
+    <div style='background: linear-gradient(135deg, #0b57d0 0%, #00c6ff 100%); padding: 20px; border-radius: 12px; text-align: center; color: white; margin-bottom: 20px;'>
         <h1 style='margin:0; font-size: 32px; font-weight: 900;'>📱 JIO PHONE SERVICE</h1>
         <p style='margin:5px 0 0 0; font-size: 16px; font-weight: 600;'>Return & Replacement Portal</p>
     </div>
@@ -106,7 +119,7 @@ st.markdown("""
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📝 New Entry", "⏳ Pending", "✅ History", "🖨️ Re-Print Bill", "📂 Auto-Fill Setup"])
 
 # ==========================================
-# TAB 1: NEW ENTRY & LIVE SCANNER
+# TAB 1: NEW ENTRY (SCAN OR SEARCH)
 # ==========================================
 with tab1:
     if st.session_state.last_bill_data is not None:
@@ -116,126 +129,113 @@ with tab1:
         
         if HAS_FPDF:
             pdf_bytes = generate_service_bill(bill_data)
-            st.download_button(
-                label="📥 Download Service Bill (PDF)",
-                data=pdf_bytes,
-                file_name=f"Jio_Bill_{bill_data['IMEI']}.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
+            st.download_button("📥 Download Service Bill (PDF)", data=pdf_bytes, file_name=f"Jio_Bill_{bill_data['IMEI']}.pdf", mime="application/pdf", use_container_width=True)
             
-        if st.button("➕ Start New Scan & Entry", type="primary", use_container_width=True):
+        if st.button("➕ Start New Entry", type="primary", use_container_width=True):
             st.session_state.last_bill_data = None
             st.session_state.scan_key += 1
             st.rerun()
 
     else:
-        st.markdown("### 🔍 Step 1: Scan QR Code")
-        scan_method = st.radio("स्कैन का तरीका चुनें:", ["📷 Live Mobile Camera (लाइव कैमरा)", "🔫 Scanner Machine / Paste (मशीन/पेस्ट)"])
+        st.markdown("### 🔍 Step 1: Find Device")
         
-        qr_data = ""
+        # 🟢 NEW: Option to Search Retailer or Scan
+        entry_method = st.radio("डिवाइस खोजने का तरीका चुनें:", ["🔍 Search Retailer & IMEI (स्मार्ट सर्च)", "📷 Scan / Paste Code (स्कैन/पेस्ट)"])
+        
+        parsed_data = { "MFRNAME": "", "MODELNO": "", "IMEI": "", "MRP": "", "EAN": "", "SRNO": "" }
+        auto_retailer_name = ""
 
-        if scan_method == "📷 Live Mobile Camera (लाइव कैमरा)":
-            st.info("💡 **TIP:** डब्बे का चौकोर कोड (Data Matrix) या IMEI का लम्बा बारकोड (Barcode), दोनों में से कोई भी स्कैन करें!")
-            
-            # 🟢 STABLE SCANNER (NO HACKS, PERFECT FOCUS)
-            scanner_html = """
-            <script src="https://unpkg.com/html5-qrcode"></script>
-            <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
-            <script>
-                const html5QrCode = new Html5Qrcode("reader");
-                const config = { 
-                    fps: 15, 
-                    qrbox: { width: 250, height: 250 }, 
-                    formatsToSupport: [ Html5QrcodeSupportedFormats.DATA_MATRIX, Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128 ] 
-                };
+        # 🟢 SEARCH BY RETAILER LOGIC (THE GENIUS IDEA)
+        if entry_method == "🔍 Search Retailer & IMEI (स्मार्ट सर्च)":
+            if st.session_state.sales_db.empty:
+                st.warning("⚠️ स्मार्ट सर्च काम करने के लिए, पहले '📂 Auto-Fill Setup' टैब में Sales Data Excel अपलोड करें।")
+            else:
+                st.info("💡 यहाँ रिटेलर का नाम चुनें, फिर बगल में उस रिटेलर को दिए गए सारे IMEI दिखेंगे।")
+                
+                # Find Column Names dynamically
+                ret_cols = [c for c in st.session_state.sales_db.columns if 'RETAILER' in str(c).upper() or 'NAME' in str(c).upper()]
+                imei_cols = [c for c in st.session_state.sales_db.columns if 'IMEI' in str(c).upper()]
+                model_cols = [c for c in st.session_state.sales_db.columns if 'MODEL' in str(c).upper()]
+                
+                if ret_cols and imei_cols:
+                    retailer_list = st.session_state.sales_db[ret_cols[0]].dropna().unique().tolist()
+                    
+                    colA, colB = st.columns(2)
+                    with colA:
+                        selected_ret = st.selectbox("👤 Select Retailer*", ["-- Select --"] + sorted(retailer_list))
+                    
+                    if selected_ret != "-- Select --":
+                        auto_retailer_name = selected_ret
+                        # Get all IMEIs for this retailer
+                        ret_data = st.session_state.sales_db[st.session_state.sales_db[ret_cols[0]] == selected_ret]
+                        imei_list = ret_data[imei_cols[0]].dropna().astype(str).tolist()
+                        
+                        with colB:
+                            selected_imei = st.selectbox("📱 Select Phone IMEI*", ["-- Select --"] + imei_list)
+                            
+                        if selected_imei != "-- Select --":
+                            parsed_data["IMEI"] = selected_imei
+                            st.success("✅ Device Found & Details Auto-Filled!")
+                            
+                            # Try to get Model from DB if available
+                            if model_cols:
+                                match_row = ret_data[ret_data[imei_cols[0]].astype(str) == selected_imei].iloc[0]
+                                parsed_data["MODELNO"] = str(match_row[model_cols[0]])
+                else:
+                    st.error("Excel File me 'Retailer' aur 'IMEI' column nahi mila.")
 
-                function setNativeValue(element, value) {
-                    const prototype = Object.getPrototypeOf(element);
-                    const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, 'value').set;
-                    prototypeValueSetter.call(element, value);
-                    element.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-
-                html5QrCode.start({ facingMode: "environment" }, config, 
-                    (decodedText) => {
-                        let inputs = window.parent.document.querySelectorAll('input[type="text"]');
-                        inputs.forEach(inp => {
-                            if(inp.getAttribute('aria-label') && inp.getAttribute('aria-label').includes('Scanned Data')) {
-                                setNativeValue(inp, decodedText);
-                            }
-                        });
-                        html5QrCode.stop().then(() => {
-                            document.getElementById('reader').innerHTML = '<div style="padding: 60px 0; text-align: center; color: #15803d; font-size: 22px; font-weight: bold; background: #dcfce7; height: 100%;">✅ Code Caught! Scroll Down 👇</div>';
-                        });
-                    }, 
-                    (errorMessage) => { /* Ignore errors */ }
-                ).catch(err => {
-                    document.getElementById('reader').innerHTML = '<div style="color:red; padding:20px; background:white;">Camera Error! Please allow camera permissions.</div>';
-                });
-            </script>
-            """
-            st.components.v1.html(scanner_html, height=350)
-            qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", key=f"qr_auto_{st.session_state.scan_key}")
-            
+        # 🟢 SCAN OR PASTE LOGIC (OLD WAY AS BACKUP)
         else:
-            st.info("💡 अपने 'QR Scanner App' से कोड स्कैन करके यहाँ पेस्ट कर दें, या गन स्कैनर का इस्तेमाल करें!")
             qr_data = st.text_input("📷 Scanned Data (Paste Here)", placeholder="यहाँ पेस्ट करें या गन से स्कैन करें...", key=f"qr_manual_{st.session_state.scan_key}")
 
-        if st.button("🔄 Reset Scanner / Clear Data"):
-            st.session_state.scan_key += 1 
-            st.rerun()
+            if st.button("🔄 Clear Data"):
+                st.session_state.scan_key += 1 
+                st.rerun()
 
-        parsed_data = { "MFRNAME": "", "MODELNO": "", "IMEI": "", "MRP": "", "EAN": "", "SRNO": "" }
-        
-        if qr_data:
-            if "<IMEI>" in qr_data.upper() or "<?XML" in qr_data.upper():
-                st.success("✅ 4-Kona Jio QR (XML) Successfully Decoded!")
-                for key in parsed_data.keys():
-                    match = re.search(f'<{key}>(.*?)</{key}>', qr_data, re.IGNORECASE)
-                    if match: parsed_data[key] = match.group(1)
-            elif ',' in qr_data:
-                parts = qr_data.split(',')
-                if len(parts) >= 5:
-                    parsed_data["MODELNO"] = parts[0]; parsed_data["IMEI"] = parts[1]; parsed_data["MRP"] = parts[2]; parsed_data["EAN"] = parts[3]; parsed_data["SRNO"] = parts[4]
-                    st.success("✅ Simple QR Code Successfully Read!")
+            if qr_data:
+                if "<IMEI>" in qr_data.upper() or "<?XML" in qr_data.upper():
+                    st.success("✅ Jio QR (XML) Detected!")
+                    for key in parsed_data.keys():
+                        match = re.search(f'<{key}>(.*?)</{key}>', qr_data, re.IGNORECASE)
+                        if match: parsed_data[key] = match.group(1)
+                elif ',' in qr_data:
+                    parts = qr_data.split(',')
+                    if len(parts) >= 5:
+                        parsed_data["MODELNO"] = parts[0]; parsed_data["IMEI"] = parts[1]; parsed_data["MRP"] = parts[2]; parsed_data["EAN"] = parts[3]; parsed_data["SRNO"] = parts[4]
+                        st.success("✅ CSV Code Read Successfully!")
+                    else: parsed_data["IMEI"] = qr_data 
                 else:
-                    parsed_data["IMEI"] = qr_data 
-            else:
-                parsed_data["IMEI"] = qr_data
-                if len(qr_data) > 10 and qr_data.isdigit():
-                    st.success("✅ IMEI Barcode Successfully Read!")
-                else:
-                    st.warning("⚠️ Raw data filled in IMEI.")
+                    parsed_data["IMEI"] = qr_data
+                    st.success("✅ Single Code Detected!")
 
-        # AUTO-FILL RETAILER LOGIC
-        auto_retailer_name = ""
-        if parsed_data["IMEI"] and not st.session_state.sales_db.empty:
-            search_imei = str(parsed_data["IMEI"]).strip()
-            imei_cols = [c for c in st.session_state.sales_db.columns if 'IMEI' in str(c).upper()]
-            ret_cols = [c for c in st.session_state.sales_db.columns if 'RETAILER' in str(c).upper() or 'NAME' in str(c).upper()]
-            
-            if imei_cols and ret_cols:
-                match_df = st.session_state.sales_db[st.session_state.sales_db[imei_cols[0]].astype(str).str.strip() == search_imei]
-                if not match_df.empty:
-                    auto_retailer_name = str(match_df.iloc[0][ret_cols[0]])
-                    st.success(f"🤖 Retailer Auto-Found in Database: **{auto_retailer_name}**")
+            # Auto-Find Retailer from Scan
+            if parsed_data["IMEI"] and not st.session_state.sales_db.empty:
+                search_imei = str(parsed_data["IMEI"]).strip()
+                imei_cols = [c for c in st.session_state.sales_db.columns if 'IMEI' in str(c).upper()]
+                ret_cols = [c for c in st.session_state.sales_db.columns if 'RETAILER' in str(c).upper() or 'NAME' in str(c).upper()]
+                if imei_cols and ret_cols:
+                    match_df = st.session_state.sales_db[st.session_state.sales_db[imei_cols[0]].astype(str).str.strip() == search_imei]
+                    if not match_df.empty:
+                        auto_retailer_name = str(match_df.iloc[0][ret_cols[0]])
+                        st.success(f"🤖 Retailer Auto-Found: **{auto_retailer_name}**")
 
-        # 🟢 LOCKED BOXES (READ-ONLY) AS REQUESTED
+        # 🟢 FORM DETAILS (A4 Clean View)
         with st.form("service_form"):
-            st.markdown("### 📋 Step 2: Scanned Details (Read-Only)")
-            st.text_input("Manufacturer Name (MFRNAME)", value=parsed_data["MFRNAME"], disabled=True)
+            st.markdown("### 📋 Step 2: Phone Details")
+            st.caption("डब्बे अपने-आप भर जाएंगे, अगर कुछ खाली रहे तो आप टाइप कर सकते हैं।")
+            
+            mfr_in = st.text_input("Manufacturer Name (MFRNAME)", value=parsed_data["MFRNAME"])
             c1, c2 = st.columns(2)
             with c1:
-                st.text_input("Model Number", value=parsed_data["MODELNO"], disabled=True)
-                st.text_input("MRP", value=parsed_data["MRP"], disabled=True)
-                st.text_input("Serial No (SRNO)", value=parsed_data["SRNO"], disabled=True)
+                model_in = st.text_input("Model Number", value=parsed_data["MODELNO"])
+                mrp_in = st.text_input("MRP (₹)", value=parsed_data["MRP"])
+                srno_in = st.text_input("Serial No (SRNO)", value=parsed_data["SRNO"])
             with c2:
-                st.text_input("IMEI Number*", value=parsed_data["IMEI"], disabled=True)
-                st.text_input("EAN", value=parsed_data["EAN"], disabled=True)
+                imei_in = st.text_input("IMEI Number*", value=parsed_data["IMEI"])
+                ean_in = st.text_input("EAN", value=parsed_data["EAN"])
 
             st.markdown("---")
-            st.markdown("### 🛠️ Step 3: Service Information & Options")
+            st.markdown("### 🛠️ Step 3: Service Information")
             
             retailer = st.text_input("👤 Retailer Name (किस रिटेलर का फ़ोन है?)*", value=auto_retailer_name)
             problem = st.selectbox("⚠️ Phone Problem (दिक्कत क्या है?)*", ["-- Select --", "Damage / Broken (टूटा/डैमेज है)", "Battery Issue (बैटरी ख़राब)", "Software Dead (सॉफ्टवेयर डेड)", "Display Broken (डिस्प्ले टूटा है)", "Keypad Issue (कीपैड ख़राब)", "Charging Issue (चार्ज नहीं हो रहा)", "Other (अन्य)"])
@@ -247,8 +247,8 @@ with tab1:
             if submit:
                 if problem == "-- Select --" or not retailer:
                     st.error("❌ Please enter Retailer Name and select a Problem.")
-                elif not parsed_data["IMEI"]:
-                    st.error("❌ Please Scan a valid QR Code first.")
+                elif not imei_in:
+                    st.error("❌ Please enter or select the IMEI Number.")
                 else:
                     if st.session_state.service_db.empty: new_num = 1
                     else: new_num = len(st.session_state.service_db) + 1
@@ -256,9 +256,9 @@ with tab1:
                     new_id = f"JIO-{new_num:04d}"
                     new_data = {
                         "action": "add", "ID": new_id, "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
-                        "MFRNAME": parsed_data["MFRNAME"], "Model": parsed_data["MODELNO"], 
-                        "IMEI": parsed_data["IMEI"], "MRP": parsed_data["MRP"], 
-                        "EAN": parsed_data["EAN"], "SRNO": parsed_data["SRNO"],
+                        "MFRNAME": mfr_in, "Model": model_in, 
+                        "IMEI": imei_in, "MRP": mrp_in, 
+                        "EAN": ean_in, "SRNO": srno_in,
                         "Retailer": retailer.upper(), "Problem": problem, "Action": action, 
                         "Status": "Pending" if "Pending" in status else "Delivered"
                     }
@@ -358,7 +358,7 @@ with tab4:
 with tab5:
     st.markdown("### 📂 Upload Sales Data (For Auto-Fill)")
     st.info("""
-        **ऑटोमैटिक रिटेलर का नाम कैसे लाएं?**
+        **स्मार्ट सर्च कैसे काम करेगा?**
         यहाँ अपनी उस Excel या CSV फाइल को अपलोड करें जिसमें आपने रिकॉर्ड रखा है कि कौन सा IMEI किस रिटेलर को बेचा गया है।
     """)
     uploaded_file = st.file_uploader("📥 Upload Sales/Dispatch Excel File", type=["xlsx", "xls", "csv"])
