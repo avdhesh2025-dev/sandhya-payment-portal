@@ -13,9 +13,8 @@ except ImportError:
     HAS_FPDF = False
 
 # 1. Page Configuration & A4 CSS Design
-st.set_page_config(page_title="Jio Phone Service", page_icon="📱", layout="centered")
+st.set_page_config(page_title="Jio Phone Service & Sales", page_icon="📱", layout="wide")
 
-# 🟢 A4 Page Design CSS (साफ़-सुथरा और प्रीमियम लुक)
 st.markdown("""
     <style>
     .main .block-container {
@@ -23,17 +22,16 @@ st.markdown("""
         padding: 2rem;
         border-radius: 12px;
         box-shadow: 0px 8px 20px rgba(0,0,0,0.1);
-        max-width: 800px;
+        max-width: 900px;
     }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🔴 यहाँ अपना नया WEBHOOK और SHEET ID डालें 🔴
+# 🔴 WEBHOOK AND SHEET ID
 # ==========================================
-WEBHOOK_URL = "यहाँ_अपना_नया_WEBHOOK_URL_डालें"
-SHEET_ID = "यहाँ_अपनी_Google_Sheet_की_ID_डालें"
-# ==========================================
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwCobr5YdjZJedeXQxnzTVMlkEJ5LI7-1CAnAlf5_14QiAHe502xipIguOxT2ewOanpUQ/exec"
+SHEET_ID = "https://docs.google.com/spreadsheets/d/17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM/edit?usp=sharing"
 
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=ServiceDB"
 
@@ -52,8 +50,9 @@ def load_data():
 if 'service_db' not in st.session_state:
     st.session_state.service_db = load_data()
 
+# 🟢 SALES DATABASE (बिक्री का रिकॉर्ड)
 if 'sales_db' not in st.session_state:
-    st.session_state.sales_db = pd.DataFrame()
+    st.session_state.sales_db = pd.DataFrame(columns=["Date", "MFRNAME", "Model", "IMEI", "MRP", "EAN", "SRNO", "Retailer"])
 
 if 'scan_key' not in st.session_state:
     st.session_state.scan_key = 0
@@ -61,8 +60,8 @@ if 'scan_key' not in st.session_state:
 if 'last_bill_data' not in st.session_state:
     st.session_state.last_bill_data = None
 
-# PDF BILL GENERATOR FUNCTION
-def generate_service_bill(data):
+# PDF BILL GENERATOR
+def generate_service_bill(data, bill_type="Service"):
     if not HAS_FPDF: return None
     pdf = FPDF()
     pdf.add_page()
@@ -70,7 +69,10 @@ def generate_service_bill(data):
     pdf.set_font("Arial", 'B', 18)
     pdf.cell(0, 10, "SANDHYA ENTERPRISES", ln=True, align='C')
     pdf.set_font("Arial", 'B', 11)
-    pdf.cell(0, 6, "Jio Phone Service & Return Receipt", ln=True, align='C')
+    
+    title = "Jio Phone Service Receipt" if bill_type == "Service" else "Jio Phone Sales/Dispatch Invoice"
+    pdf.cell(0, 6, title, ln=True, align='C')
+    
     pdf.set_font("Arial", '', 9)
     pdf.cell(0, 5, "Register office: Rosera Road, Meghpatti, Samastipur, Bihar", ln=True, align='C')
     pdf.cell(0, 5, "Contact: 7479584179 | Email: smp.sandhya02@gmail.com", ln=True, align='C')
@@ -78,7 +80,6 @@ def generate_service_bill(data):
     pdf.ln(10)
 
     pdf.set_font("Arial", 'B', 10)
-    
     def print_row(col1, col2):
         pdf.cell(60, 8, col1, border=1)
         pdf.set_font("Arial", '', 10)
@@ -86,291 +87,251 @@ def generate_service_bill(data):
         pdf.cell(0, 8, f" {clean_col2}", border=1, ln=True)
         pdf.set_font("Arial", 'B', 10)
 
-    print_row("Receipt ID:", data['ID'])
+    if bill_type == "Service":
+        print_row("Receipt ID:", data.get('ID', ''))
+    
     print_row("Date & Time:", data['Date'])
     print_row("Retailer Name:", data['Retailer'])
     print_row("IMEI Number:", data['IMEI'])
     print_row("Model Number:", data['Model'])
-    print_row("Manufacturer:", data['MFRNAME'])
+    print_row("Manufacturer:", data.get('MFRNAME', 'UNITED TELELINKS'))
     
-    prob_clean = str(data['Problem']).split(' (')[0]
-    act_clean = str(data['Action']).split(' (')[0]
-    status_clean = str(data['Status']).split(' (')[0]
-
-    print_row("Reported Problem:", prob_clean)
-    print_row("Requested Action:", act_clean)
-    print_row("Current Status:", status_clean)
+    if bill_type == "Service":
+        prob_clean = str(data['Problem']).split(' (')[0]
+        act_clean = str(data['Action']).split(' (')[0]
+        status_clean = str(data['Status']).split(' (')[0]
+        print_row("Reported Problem:", prob_clean)
+        print_row("Requested Action:", act_clean)
+        print_row("Current Status:", status_clean)
+    else:
+        print_row("MRP:", data['MRP'])
+        print_row("Transaction:", "New Phone Dispatched to Retailer")
 
     pdf.ln(15)
     pdf.set_font("Arial", 'I', 8)
-    pdf.cell(0, 5, "This is a computer generated service receipt.", ln=True, align='C')
-    
+    pdf.cell(0, 5, "This is a computer generated document.", ln=True, align='C')
     return pdf.output(dest='S').encode('latin-1')
 
 # 3. Main Header UI
 st.markdown("""
     <div style='background: linear-gradient(135deg, #0b57d0 0%, #00c6ff 100%); padding: 20px; border-radius: 12px; text-align: center; color: white; margin-bottom: 20px;'>
-        <h1 style='margin:0; font-size: 32px; font-weight: 900;'>📱 JIO PHONE SERVICE</h1>
-        <p style='margin:5px 0 0 0; font-size: 16px; font-weight: 600;'>Return & Replacement Portal</p>
+        <h1 style='margin:0; font-size: 32px; font-weight: 900;'>📱 JIO PHONE - PORTAL</h1>
+        <p style='margin:5px 0 0 0; font-size: 16px; font-weight: 600;'>Sales & Service Management</p>
     </div>
 """, unsafe_allow_html=True)
 
 # 4. Dashboard Tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📝 New Entry", "⏳ Pending", "✅ History", "🖨️ Re-Print Bill", "📂 Auto-Fill Setup"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["🛒 New Sale (सेल)", "🛠️ Service Return (सर्विस)", "⏳ Pending", "✅ History", "📂 Data & Bills"])
 
 # ==========================================
-# TAB 1: NEW ENTRY (SCAN, SEARCH OR MANUAL)
+# TAB 1: NEW SALE (नया फ़ोन बेचना) - As you requested!
 # ==========================================
 with tab1:
-    if st.session_state.last_bill_data is not None:
-        bill_data = st.session_state.last_bill_data
-        st.success(f"🎉 Entry Saved Successfully! ID: {bill_data['ID']}")
-        st.markdown(f"### 📄 Bill Generated for {bill_data['Retailer']}")
-        
-        if HAS_FPDF:
-            pdf_bytes = generate_service_bill(bill_data)
-            st.download_button("📥 Download Service Bill (PDF)", data=pdf_bytes, file_name=f"Jio_Bill_{bill_data['IMEI']}.pdf", mime="application/pdf", use_container_width=True)
+    st.markdown("### 🛒 New Sale (Retailer Dispatch)")
+    st.info("💡 **नया फ़ोन बेचना:** जब आप किसी रिटेलर को नया फ़ोन देते हैं, तो यहाँ उसकी एंट्री करें। इससे यह IMEI हमेशा के लिए उस रिटेलर के नाम पर आपके ऐप में सेव हो जाएगा।")
+    
+    sale_qr_data = st.text_input("📷 Scanned Box Data (Paste/Scan Here)", placeholder="डब्बे का 4-कोना या बारकोड स्कैन करें...", key=f"sale_scan_{st.session_state.scan_key}")
+    
+    parsed_sale = { "MFRNAME": "", "MODELNO": "", "IMEI": "", "MRP": "", "EAN": "", "SRNO": "" }
+    
+    if sale_qr_data:
+        if "<IMEI>" in sale_qr_data.upper() or "<?XML" in sale_qr_data.upper():
+            for key in parsed_sale.keys():
+                match = re.search(f'<{key}>(.*?)</{key}>', sale_qr_data, re.IGNORECASE)
+                if match: parsed_sale[key] = match.group(1)
+        elif ',' in sale_qr_data:
+            parts = sale_qr_data.split(',')
+            if len(parts) >= 5:
+                parsed_sale["MODELNO"] = parts[0]; parsed_sale["IMEI"] = parts[1]; parsed_sale["MRP"] = parts[2]; parsed_sale["EAN"] = parts[3]; parsed_sale["SRNO"] = parts[4]
+        else:
+            parsed_sale["IMEI"] = sale_qr_data
             
-        if st.button("➕ Start New Entry", type="primary", use_container_width=True):
-            st.session_state.last_bill_data = None
-            st.session_state.scan_key += 1
-            st.rerun()
-
-    else:
-        st.markdown("### 🔍 Step 1: Find Device / Entry Method")
+    with st.form("sale_form"):
+        sale_retailer = st.text_input("👤 Retailer Name (किस रिटेलर को बेच रहे हैं?)*")
         
-        # 🟢 NEW: 3 Options (Including Manual)
-        entry_method = st.radio("डिवाइस खोजने का तरीका चुनें:", [
-            "🔍 Smart Search (रिटेलर से खोजें)", 
-            "📷 Scanner / Paste (स्कैन या पेस्ट)", 
-            "✍️ Manual Entry (हाथ से भरें)"
-        ])
+        c1, c2 = st.columns(2)
+        with c1:
+            sale_imei = st.text_input("IMEI Number*", value=parsed_sale["IMEI"])
+            sale_model = st.text_input("Model Number", value=parsed_sale["MODELNO"])
+            sale_mfr = st.text_input("MFRNAME", value=parsed_sale["MFRNAME"])
+        with c2:
+            sale_mrp = st.text_input("MRP (₹)", value=parsed_sale["MRP"])
+            sale_srno = st.text_input("Serial No", value=parsed_sale["SRNO"])
+            sale_ean = st.text_input("EAN Code", value=parsed_sale["EAN"])
+            
+        submit_sale = st.form_submit_button("💾 Save Sale & Assign to Retailer", type="primary", use_container_width=True)
         
-        parsed_data = { "MFRNAME": "", "MODELNO": "", "IMEI": "", "MRP": "", "EAN": "", "SRNO": "" }
-        auto_retailer_name = ""
-
-        # 🟢 1. SMART SEARCH LOGIC
-        if entry_method == "🔍 Smart Search (रिटेलर से खोजें)":
-            if st.session_state.sales_db.empty:
-                st.warning("⚠️ स्मार्ट सर्च काम करने के लिए, पहले '📂 Auto-Fill Setup' टैब में Sales Data Excel अपलोड करें।")
+        if submit_sale:
+            if not sale_retailer or not sale_imei:
+                st.error("❌ Retailer Name aur IMEI Number jaruri hai!")
             else:
-                st.info("💡 यहाँ रिटेलर का नाम चुनें, फिर बगल में उस रिटेलर को दिए गए सारे IMEI दिखेंगे।")
-                
-                ret_cols = [c for c in st.session_state.sales_db.columns if 'RETAILER' in str(c).upper() or 'NAME' in str(c).upper()]
-                imei_cols = [c for c in st.session_state.sales_db.columns if 'IMEI' in str(c).upper()]
-                model_cols = [c for c in st.session_state.sales_db.columns if 'MODEL' in str(c).upper()]
-                
-                if ret_cols and imei_cols:
-                    retailer_list = st.session_state.sales_db[ret_cols[0]].dropna().unique().tolist()
-                    
-                    colA, colB = st.columns(2)
-                    with colA:
-                        selected_ret = st.selectbox("👤 Select Retailer*", ["-- Select --"] + sorted(retailer_list))
-                    
-                    if selected_ret != "-- Select --":
-                        auto_retailer_name = selected_ret
-                        ret_data = st.session_state.sales_db[st.session_state.sales_db[ret_cols[0]] == selected_ret]
-                        imei_list = ret_data[imei_cols[0]].dropna().astype(str).tolist()
-                        
-                        with colB:
-                            selected_imei = st.selectbox("📱 Select Phone IMEI*", ["-- Select --"] + imei_list)
-                            
-                        if selected_imei != "-- Select --":
-                            parsed_data["IMEI"] = selected_imei
-                            st.success("✅ Device Found & Details Auto-Filled!")
-                            
-                            if model_cols:
-                                match_row = ret_data[ret_data[imei_cols[0]].astype(str) == selected_imei].iloc[0]
-                                parsed_data["MODELNO"] = str(match_row[model_cols[0]])
-                else:
-                    st.error("Excel File me 'Retailer' aur 'IMEI' column nahi mila.")
-
-        # 🟢 2. SCAN OR PASTE LOGIC
-        elif entry_method == "📷 Scanner / Paste (स्कैन या पेस्ट)":
-            qr_data = st.text_input("📷 Scanned Data (Paste Here)", placeholder="यहाँ पेस्ट करें या गन से स्कैन करें...", key=f"qr_manual_{st.session_state.scan_key}")
-
-            if st.button("🔄 Clear Data"):
-                st.session_state.scan_key += 1 
+                new_sale = {
+                    "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
+                    "MFRNAME": sale_mfr, "Model": sale_model, "IMEI": sale_imei,
+                    "MRP": sale_mrp, "EAN": sale_ean, "SRNO": sale_srno, "Retailer": sale_retailer.upper()
+                }
+                st.session_state.sales_db = pd.concat([st.session_state.sales_db, pd.DataFrame([new_sale])], ignore_index=True)
+                st.success(f"✅ IMEI {sale_imei} successfully assigned to {sale_retailer.upper()}!")
+                st.session_state.scan_key += 1
+                time.sleep(1)
                 st.rerun()
 
-            if qr_data:
-                if "<IMEI>" in qr_data.upper() or "<?XML" in qr_data.upper():
-                    st.success("✅ Jio QR (XML) Detected!")
-                    for key in parsed_data.keys():
-                        match = re.search(f'<{key}>(.*?)</{key}>', qr_data, re.IGNORECASE)
-                        if match: parsed_data[key] = match.group(1)
-                elif ',' in qr_data:
-                    parts = qr_data.split(',')
-                    if len(parts) >= 5:
-                        parsed_data["MODELNO"] = parts[0]; parsed_data["IMEI"] = parts[1]; parsed_data["MRP"] = parts[2]; parsed_data["EAN"] = parts[3]; parsed_data["SRNO"] = parts[4]
-                        st.success("✅ CSV Code Read Successfully!")
-                    else: parsed_data["IMEI"] = qr_data 
-                else:
-                    parsed_data["IMEI"] = qr_data
-                    st.success("✅ Single Code Detected!")
-
-            if parsed_data["IMEI"] and not st.session_state.sales_db.empty:
-                search_imei = str(parsed_data["IMEI"]).strip()
-                imei_cols = [c for c in st.session_state.sales_db.columns if 'IMEI' in str(c).upper()]
-                ret_cols = [c for c in st.session_state.sales_db.columns if 'RETAILER' in str(c).upper() or 'NAME' in str(c).upper()]
-                if imei_cols and ret_cols:
-                    match_df = st.session_state.sales_db[st.session_state.sales_db[imei_cols[0]].astype(str).str.strip() == search_imei]
-                    if not match_df.empty:
-                        auto_retailer_name = str(match_df.iloc[0][ret_cols[0]])
-                        st.success(f"🤖 Retailer Auto-Found: **{auto_retailer_name}**")
-        
-        # 🟢 3. MANUAL ENTRY LOGIC
-        else:
-            st.info("💡 **हाथ से भरें:** नीचे दिए गए डब्बों में आप खुद से कोई भी नंबर या डिटेल टाइप कर सकते हैं।")
-
-        # 🟢 FORM DETAILS (COMPLETELY UNLOCKED & EDITABLE)
-        with st.form("service_form"):
-            st.markdown("### 📋 Step 2: Phone Details")
-            st.caption("नीचे दिए गए डब्बों में आप टाइप कर सकते हैं या बदलाव कर सकते हैं।")
-            
-            # All boxes are now fully editable (disabled=False)
-            mfr_in = st.text_input("Manufacturer Name (MFRNAME)", value=parsed_data["MFRNAME"])
-            c1, c2 = st.columns(2)
-            with c1:
-                model_in = st.text_input("Model Number", value=parsed_data["MODELNO"])
-                mrp_in = st.text_input("MRP (₹) - [सिर्फ नंबर लिखें]", value=parsed_data["MRP"])
-                srno_in = st.text_input("Serial No (SRNO)", value=parsed_data["SRNO"])
-            with c2:
-                imei_in = st.text_input("IMEI Number (15 Digits)*", value=parsed_data["IMEI"])
-                ean_in = st.text_input("EAN Code", value=parsed_data["EAN"])
-
-            st.markdown("---")
-            st.markdown("### 🛠️ Step 3: Service Information")
-            
-            retailer = st.text_input("👤 Retailer Name (किस रिटेलर का फ़ोन है?)*", value=auto_retailer_name)
-            problem = st.selectbox("⚠️ Phone Problem (दिक्कत क्या है?)*", ["-- Select --", "Damage / Broken (टूटा/डैमेज है)", "Battery Issue (बैटरी ख़राब)", "Software Dead (सॉफ्टवेयर डेड)", "Display Broken (डिस्प्ले टूटा है)", "Keypad Issue (कीपैड ख़राब)", "Charging Issue (चार्ज नहीं हो रहा)", "Other (अन्य)"])
-            action = st.radio("🔄 Action Required*", ["Replace with New Phone (नया बदल कर देना है)", "Repair Same Phone (वही ठीक करके देना है)"])
-            status = st.radio("📦 Current Status*", ["Pending (फ़ोन अभी पेंडिंग है)", "Delivered (दे दिया गया है)"])
-
-            submit = st.form_submit_button("💾 Save Entry & Print Bill", type="primary", use_container_width=True)
-
-            if submit:
-                if problem == "-- Select --" or not retailer:
-                    st.error("❌ Please enter Retailer Name and select a Problem.")
-                elif not imei_in:
-                    st.error("❌ Please enter or select the IMEI Number.")
-                else:
-                    if st.session_state.service_db.empty: new_num = 1
-                    else: new_num = len(st.session_state.service_db) + 1
-                        
-                    new_id = f"JIO-{new_num:04d}"
-                    new_data = {
-                        "action": "add", "ID": new_id, "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
-                        "MFRNAME": mfr_in, "Model": model_in, 
-                        "IMEI": imei_in, "MRP": mrp_in, 
-                        "EAN": ean_in, "SRNO": srno_in,
-                        "Retailer": retailer.upper(), "Problem": problem, "Action": action, 
-                        "Status": "Pending" if "Pending" in status else "Delivered"
-                    }
-                    
-                    st.session_state.service_db = pd.concat([st.session_state.service_db, pd.DataFrame([new_data])], ignore_index=True)
-                    st.session_state.last_bill_data = new_data
-                    
-                    try:
-                        if WEBHOOK_URL != "यहाँ_अपना_नया_WEBHOOK_URL_डालें":
-                            requests.post(WEBHOOK_URL, json=new_data, timeout=3)
-                    except: 
-                        pass 
-                    
-                    st.rerun()
-
 # ==========================================
-# TAB 2: PENDING PHONES DASHBOARD
+# TAB 2: SERVICE RETURN (सर्विस वापसी)
 # ==========================================
 with tab2:
-    st.markdown("### ⏳ Pending Action Board")
-    if st.session_state.service_db.empty:
-        pending_df = pd.DataFrame()
-    else:
-        pending_df = st.session_state.service_db[st.session_state.service_db["Status"].astype(str).str.contains("Pending", case=False, na=False)]
+    st.markdown("### 🛠️ Service Entry (Return / Faulty)")
+    st.info("💡 **खराब फ़ोन की वापसी:** अगर कोई फ़ोन ख़राब निकलता है, तो बस रिटेलर का नाम चुनें, उसका बिका हुआ फ़ोन यहाँ खुद आ जाएगा।")
     
-    if pending_df.empty: st.info("🎉 Good Job! No pending phones right now.")
-    else:
-        st.error(f"🚨 You have {len(pending_df)} phone(s) pending for service!")
-        for idx, row in pending_df.iterrows():
-            st.markdown(f"""
-                <div style='border: 1px solid #f87171; padding: 15px; border-radius: 10px; background: #fef2f2; margin-bottom: 10px;'>
-                    <div style='display: flex; justify-content: space-between;'>
-                        <h4 style='color: #b91c1c; margin: 0;'>👤 {row['Retailer']}</h4>
-                        <span style='background: #b91c1c; color: white; padding: 3px 8px; border-radius: 5px; font-size: 12px;'>{row['ID']}</span>
-                    </div>
-                    <p style='margin: 8px 0 2px 0; color: #4b5563;'><b>📱 Model:</b> {row['Model']} | <b>IMEI:</b> {row['IMEI']}</p>
-                    <p style='margin: 2px 0; color: #4b5563;'><b>⚠️ Problem:</b> {row['Problem']}</p>
-                    <p style='margin: 2px 0; color: #1e3a8a;'><b>🛠️ Action:</b> {row['Action']}</p>
-                    <p style='margin: 6px 0 0 0; font-size: 12px; color: #9ca3af;'>📅 {row['Date']}</p>
-                </div>
-            """, unsafe_allow_html=True)
-            c1, c2 = st.columns(2)
-            if c1.button(f"✅ Mark Delivered", key=f"del_{row['ID']}", type="secondary", use_container_width=True):
-                st.session_state.service_db.loc[st.session_state.service_db['ID'] == row['ID'], 'Status'] = "Delivered"
+    entry_method = st.radio("डिवाइस खोजने का तरीका चुनें:", ["🔍 Smart Search (रिटेलर से खोजें)", "📷 Scanner / Paste (स्कैन या पेस्ट)"])
+    
+    parsed_data = { "MFRNAME": "", "MODELNO": "", "IMEI": "", "MRP": "", "EAN": "", "SRNO": "" }
+    auto_retailer_name = ""
+
+    # 1. SMART SEARCH LOGIC (फ्रॉम Sales DB)
+    if entry_method == "🔍 Smart Search (रिटेलर से खोजें)":
+        if st.session_state.sales_db.empty:
+            st.warning("⚠️ अभी तक कोई फ़ोन नहीं बेचा गया है। पहले '🛒 New Sale' में जाकर फ़ोन बेचें।")
+        else:
+            retailer_list = st.session_state.sales_db['Retailer'].dropna().unique().tolist()
+            colA, colB = st.columns(2)
+            with colA:
+                selected_ret = st.selectbox("👤 Select Retailer*", ["-- Select --"] + sorted(retailer_list))
+            
+            if selected_ret != "-- Select --":
+                auto_retailer_name = selected_ret
+                ret_data = st.session_state.sales_db[st.session_state.sales_db['Retailer'] == selected_ret]
+                imei_list = ret_data['IMEI'].dropna().astype(str).tolist()
+                
+                with colB:
+                    selected_imei = st.selectbox("📱 Select Phone IMEI*", ["-- Select --"] + imei_list)
+                    
+                if selected_imei != "-- Select --":
+                    match_row = ret_data[ret_data['IMEI'].astype(str) == selected_imei].iloc[0]
+                    parsed_data["IMEI"] = str(match_row.get("IMEI", ""))
+                    parsed_data["MODELNO"] = str(match_row.get("Model", ""))
+                    parsed_data["MFRNAME"] = str(match_row.get("MFRNAME", ""))
+                    parsed_data["MRP"] = str(match_row.get("MRP", ""))
+                    parsed_data["SRNO"] = str(match_row.get("SRNO", ""))
+                    parsed_data["EAN"] = str(match_row.get("EAN", ""))
+                    st.success("✅ Device Found in Sales Record! Details Auto-Filled.")
+
+    # 2. SCAN OR PASTE LOGIC
+    elif entry_method == "📷 Scanner / Paste (स्कैन या पेस्ट)":
+        qr_data = st.text_input("📷 Scanned Data (Paste Here)", key=f"qr_manual_srv_{st.session_state.scan_key}")
+        if qr_data:
+            if "<IMEI>" in qr_data.upper() or "<?XML" in qr_data.upper():
+                for key in parsed_data.keys():
+                    match = re.search(f'<{key}>(.*?)</{key}>', qr_data, re.IGNORECASE)
+                    if match: parsed_data[key] = match.group(1)
+            elif ',' in qr_data:
+                parts = qr_data.split(',')
+                if len(parts) >= 5:
+                    parsed_data["MODELNO"] = parts[0]; parsed_data["IMEI"] = parts[1]; parsed_data["MRP"] = parts[2]; parsed_data["EAN"] = parts[3]; parsed_data["SRNO"] = parts[4]
+            else:
+                parsed_data["IMEI"] = qr_data
+
+        if parsed_data["IMEI"] and not st.session_state.sales_db.empty:
+            search_imei = str(parsed_data["IMEI"]).strip()
+            match_df = st.session_state.sales_db[st.session_state.sales_db['IMEI'].astype(str).str.strip() == search_imei]
+            if not match_df.empty:
+                auto_retailer_name = str(match_df.iloc[0]['Retailer'])
+                st.success(f"🤖 Retailer Auto-Found from Sales Record: **{auto_retailer_name}**")
+
+    # SERVICE FORM
+    with st.form("service_form"):
+        st.markdown("### 📋 Phone Details")
+        c1, c2 = st.columns(2)
+        with c1:
+            imei_in = st.text_input("IMEI Number*", value=parsed_data["IMEI"])
+            model_in = st.text_input("Model Number", value=parsed_data["MODELNO"])
+        with c2:
+            mrp_in = st.text_input("MRP (₹)", value=parsed_data["MRP"])
+            retailer = st.text_input("👤 Retailer Name*", value=auto_retailer_name)
+
+        st.markdown("---")
+        st.markdown("### 🛠️ Service Information")
+        problem = st.selectbox("⚠️ Phone Problem*", ["-- Select --", "Damage / Broken (टूटा/डैमेज है)", "Battery Issue (बैटरी ख़राब)", "Software Dead (सॉफ्टवेयर डेड)", "Display Broken (डिस्प्ले टूटा है)", "Keypad Issue (कीपैड ख़राब)", "Charging Issue (चार्ज नहीं हो रहा)", "Other (अन्य)"])
+        action = st.radio("🔄 Action Required*", ["Replace with New Phone (नया बदल कर देना है)", "Repair Same Phone (वही ठीक करके देना है)"])
+        status = st.radio("📦 Current Status*", ["Pending (फ़ोन अभी पेंडिंग है)", "Delivered (दे दिया गया है)"])
+
+        submit = st.form_submit_button("💾 Save Service Entry", type="primary", use_container_width=True)
+
+        if submit:
+            if problem == "-- Select --" or not retailer or not imei_in:
+                st.error("❌ Retailer Name, IMEI, and Problem are required.")
+            else:
+                new_id = f"JIO-{(len(st.session_state.service_db) if not st.session_state.service_db.empty else 0)+1:04d}"
+                new_data = {
+                    "action": "add", "ID": new_id, "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
+                    "MFRNAME": parsed_data["MFRNAME"], "Model": model_in, 
+                    "IMEI": imei_in, "MRP": mrp_in, 
+                    "EAN": parsed_data["EAN"], "SRNO": parsed_data["SRNO"],
+                    "Retailer": retailer.upper(), "Problem": problem, "Action": action, 
+                    "Status": "Pending" if "Pending" in status else "Delivered"
+                }
+                st.session_state.service_db = pd.concat([st.session_state.service_db, pd.DataFrame([new_data])], ignore_index=True)
+                
                 try:
                     if WEBHOOK_URL != "यहाँ_अपना_नया_WEBHOOK_URL_डालें":
-                        requests.post(WEBHOOK_URL, json={"action":"update", "ID":row['ID'], "Status":"Delivered"}, timeout=3)
-                except: pass
-                st.rerun()
-            if c2.button(f"🗑️ Delete", key=f"rm_{row['ID']}", use_container_width=True):
-                st.session_state.service_db = st.session_state.service_db[st.session_state.service_db['ID'] != row['ID']]
-                try:
-                    if WEBHOOK_URL != "यहाँ_अपना_नया_WEBHOOK_URL_डालें":
-                        requests.post(WEBHOOK_URL, json={"action":"delete", "ID":row['ID']}, timeout=3)
-                except: pass
-                st.rerun()
+                        requests.post(WEBHOOK_URL, json=new_data, timeout=3)
+                except: pass 
+                
+                st.success("✅ Service Entry Saved! Go to 'Data & Bills' tab to print bill.")
 
 # ==========================================
-# TAB 3: DELIVERED HISTORY
+# TAB 3 & 4: PENDING AND HISTORY
 # ==========================================
 with tab3:
-    st.markdown("### ✅ Delivered / Completed Phones")
+    st.markdown("### ⏳ Pending Action Board")
     if st.session_state.service_db.empty:
-        delivered_df = pd.DataFrame()
+        st.info("🎉 Good Job! No pending phones right now.")
     else:
+        pending_df = st.session_state.service_db[st.session_state.service_db["Status"].astype(str).str.contains("Pending", case=False, na=False)]
+        if pending_df.empty: st.info("🎉 Good Job! No pending phones right now.")
+        else:
+            for idx, row in pending_df.iterrows():
+                st.markdown(f"<div style='border:1px solid #f87171; padding:15px; border-radius:10px; background:#fef2f2; margin-bottom:10px;'><b>👤 {row['Retailer']}</b> | IMEI: {row['IMEI']}<br>Problem: {row['Problem']}</div>", unsafe_allow_html=True)
+
+with tab4:
+    st.markdown("### ✅ Delivered / Completed Phones")
+    if not st.session_state.service_db.empty:
         delivered_df = st.session_state.service_db[st.session_state.service_db["Status"].astype(str).str.contains("Delivered", case=False, na=False)]
-    
-    if delivered_df.empty: st.info("No completed services yet.")
+        st.dataframe(delivered_df[["ID", "Date", "Retailer", "IMEI", "Problem", "Action"]], hide_index=True, use_container_width=True)
     else:
-        st.dataframe(delivered_df[["ID", "Date", "Retailer", "IMEI", "Problem", "Action"]].sort_values("ID", ascending=False), hide_index=True, use_container_width=True)
-        csv = delivered_df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download Delivered History (Excel)", data=csv, file_name=f"Jio_Service_History_{datetime.now().strftime('%d-%m-%Y')}.csv", mime="text/csv", use_container_width=True)
+        st.info("No completed services yet.")
 
 # ==========================================
-# TAB 4: RE-PRINT BILL (SEARCH BY IMEI)
+# TAB 5: DATA, BILLS & UPLOADS
 # ==========================================
-with tab4:
-    st.markdown("### 🖨️ Re-Print Old Bill")
-    st.info("किसी भी पुराने फ़ोन का बिल दोबारा निकालने के लिए उसका IMEI नंबर डालें।")
-    search_imei = st.text_input("🔍 Enter IMEI Number to Search:")
-    if st.button("Search & Print Bill", type="primary"):
+with tab5:
+    st.markdown("### 🖨️ Re-Print Bill / Invoice")
+    search_imei = st.text_input("🔍 Enter IMEI Number to generate Bill:")
+    if st.button("Print Service Bill", type="primary"):
         if search_imei and not st.session_state.service_db.empty:
             result = st.session_state.service_db[st.session_state.service_db['IMEI'].astype(str).str.contains(search_imei, na=False)]
             if not result.empty:
                 st.success("✅ Record Found!")
-                found_data = result.iloc[0].to_dict()
-                st.markdown(f"**Retailer:** {found_data['Retailer']} | **Status:** {found_data['Status']}")
                 if HAS_FPDF:
-                    pdf_bytes = generate_service_bill(found_data)
-                    st.download_button("📥 Download Bill (PDF)", data=pdf_bytes, file_name=f"Jio_Bill_{found_data['IMEI']}.pdf", mime="application/pdf", use_container_width=True)
-            else: st.error(f"❌ No record found for IMEI: {search_imei}")
-        else: st.warning("Please enter an IMEI number first.")
-
-# ==========================================
-# TAB 5: AUTO-FILL SALES DATA SETUP
-# ==========================================
-with tab5:
-    st.markdown("### 📂 Upload Sales Data (For Auto-Fill)")
-    st.info("""
-        **स्मार्ट सर्च कैसे काम करेगा?**
-        यहाँ अपनी उस Excel या CSV फाइल को अपलोड करें जिसमें आपने रिकॉर्ड रखा है कि कौन सा IMEI किस रिटेलर को बेचा गया है।
-    """)
-    uploaded_file = st.file_uploader("📥 Upload Sales/Dispatch Excel File", type=["xlsx", "xls", "csv"])
+                    pdf_bytes = generate_service_bill(result.iloc[0].to_dict(), "Service")
+                    st.download_button("📥 Download Service Bill (PDF)", data=pdf_bytes, file_name=f"Jio_Service_{search_imei}.pdf", mime="application/pdf")
+            else: st.error("❌ Not found in Service DB.")
+            
+    st.markdown("---")
+    st.markdown("### 📊 Your Sales Database (Current Session)")
+    if not st.session_state.sales_db.empty:
+        st.dataframe(st.session_state.sales_db, use_container_width=True)
+        csv = st.session_state.sales_db.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download Sales Record (Excel)", data=csv, file_name="Jio_Sales_Record.csv", mime="text/csv", use_container_width=True)
+    else:
+        st.info("No sales data yet. Sell a phone in 'New Sale' tab or upload past records below.")
+        
+    st.markdown("---")
+    st.markdown("### 📂 Upload Old Sales Data (Optional)")
+    uploaded_file = st.file_uploader("📥 Upload old Sales Excel/CSV", type=["xlsx", "xls", "csv"])
     if uploaded_file is not None:
         try:
-            if uploaded_file.name.endswith('.csv'): df = pd.read_csv(uploaded_file)
-            else: df = pd.read_excel(uploaded_file)
-            st.session_state.sales_db = df
-            st.success(f"✅ Data Loaded Successfully! ({len(df)} Records Found)")
-        except Exception as e: st.error(f"❌ Error reading file: {e}")
+            df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
+            st.session_state.sales_db = pd.concat([st.session_state.sales_db, df], ignore_index=True)
+            st.success("✅ Past Data Loaded Successfully!")
+        except Exception as e: st.error(f"Error: {e}")
