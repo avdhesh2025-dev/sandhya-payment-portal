@@ -2,6 +2,14 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
+# कैमरा स्कैनर के टूल्स लोड करने की कोशिश (Try-Except ताकि ऐप क्रैश न हो)
+try:
+    from pyzbar.pyzbar import decode
+    from PIL import Image
+    HAS_SCANNER = True
+except ImportError:
+    HAS_SCANNER = False
+
 # 1. Page Configuration
 st.set_page_config(page_title="Jio Phone Service", page_icon="📱", layout="centered")
 
@@ -28,14 +36,37 @@ tab1, tab2, tab3 = st.tabs(["📝 New Scan & Entry", "⏳ Pending Phones", "✅ 
 # ==========================================
 with tab1:
     st.markdown("### 🔍 Step 1: Scan QR Code")
-    st.info("👇 Click inside the box below and use your Barcode/QR Scanner. \n*(Scanner will auto-fill the details)*")
     
-    # Text input for barcode scanner to dump data
-    qr_data = st.text_input("📷 Click here and Scan QR...", placeholder="Scanner will type data here automatically...")
+    # स्कैन करने का तरीका चुनें
+    scan_method = st.radio("स्कैन करने का तरीका चुनें (Select Scan Method):", ["📷 Mobile Camera (मोबाइल कैमरा)", "🔫 Scanner Machine (गन स्कैनर)"])
+    
+    qr_data = ""
+    
+    if scan_method == "📷 Mobile Camera (मोबाइल कैमरा)":
+        if HAS_SCANNER:
+            st.info("👇 नीचे दिए कैमरे से QR कोड की साफ़ फोटो खींचें।")
+            img_file = st.camera_input("📷 QR Code की फोटो लें")
+            
+            if img_file is not None:
+                try:
+                    img = Image.open(img_file)
+                    decoded = decode(img)
+                    if decoded:
+                        qr_data = decoded[0].data.decode('utf-8')
+                        st.success(f"✅ QR Successfully Read: {qr_data}")
+                    else:
+                        st.error("❌ QR कोड पढ़ा नहीं जा सका। कृपया थोड़ी पास से और साफ़ फोटो लें।")
+                except Exception as e:
+                    st.error("Error processing image.")
+        else:
+            st.error("⚠️ कैमरा स्कैनर चालू करने के लिए जरूरी फाइल्स गायब हैं।")
+            st.info("💡 कृपया अपने सर्वर पर `requirements.txt` में 'pyzbar' और 'Pillow' डालें, और `packages.txt` में 'libzbar0' डालें।")
+            
+    else:
+        st.info("👇 नीचे क्लिक करें और अपनी मशीन से स्कैन करें।")
+        qr_data = st.text_input("🔫 Click here and Scan QR...", placeholder="Scanner will type data here automatically...")
 
     # Logic to auto-fill data based on scanned string
-    # Assuming standard Jio Phone QR format is comma-separated: Model,IMEI,MRP,EAN,SRNO
-    # Example: JioPhone Next,351234567890123,1999,8901234567890,SR123456789
     model_val = imei_val = mrp_val = ean_val = srno_val = ""
     
     if qr_data:
@@ -43,11 +74,10 @@ with tab1:
             parts = qr_data.split(',')
             if len(parts) >= 5:
                 model_val, imei_val, mrp_val, ean_val, srno_val = parts[0], parts[1], parts[2], parts[3], parts[4]
-                st.success("✅ QR Scanned Successfully! Data Locked.")
+                st.success("✅ Scanned Successfully! Data Locked.")
             else:
-                # Fallback if scanner puts spaces or another format
-                imei_val = qr_data  # Just put raw data in IMEI for manual correction if format mismatches
-                st.warning("⚠️ Unknown QR format. Filling raw data.")
+                imei_val = qr_data 
+                st.warning("⚠️ Unknown QR format. Filling raw data in IMEI box.")
         except:
             st.error("Error reading QR Data.")
 
@@ -89,7 +119,6 @@ with tab1:
             elif not imei_val:
                 st.error("❌ Please Scan the QR Code first before saving.")
             else:
-                # Add to Database
                 new_id = f"JIO-{len(st.session_state.service_db)+1:04d}"
                 new_data = {
                     "ID": new_id, 
@@ -129,9 +158,7 @@ with tab2:
                 </div>
             """, unsafe_allow_html=True)
             
-            # DELIVER BUTTON
             if st.button(f"✅ Mark as Delivered (Done)", key=f"del_{row['ID']}", type="secondary", use_container_width=True):
-                # Update Status
                 st.session_state.service_db.loc[st.session_state.service_db['ID'] == row['ID'], 'Status'] = "Delivered"
                 st.success(f"{row['ID']} marked as Delivered!")
                 st.rerun()
@@ -153,7 +180,6 @@ with tab3:
             use_container_width=True
         )
         
-        # Download Option
         csv = delivered_df.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="📥 Download Delivered History (Excel)",
