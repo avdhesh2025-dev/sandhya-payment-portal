@@ -5,3 +5,7 @@ jinja2
 pdfkit
 openpyxl
 fpdf
+streamlit
+pandas
+pyzbar
+Pillow
