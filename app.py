@@ -31,8 +31,8 @@ st.markdown("""
 # ==========================================
 # 🔴 यहाँ अपना नया WEBHOOK और SHEET ID डालें 🔴
 # ==========================================
-WEBHOOK_URL = "यहाँ_अपना_नया_WEBHOOK_URL_डालें"
-SHEET_ID = "यहाँ_अपनी_Google_Sheet_की_ID_डालें"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwCobr5YdjZJedeXQxnzTVMlkEJ5LI7-1CAnAlf5_14QiAHe502xipIguOxT2ewOanpUQ/exec"
+SHEET_ID = "https://docs.google.com/spreadsheets/d/17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM/edit?usp=sharing"
 # ==========================================
 
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=ServiceDB"
