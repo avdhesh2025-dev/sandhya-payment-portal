@@ -137,24 +137,20 @@ with tab1:
         qr_data = ""
 
         if scan_method == "📷 Live HD Camera (लाइव स्कैनर)":
-            st.info("💡 **TIP:** कैमरे को डब्बे से थोड़ा दूर रखें ताकि कोड साफ़ (Clear) दिखे।")
+            st.info("💡 **TIP:** अब कोई डब्बा नहीं है! कैमरे में QR को कहीं भी लाएं, यह तुरंत स्कैन कर लेगा।")
             
-            # 🟢 HD CAMERA HACK: Forcing 1080p resolution and continuous focus
+            # 🟢 FULL SCREEN SCANNER (NO BOX)
             scanner_html = """
             <script src="https://unpkg.com/html5-qrcode"></script>
             <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
             <script>
                 const html5QrCode = new Html5Qrcode("reader");
                 
-                // 🟢 Forcing HD Resolution (1080p) to read dense Data Matrix
+                // 🟢 REMOVED 'qrbox' so the ENTIRE camera view becomes the scanner
                 const config = { 
-                    fps: 10, 
-                    qrbox: { width: 250, height: 250 }, 
-                    videoConstraints: {
-                        facingMode: "environment",
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 }
-                    }
+                    fps: 15, 
+                    formatsToSupport: [ Html5QrcodeSupportedFormats.DATA_MATRIX, Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128 ],
+                    experimentalFeatures: { useBarCodeDetectorIfSupported: true } 
                 };
 
                 function setNativeValue(element, value) {
@@ -182,7 +178,7 @@ with tab1:
                 });
             </script>
             """
-            st.components.v1.html(scanner_html, height=350)
+            st.components.v1.html(scanner_html, height=400)
             qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", key=f"qr_auto_{st.session_state.scan_key}")
             
         else:
