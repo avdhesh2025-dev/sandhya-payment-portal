@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import time
-import re  # 🟢 Added Regex module to decode XML data
+import re
 
 # 1. Page Configuration
 st.set_page_config(page_title="Jio Phone Service", page_icon="📱", layout="centered")
@@ -10,7 +10,7 @@ st.set_page_config(page_title="Jio Phone Service", page_icon="📱", layout="cen
 # 2. Database Initialization
 if 'service_db' not in st.session_state:
     st.session_state.service_db = pd.DataFrame(columns=[
-        "ID", "Date", "Model", "IMEI", "MRP", "EAN", "SRNO",
+        "ID", "Date", "MFRNAME", "Model", "IMEI", "MRP", "EAN", "SRNO",
         "Retailer", "Problem", "Action", "Status"
     ])
 
@@ -90,57 +90,58 @@ with tab1:
         st.session_state.scan_key += 1 
         st.rerun()
 
-    # 🟢 NEW LOGIC: XML & Comma Decoder
-    model_val = imei_val = mrp_val = ean_val = srno_val = ""
+    # 🟢 EXACT PARSING LOGIC BASED ON YOUR JIO XML DATA
+    parsed_data = {
+        "MFRNAME": "",
+        "MODELNO": "",
+        "IMEI": "",
+        "MRP": "",
+        "EAN": "",
+        "SRNO": ""
+    }
     
     if qr_data:
-        # Check if data is in Jio's XML format
-        if "<?xml" in qr_data or "<MODELNO>" in qr_data:
-            try:
-                # Using Regex to extract data from XML tags safely
-                m_match = re.search(r'<MODELNO>(.*?)</MODELNO>', qr_data, re.IGNORECASE)
-                i_match = re.search(r'<IMEI>(.*?)</IMEI>', qr_data, re.IGNORECASE)
-                mrp_match = re.search(r'<MRP>(.*?)</MRP>', qr_data, re.IGNORECASE)
-                e_match = re.search(r'<EAN>(.*?)</EAN>', qr_data, re.IGNORECASE)
-                s_match = re.search(r'<SRNO>(.*?)</SRNO>', qr_data, re.IGNORECASE)
-
-                model_val = m_match.group(1) if m_match else ""
-                imei_val = i_match.group(1) if i_match else ""
-                mrp_val = mrp_match.group(1) if mrp_match else ""
-                ean_val = e_match.group(1) if e_match else ""
-                srno_val = s_match.group(1) if s_match else ""
-                
-                if imei_val:
-                    st.success("✅ Jio QR (XML) Successfully Decoded!")
-                else:
-                    st.error("⚠️ XML format detected, but IMEI not found.")
-            except Exception as e:
-                st.error(f"Error parsing XML: {e}")
-                
-        # Fallback if it's a simple comma-separated format
+        # Check if it contains Jio XML tags
+        if "<IMEI>" in qr_data.upper() or "<?XML" in qr_data.upper():
+            st.success("✅ Jio QR (XML) Successfully Detected & Decoded!")
+            
+            # Extract data using exact tags
+            for key in parsed_data.keys():
+                match = re.search(f'<{key}>(.*?)</{key}>', qr_data, re.IGNORECASE)
+                if match:
+                    parsed_data[key] = match.group(1)
+        
+        # Fallback for simple comma-separated
         elif ',' in qr_data:
             parts = qr_data.split(',')
             if len(parts) >= 5:
-                model_val, imei_val, mrp_val, ean_val, srno_val = parts[0], parts[1], parts[2], parts[3], parts[4]
-                st.success("✅ QR Code Successfully Read!")
+                parsed_data["MODELNO"] = parts[0]
+                parsed_data["IMEI"] = parts[1]
+                parsed_data["MRP"] = parts[2]
+                parsed_data["EAN"] = parts[3]
+                parsed_data["SRNO"] = parts[4]
+                st.success("✅ Simple QR Code Successfully Read!")
             else:
-                imei_val = qr_data 
+                parsed_data["IMEI"] = qr_data 
                 st.warning("⚠️ Scanner read the data, but format is unknown. Raw data filled in IMEI.")
         else:
-            imei_val = qr_data
+            parsed_data["IMEI"] = qr_data
             st.warning("⚠️ Raw data filled in IMEI.")
 
     # FORM DETAILS
     with st.form("service_form"):
-        st.markdown("### 📋 Step 2: Scanned Details (Read Only)")
+        st.markdown("### 📋 Step 2: Scanned Details (Auto-Boxed)")
+        
+        st.text_input("Manufacturer Name (MFRNAME)", value=parsed_data["MFRNAME"], disabled=True)
+        
         c1, c2 = st.columns(2)
         with c1:
-            st.text_input("Model Number", value=model_val, disabled=True)
-            st.text_input("MRP", value=mrp_val, disabled=True)
-            st.text_input("Serial No (SRNO)", value=srno_val, disabled=True)
+            st.text_input("Model Number", value=parsed_data["MODELNO"], disabled=True)
+            st.text_input("MRP", value=parsed_data["MRP"], disabled=True)
+            st.text_input("Serial No (SRNO)", value=parsed_data["SRNO"], disabled=True)
         with c2:
-            st.text_input("IMEI Number*", value=imei_val, disabled=True)
-            st.text_input("EAN", value=ean_val, disabled=True)
+            st.text_input("IMEI Number*", value=parsed_data["IMEI"], disabled=True)
+            st.text_input("EAN", value=parsed_data["EAN"], disabled=True)
 
         st.markdown("---")
         st.markdown("### 🛠️ Step 3: Service Information")
@@ -166,14 +167,16 @@ with tab1:
         if submit:
             if problem == "-- Select --" or not retailer:
                 st.error("❌ Please enter Retailer Name and select a Problem.")
-            elif not imei_val:
+            elif not parsed_data["IMEI"]:
                 st.error("❌ Please Scan a valid QR Code first.")
             else:
                 new_id = f"JIO-{len(st.session_state.service_db)+1:04d}"
                 new_data = {
                     "ID": new_id, 
                     "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
-                    "Model": model_val, "IMEI": imei_val, "MRP": mrp_val, "EAN": ean_val, "SRNO": srno_val,
+                    "MFRNAME": parsed_data["MFRNAME"], "Model": parsed_data["MODELNO"], 
+                    "IMEI": parsed_data["IMEI"], "MRP": parsed_data["MRP"], 
+                    "EAN": parsed_data["EAN"], "SRNO": parsed_data["SRNO"],
                     "Retailer": retailer.upper(), "Problem": problem, "Action": action, 
                     "Status": "Pending" if "Pending" in status else "Delivered"
                 }
