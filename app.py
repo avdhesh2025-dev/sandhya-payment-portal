@@ -94,7 +94,6 @@ def generate_service_bill(data):
     
     return pdf.output(dest='S').encode('latin-1')
 
-
 # 3. Main Header UI
 st.markdown("""
     <div style='background: linear-gradient(135deg, #0b57d0 0%, #00c6ff 100%); padding: 20px; border-radius: 12px; text-align: center; color: white; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);'>
@@ -132,25 +131,23 @@ with tab1:
 
     else:
         st.markdown("### 🔍 Step 1: Scan QR Code")
-        scan_method = st.radio("स्कैन का तरीका चुनें:", ["📷 Live HD Camera (लाइव स्कैनर)", "🔫 Scanner Machine (गन स्कैनर)"])
+        scan_method = st.radio("स्कैन का तरीका चुनें:", ["📷 Live Mobile Camera (लाइव कैमरा)", "🔫 Scanner Machine / Paste (मशीन/पेस्ट)"])
         
         qr_data = ""
 
-        if scan_method == "📷 Live HD Camera (लाइव स्कैनर)":
-            st.info("💡 **TIP:** अब कोई डब्बा नहीं है! कैमरे में QR को कहीं भी लाएं, यह तुरंत स्कैन कर लेगा।")
+        if scan_method == "📷 Live Mobile Camera (लाइव कैमरा)":
+            st.warning("💡 **TIP:** मोबाइल को डब्बे से **6-8 इंच दूर** रखें। कैमरे का Auto-Zoom खुद पास ले आएगा ताकि फोटो साफ़ (Clear) रहे!")
             
-            # 🟢 FULL SCREEN SCANNER (NO BOX)
+            # 🟢 AUTO-ZOOM ENABLED SCANNER (Using advanced constraints)
             scanner_html = """
             <script src="https://unpkg.com/html5-qrcode"></script>
             <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
             <script>
                 const html5QrCode = new Html5Qrcode("reader");
-                
-                // 🟢 REMOVED 'qrbox' so the ENTIRE camera view becomes the scanner
                 const config = { 
                     fps: 15, 
-                    formatsToSupport: [ Html5QrcodeSupportedFormats.DATA_MATRIX, Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128 ],
-                    experimentalFeatures: { useBarCodeDetectorIfSupported: true } 
+                    qrbox: { width: 250, height: 250 }, 
+                    formatsToSupport: [ Html5QrcodeSupportedFormats.DATA_MATRIX, Html5QrcodeSupportedFormats.QR_CODE ] 
                 };
 
                 function setNativeValue(element, value) {
@@ -160,7 +157,8 @@ with tab1:
                     element.dispatchEvent(new Event('input', { bubbles: true }));
                 }
 
-                html5QrCode.start({ facingMode: "environment" }, config, 
+                // 🟢 Attempting to force zoom so user can hold camera further away
+                html5QrCode.start({ facingMode: "environment", advanced: [{ zoom: 2.0 }] }, config, 
                     (decodedText) => {
                         let inputs = window.parent.document.querySelectorAll('input[type="text"]');
                         inputs.forEach(inp => {
@@ -174,15 +172,27 @@ with tab1:
                     }, 
                     (errorMessage) => { /* Ignore errors */ }
                 ).catch(err => {
-                    document.getElementById('reader').innerHTML = '<div style="color:red; padding:20px; background:white;">Camera Error! Allow permissions.</div>';
+                    // Fallback without zoom if device doesn't support it
+                    html5QrCode.start({ facingMode: "environment" }, config, 
+                        (decodedText) => {
+                            let inputs = window.parent.document.querySelectorAll('input[type="text"]');
+                            inputs.forEach(inp => {
+                                if(inp.getAttribute('aria-label') && inp.getAttribute('aria-label').includes('Scanned Data')) {
+                                    setNativeValue(inp, decodedText);
+                                }
+                            });
+                            html5QrCode.stop();
+                        }, (e) => {}
+                    );
                 });
             </script>
             """
-            st.components.v1.html(scanner_html, height=400)
+            st.components.v1.html(scanner_html, height=350)
             qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", key=f"qr_auto_{st.session_state.scan_key}")
             
         else:
-            qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", placeholder="Scanner will type data here...", key=f"qr_manual_{st.session_state.scan_key}")
+            st.info("💡 यहाँ अपनी 'गन स्कैनर मशीन' से स्कैन करें, या अपने 'QR Scanner App' से कॉपी करके पेस्ट कर दें!")
+            qr_data = st.text_input("📷 Scanned Data (Paste Here)", placeholder="यहाँ पेस्ट करें या गन से स्कैन करें...", key=f"qr_manual_{st.session_state.scan_key}")
 
         if st.button("🔄 Reset Scanner / Clear Data"):
             st.session_state.scan_key += 1 
