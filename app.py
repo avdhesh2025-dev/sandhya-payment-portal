@@ -5,6 +5,7 @@ import time
 import re
 import requests
 
+# FPDF for Bill Generation
 try:
     from fpdf import FPDF
     HAS_FPDF = True
@@ -15,10 +16,10 @@ except ImportError:
 st.set_page_config(page_title="Jio Phone Service", page_icon="📱", layout="centered")
 
 # ==========================================
-# 🔴 यहाँ WEBHOOK सेट हो गया है, बस SHEET ID डालें 🔴
+# 🔴 यहाँ अपना नया WEBHOOK और SHEET ID डालें 🔴
 # ==========================================
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzA7DMQCfsEgjLa_tyYgCDH9pV5GP59rl41IdpsTk23xfZ14Mmntw2vi0PCB55VwsD3OA/exec"
-SHEET_ID = "यहाँ_अपनी_नई_Google_Sheet_की_ID_डालें"  # <--- बस यहाँ अपनी शीट की ID डाल दें!
+WEBHOOK_URL = "यहाँ_अपना_नया_WEBHOOK_URL_डालें"
+SHEET_ID = "यहाँ_अपनी_नई_Google_Sheet_की_ID_डालें"
 # ==========================================
 
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=ServiceDB"
@@ -34,9 +35,8 @@ def load_data():
     except:
         return pd.DataFrame(columns=["ID", "Date", "MFRNAME", "Model", "IMEI", "MRP", "EAN", "SRNO", "Retailer", "Problem", "Action", "Status"])
 
+# 2. Database Initialization
 if 'service_db' not in st.session_state:
-    st.session_state.service_db = load_data()
-else:
     st.session_state.service_db = load_data()
 
 if 'sales_db' not in st.session_state:
@@ -53,6 +53,8 @@ def generate_service_bill(data):
     if not HAS_FPDF: return None
     pdf = FPDF()
     pdf.add_page()
+    
+    # Header
     pdf.set_font("Arial", 'B', 18)
     pdf.cell(0, 10, "SANDHYA ENTERPRISES", ln=True, align='C')
     pdf.set_font("Arial", 'B', 11)
@@ -62,6 +64,8 @@ def generate_service_bill(data):
     pdf.cell(0, 5, "Contact: 7479584179 | Email: smp.sandhya02@gmail.com", ln=True, align='C')
     pdf.line(10, 38, 200, 38)
     pdf.ln(10)
+
+    # Details
     pdf.set_font("Arial", 'B', 10)
     
     def print_row(col1, col2):
@@ -89,19 +93,24 @@ def generate_service_bill(data):
     pdf.ln(15)
     pdf.set_font("Arial", 'I', 8)
     pdf.cell(0, 5, "This is a computer generated service receipt.", ln=True, align='C')
+    
     return pdf.output(dest='S').encode('latin-1')
 
-# Main UI
+
+# 3. Main Header UI
 st.markdown("""
-    <div style='background: linear-gradient(135deg, #0b57d0 0%, #00c6ff 100%); padding: 20px; border-radius: 12px; text-align: center; color: white; margin-bottom: 20px;'>
+    <div style='background: linear-gradient(135deg, #0b57d0 0%, #00c6ff 100%); padding: 20px; border-radius: 12px; text-align: center; color: white; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);'>
         <h1 style='margin:0; font-size: 32px; font-weight: 900;'>📱 JIO PHONE SERVICE</h1>
         <p style='margin:5px 0 0 0; font-size: 16px; font-weight: 600;'>Return & Replacement Portal</p>
     </div>
 """, unsafe_allow_html=True)
 
+# 4. Dashboard Tabs
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📝 New Entry", "⏳ Pending", "✅ History", "🖨️ Re-Print Bill", "📂 Auto-Fill Setup"])
 
-# TAB 1: NEW ENTRY
+# ==========================================
+# TAB 1: NEW ENTRY & LIVE SCANNER
+# ==========================================
 with tab1:
     if st.session_state.last_bill_data is not None:
         bill_data = st.session_state.last_bill_data
@@ -110,19 +119,29 @@ with tab1:
         
         if HAS_FPDF:
             pdf_bytes = generate_service_bill(bill_data)
-            st.download_button("📥 Download Service Bill (PDF)", data=pdf_bytes, file_name=f"Jio_Bill_{bill_data['IMEI']}.pdf", mime="application/pdf", use_container_width=True)
+            st.download_button(
+                label="📥 Download Service Bill (PDF)",
+                data=pdf_bytes,
+                file_name=f"Jio_Bill_{bill_data['IMEI']}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+        else:
+            st.error("PDF Generator is missing. Please add 'fpdf' to requirements.txt")
             
         if st.button("➕ Start New Scan & Entry", type="primary", use_container_width=True):
             st.session_state.last_bill_data = None
             st.session_state.scan_key += 1
             st.rerun()
+
     else:
         st.markdown("### 🔍 Step 1: Scan QR Code")
         scan_method = st.radio("स्कैन का तरीका चुनें:", ["📷 Live Mobile Camera (लाइव कैमरा)", "🔫 Scanner Machine (गन स्कैनर)"])
+        
         qr_data = ""
 
         if scan_method == "📷 Live Mobile Camera (लाइव कैमरा)":
-            st.info("👇 डब्बे में QR कोड लाएं। पीछे वाला कैमरा स्कैन करेगा।")
+            st.info("👇 ख़राब QR कोड के लिए भी 'Live Scanner' को पास ले जाएं।")
             scanner_html = """
             <script src="https://unpkg.com/html5-qrcode"></script>
             <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
@@ -139,13 +158,15 @@ with tab1:
                     (decodedText) => {
                         let inputs = window.parent.document.querySelectorAll('input[type="text"]');
                         inputs.forEach(inp => {
-                            if(inp.getAttribute('aria-label') && inp.getAttribute('aria-label').includes('Scanned Data')) setNativeValue(inp, decodedText);
+                            if(inp.getAttribute('aria-label') && inp.getAttribute('aria-label').includes('Scanned Data')) {
+                                setNativeValue(inp, decodedText);
+                            }
                         });
                         html5QrCode.stop().then(() => {
                             document.getElementById('reader').innerHTML = '<div style="padding: 80px 0; text-align: center; color: #15803d; font-size: 24px; font-weight: bold; background: #dcfce7; height: 100%;">✅ Code Caught! Scroll Down 👇</div>';
                         });
                     }, 
-                    (errorMessage) => { }
+                    (errorMessage) => { /* Ignore errors */ }
                 ).catch(err => {
                     document.getElementById('reader').innerHTML = '<div style="color:red; padding:20px; background:white;">Camera Error! Allow permissions.</div>';
                 });
@@ -153,6 +174,7 @@ with tab1:
             """
             st.components.v1.html(scanner_html, height=350)
             qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", key=f"qr_auto_{st.session_state.scan_key}")
+            
         else:
             qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", placeholder="Scanner will type data here...", key=f"qr_manual_{st.session_state.scan_key}")
 
@@ -160,7 +182,9 @@ with tab1:
             st.session_state.scan_key += 1 
             st.rerun()
 
+        # XML & Comma Decoder
         parsed_data = { "MFRNAME": "", "MODELNO": "", "IMEI": "", "MRP": "", "EAN": "", "SRNO": "" }
+        
         if qr_data:
             if "<IMEI>" in qr_data.upper() or "<?XML" in qr_data.upper():
                 st.success("✅ Jio QR (XML) Successfully Decoded!")
@@ -177,11 +201,13 @@ with tab1:
             else:
                 parsed_data["IMEI"] = qr_data
 
+        # 🟢 AUTO-FILL RETAILER LOGIC
         auto_retailer_name = ""
         if parsed_data["IMEI"] and not st.session_state.sales_db.empty:
             search_imei = str(parsed_data["IMEI"]).strip()
             imei_cols = [c for c in st.session_state.sales_db.columns if 'IMEI' in str(c).upper()]
             ret_cols = [c for c in st.session_state.sales_db.columns if 'RETAILER' in str(c).upper() or 'NAME' in str(c).upper()]
+            
             if imei_cols and ret_cols:
                 match_df = st.session_state.sales_db[st.session_state.sales_db[imei_cols[0]].astype(str).str.strip() == search_imei]
                 if not match_df.empty:
@@ -201,19 +227,29 @@ with tab1:
                 st.text_input("EAN", value=parsed_data["EAN"], disabled=True)
 
             st.markdown("---")
-            st.markdown("### 🛠️ Step 3: Service Information")
-            retailer = st.text_input("👤 Retailer Name*", value=auto_retailer_name)
-            problem = st.selectbox("⚠️ Phone Problem*", ["-- Select --", "Damage / Broken (टूटा/डैमेज है)", "Battery Issue (बैटरी ख़राब)", "Software Dead (सॉफ्टवेयर डेड)", "Display Broken (डिस्प्ले टूटा है)", "Keypad Issue (कीपैड ख़राब)", "Charging Issue (चार्ज नहीं हो रहा)", "Other (अन्य)"])
+            st.markdown("### 🛠️ Step 3: Service Information & Options")
+            
+            retailer = st.text_input("👤 Retailer Name (किस रिटेलर का फ़ोन है?)*", value=auto_retailer_name)
+            
+            problem = st.selectbox("⚠️ Phone Problem (दिक्कत क्या है?)*", ["-- Select --", "Damage / Broken (टूटा/डैमेज है)", "Battery Issue (बैटरी ख़राब)", "Software Dead (सॉफ्टवेयर डेड)", "Display Broken (डिस्प्ले टूटा है)", "Keypad Issue (कीपैड ख़राब)", "Charging Issue (चार्ज नहीं हो रहा)", "Other (अन्य)"])
             action = st.radio("🔄 Action Required*", ["Replace with New Phone (नया बदल कर देना है)", "Repair Same Phone (वही ठीक करके देना है)"])
             status = st.radio("📦 Current Status*", ["Pending (फ़ोन अभी पेंडिंग है)", "Delivered (दे दिया गया है)"])
 
             submit = st.form_submit_button("💾 Save Entry & Print Bill", type="primary", use_container_width=True)
 
             if submit:
-                if problem == "-- Select --" or not retailer: st.error("❌ Please enter Retailer Name and Problem.")
-                elif not parsed_data["IMEI"]: st.error("❌ Please Scan a valid QR Code.")
+                if problem == "-- Select --" or not retailer:
+                    st.error("❌ Please enter Retailer Name and select a Problem.")
+                elif not parsed_data["IMEI"]:
+                    st.error("❌ Please Scan a valid QR Code first.")
                 else:
-                    new_id = f"JIO-{(len(st.session_state.service_db) if not st.session_state.service_db.empty else 0)+1:04d}"
+                    # 1. GENERATE ID AND DATA
+                    if st.session_state.service_db.empty:
+                        new_num = 1
+                    else:
+                        new_num = len(st.session_state.service_db) + 1
+                        
+                    new_id = f"JIO-{new_num:04d}"
                     new_data = {
                         "action": "add", "ID": new_id, "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
                         "MFRNAME": parsed_data["MFRNAME"], "Model": parsed_data["MODELNO"], 
@@ -223,14 +259,25 @@ with tab1:
                         "Status": "Pending" if "Pending" in status else "Delivered"
                     }
                     
+                    # 2. SAVE LOCALLY IMMEDIATELY (So Bill can be generated even if offline/timeout)
+                    st.session_state.service_db = pd.concat([st.session_state.service_db, pd.DataFrame([new_data])], ignore_index=True)
+                    st.session_state.last_bill_data = new_data
+                    
+                    # 3. TRY TO SEND TO GOOGLE SHEET (With 30 seconds Timeout)
                     try:
-                        requests.post(WEBHOOK_URL, json=new_data, timeout=10)
-                        st.cache_data.clear()
-                        st.session_state.last_bill_data = new_data
-                        st.rerun()
-                    except: st.error("⚠️ Connection Error! Google Sheet Webhook Timeout.")
+                        if WEBHOOK_URL != "यहाँ_अपना_नया_WEBHOOK_URL_डालें":
+                            response = requests.post(WEBHOOK_URL, json=new_data, timeout=30)
+                            if response.status_code == 200:
+                                st.cache_data.clear()
+                    except Exception as e:
+                        st.warning(f"⚠️ Google Sheet Server Slow. Bill generated successfully, but please check Sheet later.")
+                    
+                    # 4. RERUN TO SHOW BILL
+                    st.rerun()
 
-# TAB 2: PENDING
+# ==========================================
+# TAB 2: PENDING PHONES DASHBOARD
+# ==========================================
 with tab2:
     st.markdown("### ⏳ Pending Action Board")
     if st.session_state.service_db.empty:
@@ -238,35 +285,43 @@ with tab2:
     else:
         pending_df = st.session_state.service_db[st.session_state.service_db["Status"].astype(str).str.contains("Pending", case=False, na=False)]
     
-    if pending_df.empty: st.info("🎉 Good Job! No pending phones.")
+    if pending_df.empty: st.info("🎉 Good Job! No pending phones right now.")
     else:
-        st.error(f"🚨 {len(pending_df)} phone(s) pending!")
+        st.error(f"🚨 You have {len(pending_df)} phone(s) pending for service!")
         for idx, row in pending_df.iterrows():
             st.markdown(f"""
                 <div style='border: 1px solid #f87171; padding: 15px; border-radius: 10px; background: #fef2f2; margin-bottom: 10px;'>
-                    <h4 style='color: #b91c1c; margin: 0;'>👤 {row['Retailer']} (ID: {row['ID']})</h4>
-                    <p style='margin: 8px 0 2px 0;'><b>📱 Model:</b> {row['Model']} | <b>IMEI:</b> {row['IMEI']}</p>
-                    <p style='margin: 2px 0;'><b>⚠️ Problem:</b> {row['Problem']}</p>
-                    <p style='margin: 6px 0 0 0; font-size: 12px;'>📅 {row['Date']}</p>
+                    <div style='display: flex; justify-content: space-between;'>
+                        <h4 style='color: #b91c1c; margin: 0;'>👤 {row['Retailer']}</h4>
+                        <span style='background: #b91c1c; color: white; padding: 3px 8px; border-radius: 5px; font-size: 12px;'>{row['ID']}</span>
+                    </div>
+                    <p style='margin: 8px 0 2px 0; color: #4b5563;'><b>📱 Model:</b> {row['Model']} | <b>IMEI:</b> {row['IMEI']}</p>
+                    <p style='margin: 2px 0; color: #4b5563;'><b>⚠️ Problem:</b> {row['Problem']}</p>
+                    <p style='margin: 2px 0; color: #1e3a8a;'><b>🛠️ Action:</b> {row['Action']}</p>
+                    <p style='margin: 6px 0 0 0; font-size: 12px; color: #9ca3af;'>📅 {row['Date']}</p>
                 </div>
             """, unsafe_allow_html=True)
             c1, c2 = st.columns(2)
-            if c1.button(f"✅ Mark Delivered", key=f"del_{row['ID']}", use_container_width=True):
+            if c1.button(f"✅ Mark Delivered", key=f"del_{row['ID']}", type="secondary", use_container_width=True):
+                st.session_state.service_db.loc[st.session_state.service_db['ID'] == row['ID'], 'Status'] = "Delivered"
                 try:
-                    requests.post(WEBHOOK_URL, json={"action":"update", "ID":row['ID'], "Status":"Delivered"}, timeout=10)
-                    st.cache_data.clear()
-                    st.success("✅ Marked as Delivered!")
-                    time.sleep(1)
-                    st.rerun()
-                except: st.error("Timeout Error")
+                    if WEBHOOK_URL != "यहाँ_अपना_नया_WEBHOOK_URL_डालें":
+                        requests.post(WEBHOOK_URL, json={"action":"update", "ID":row['ID'], "Status":"Delivered"}, timeout=30)
+                        st.cache_data.clear()
+                except: pass
+                st.rerun()
             if c2.button(f"🗑️ Delete", key=f"rm_{row['ID']}", use_container_width=True):
+                st.session_state.service_db = st.session_state.service_db[st.session_state.service_db['ID'] != row['ID']]
                 try:
-                    requests.post(WEBHOOK_URL, json={"action":"delete", "ID":row['ID']}, timeout=10)
-                    st.cache_data.clear()
-                    st.rerun()
-                except: st.error("Timeout Error")
+                    if WEBHOOK_URL != "यहाँ_अपना_नया_WEBHOOK_URL_डालें":
+                        requests.post(WEBHOOK_URL, json={"action":"delete", "ID":row['ID']}, timeout=30)
+                        st.cache_data.clear()
+                except: pass
+                st.rerun()
 
-# TAB 3: HISTORY
+# ==========================================
+# TAB 3: DELIVERED HISTORY
+# ==========================================
 with tab3:
     st.markdown("### ✅ Delivered / Completed Phones")
     if st.session_state.service_db.empty:
@@ -276,11 +331,16 @@ with tab3:
     
     if delivered_df.empty: st.info("No completed services yet.")
     else:
-        st.dataframe(delivered_df, hide_index=True, use_container_width=True)
+        st.dataframe(delivered_df[["ID", "Date", "Retailer", "IMEI", "Problem", "Action"]].sort_values("ID", ascending=False), hide_index=True, use_container_width=True)
+        csv = delivered_df.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download Delivered History (Excel)", data=csv, file_name=f"Jio_Service_History_{datetime.now().strftime('%d-%m-%Y')}.csv", mime="text/csv", use_container_width=True)
 
-# TAB 4: RE-PRINT
+# ==========================================
+# TAB 4: RE-PRINT BILL (SEARCH BY IMEI)
+# ==========================================
 with tab4:
     st.markdown("### 🖨️ Re-Print Old Bill")
+    st.info("किसी भी पुराने फ़ोन का बिल दोबारा निकालने के लिए उसका IMEI नंबर डालें।")
     search_imei = st.text_input("🔍 Enter IMEI Number to Search:")
     if st.button("Search & Print Bill", type="primary"):
         if search_imei and not st.session_state.service_db.empty:
@@ -288,15 +348,22 @@ with tab4:
             if not result.empty:
                 st.success("✅ Record Found!")
                 found_data = result.iloc[0].to_dict()
+                st.markdown(f"**Retailer:** {found_data['Retailer']} | **Status:** {found_data['Status']}")
                 if HAS_FPDF:
                     pdf_bytes = generate_service_bill(found_data)
                     st.download_button("📥 Download Bill (PDF)", data=pdf_bytes, file_name=f"Jio_Bill_{found_data['IMEI']}.pdf", mime="application/pdf", use_container_width=True)
             else: st.error(f"❌ No record found for IMEI: {search_imei}")
         else: st.warning("Please enter an IMEI number first.")
 
-# TAB 5: AUTO-FILL SETUP
+# ==========================================
+# TAB 5: AUTO-FILL SALES DATA SETUP
+# ==========================================
 with tab5:
     st.markdown("### 📂 Upload Sales Data (For Auto-Fill)")
+    st.info("""
+        **ऑटोमैटिक रिटेलर का नाम कैसे लाएं?**
+        यहाँ अपनी उस Excel या CSV फाइल को अपलोड करें जिसमें आपने रिकॉर्ड रखा है कि कौन सा IMEI किस रिटेलर को बेचा गया है।
+    """)
     uploaded_file = st.file_uploader("📥 Upload Sales/Dispatch Excel File", type=["xlsx", "xls", "csv"])
     if uploaded_file is not None:
         try:
