@@ -18,8 +18,8 @@ st.set_page_config(page_title="Jio Phone Service", page_icon="📱", layout="cen
 # ==========================================
 # 🔴 यहाँ अपना नया WEBHOOK और SHEET ID डालें 🔴
 # ==========================================
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwhA1SOh-V4HiHn_k7Fo3W5erJWqfeDUz5a6w3IpLUsVU7XlU7RgbooUjivtcxgXrcMPQ/exec"
-SHEET_ID = "https://docs.google.com/spreadsheets/d/17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM/edit?usp=sharing"
+WEBHOOK_URL = "यहाँ_अपना_नया_WEBHOOK_URL_डालें"
+SHEET_ID = "यहाँ_अपनी_Google_Sheet_की_ID_डालें"
 # ==========================================
 
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=ServiceDB"
@@ -54,7 +54,6 @@ def generate_service_bill(data):
     pdf = FPDF()
     pdf.add_page()
     
-    # Header
     pdf.set_font("Arial", 'B', 18)
     pdf.cell(0, 10, "SANDHYA ENTERPRISES", ln=True, align='C')
     pdf.set_font("Arial", 'B', 11)
@@ -65,7 +64,6 @@ def generate_service_bill(data):
     pdf.line(10, 38, 200, 38)
     pdf.ln(10)
 
-    # Details
     pdf.set_font("Arial", 'B', 10)
     
     def print_row(col1, col2):
@@ -126,8 +124,6 @@ with tab1:
                 mime="application/pdf",
                 use_container_width=True
             )
-        else:
-            st.error("PDF Generator is missing. Please add 'fpdf' to requirements.txt")
             
         if st.button("➕ Start New Scan & Entry", type="primary", use_container_width=True):
             st.session_state.last_bill_data = None
@@ -141,13 +137,16 @@ with tab1:
         qr_data = ""
 
         if scan_method == "📷 Live Mobile Camera (लाइव कैमरा)":
-            st.info("👇 ख़राब QR कोड के लिए भी 'Live Scanner' को पास ले जाएं।")
+            st.info("💡 **TIP:** अगर चौकोर डब्बा स्कैन न हो, तो कैमरा को **IMEI वाले लम्बे बारकोड (Lines)** पर ले जाएं!")
+            
+            # 🟢 WIDER SCANNER BOX FOR 1D BARCODES
             scanner_html = """
             <script src="https://unpkg.com/html5-qrcode"></script>
             <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
             <script>
                 const html5QrCode = new Html5Qrcode("reader");
-                const config = { fps: 20, qrbox: { width: 250, height: 250 }, experimentalFeatures: { useBarCodeDetectorIfSupported: true } };
+                // Box made wider to catch long barcodes easily
+                const config = { fps: 15, qrbox: { width: 300, height: 150 }, experimentalFeatures: { useBarCodeDetectorIfSupported: true } };
                 function setNativeValue(element, value) {
                     const prototype = Object.getPrototypeOf(element);
                     const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, 'value').set;
@@ -182,7 +181,6 @@ with tab1:
             st.session_state.scan_key += 1 
             st.rerun()
 
-        # XML & Comma Decoder
         parsed_data = { "MFRNAME": "", "MODELNO": "", "IMEI": "", "MRP": "", "EAN": "", "SRNO": "" }
         
         if qr_data:
@@ -200,8 +198,12 @@ with tab1:
                     parsed_data["IMEI"] = qr_data 
             else:
                 parsed_data["IMEI"] = qr_data
+                # 🟢 SUCCESS MSG IF IT'S JUST A BARCODE
+                if len(qr_data) > 10 and qr_data.isdigit():
+                    st.success("✅ IMEI Barcode Successfully Read!")
+                else:
+                    st.warning("⚠️ Raw data filled in IMEI.")
 
-        # 🟢 AUTO-FILL RETAILER LOGIC
         auto_retailer_name = ""
         if parsed_data["IMEI"] and not st.session_state.sales_db.empty:
             search_imei = str(parsed_data["IMEI"]).strip()
@@ -219,18 +221,17 @@ with tab1:
             st.text_input("Manufacturer Name (MFRNAME)", value=parsed_data["MFRNAME"], disabled=True)
             c1, c2 = st.columns(2)
             with c1:
-                st.text_input("Model Number", value=parsed_data["MODELNO"], disabled=True)
-                st.text_input("MRP", value=parsed_data["MRP"], disabled=True)
-                st.text_input("Serial No (SRNO)", value=parsed_data["SRNO"], disabled=True)
+                st.text_input("Model Number", value=parsed_data["MODELNO"])
+                st.text_input("MRP", value=parsed_data["MRP"])
+                st.text_input("Serial No (SRNO)", value=parsed_data["SRNO"])
             with c2:
-                st.text_input("IMEI Number*", value=parsed_data["IMEI"], disabled=True)
-                st.text_input("EAN", value=parsed_data["EAN"], disabled=True)
+                st.text_input("IMEI Number*", value=parsed_data["IMEI"])
+                st.text_input("EAN", value=parsed_data["EAN"])
 
             st.markdown("---")
             st.markdown("### 🛠️ Step 3: Service Information & Options")
             
             retailer = st.text_input("👤 Retailer Name (किस रिटेलर का फ़ोन है?)*", value=auto_retailer_name)
-            
             problem = st.selectbox("⚠️ Phone Problem (दिक्कत क्या है?)*", ["-- Select --", "Damage / Broken (टूटा/डैमेज है)", "Battery Issue (बैटरी ख़राब)", "Software Dead (सॉफ्टवेयर डेड)", "Display Broken (डिस्प्ले टूटा है)", "Keypad Issue (कीपैड ख़राब)", "Charging Issue (चार्ज नहीं हो रहा)", "Other (अन्य)"])
             action = st.radio("🔄 Action Required*", ["Replace with New Phone (नया बदल कर देना है)", "Repair Same Phone (वही ठीक करके देना है)"])
             status = st.radio("📦 Current Status*", ["Pending (फ़ोन अभी पेंडिंग है)", "Delivered (दे दिया गया है)"])
@@ -243,11 +244,8 @@ with tab1:
                 elif not parsed_data["IMEI"]:
                     st.error("❌ Please Scan a valid QR Code first.")
                 else:
-                    # 1. GENERATE ID AND DATA
-                    if st.session_state.service_db.empty:
-                        new_num = 1
-                    else:
-                        new_num = len(st.session_state.service_db) + 1
+                    if st.session_state.service_db.empty: new_num = 1
+                    else: new_num = len(st.session_state.service_db) + 1
                         
                     new_id = f"JIO-{new_num:04d}"
                     new_data = {
@@ -259,20 +257,14 @@ with tab1:
                         "Status": "Pending" if "Pending" in status else "Delivered"
                     }
                     
-                    # 2. SAVE LOCALLY IMMEDIATELY (So Bill can be generated even if offline/timeout)
                     st.session_state.service_db = pd.concat([st.session_state.service_db, pd.DataFrame([new_data])], ignore_index=True)
                     st.session_state.last_bill_data = new_data
                     
-                    # 3. TRY TO SEND TO GOOGLE SHEET (With 30 seconds Timeout)
                     try:
                         if WEBHOOK_URL != "यहाँ_अपना_नया_WEBHOOK_URL_डालें":
-                            response = requests.post(WEBHOOK_URL, json=new_data, timeout=30)
-                            if response.status_code == 200:
-                                st.cache_data.clear()
-                    except Exception as e:
-                        st.warning(f"⚠️ Google Sheet Server Slow. Bill generated successfully, but please check Sheet later.")
-                    
-                    # 4. RERUN TO SHOW BILL
+                            requests.post(WEBHOOK_URL, json=new_data, timeout=30)
+                            st.cache_data.clear()
+                    except: pass
                     st.rerun()
 
 # ==========================================
@@ -360,10 +352,6 @@ with tab4:
 # ==========================================
 with tab5:
     st.markdown("### 📂 Upload Sales Data (For Auto-Fill)")
-    st.info("""
-        **ऑटोमैटिक रिटेलर का नाम कैसे लाएं?**
-        यहाँ अपनी उस Excel या CSV फाइल को अपलोड करें जिसमें आपने रिकॉर्ड रखा है कि कौन सा IMEI किस रिटेलर को बेचा गया है।
-    """)
     uploaded_file = st.file_uploader("📥 Upload Sales/Dispatch Excel File", type=["xlsx", "xls", "csv"])
     if uploaded_file is not None:
         try:
