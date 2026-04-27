@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import time
-import urllib.parse
 
 # 1. Page Configuration
 st.set_page_config(page_title="Jio Phone Service", page_icon="📱", layout="centered")
@@ -14,13 +13,15 @@ if 'service_db' not in st.session_state:
         "Retailer", "Problem", "Action", "Status"
     ])
 
-# 🟢 SMART FIX: Catch QR Data from URL immediately
+# 🟢 SMART FIX: Catch QR Data from URL immediately (Bypasses Browser Security Blocks)
 if 'qr_val' not in st.session_state:
     st.session_state.qr_val = ""
 
 if "qr" in st.query_params:
     st.session_state.qr_val = st.query_params["qr"]
-    st.query_params.clear()  # Clear URL so it doesn't get stuck
+    st.query_params.clear()  # Clear URL link automatically
+    time.sleep(0.5) # Give it half a second to settle
+    st.rerun()
 
 # 3. Main Header UI
 st.markdown("""
@@ -47,15 +48,21 @@ with tab1:
     <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
     <script>
         const html5QrCode = new Html5Qrcode("reader");
-        const config = { fps: 15, qrbox: { width: 220, height: 220 } };
+        const config = { fps: 15, qrbox: { width: 250, height: 250 } };
 
         // Forcing Back Camera
         html5QrCode.start({ facingMode: "environment" }, config, 
             (decodedText) => {
                 // SUCCESS: Stop camera and Redirect with Data in URL (100% Reliable)
                 html5QrCode.stop().then(() => {
-                    document.getElementById('reader').innerHTML = '<div style="padding: 80px 0; text-align: center; color: #15803d; font-size: 24px; font-weight: bold; background: #dcfce7; height: 100%;">✅ Scan Captured! Please Wait...</div>';
-                    window.parent.location.search = "?qr=" + encodeURIComponent(decodedText);
+                    document.getElementById('reader').innerHTML = '<div style="padding: 80px 0; text-align: center; color: #15803d; font-size: 24px; font-weight: bold; background: #dcfce7; height: 100%;">✅ Scan Captured! Loading...</div>';
+                    
+                    // Create an invisible link and click it to bypass iframe restrictions
+                    const link = document.createElement('a');
+                    link.href = "?qr=" + encodeURIComponent(decodedText);
+                    link.target = "_top"; 
+                    document.body.appendChild(link);
+                    link.click();
                 });
             }, 
             (errorMessage) => {
@@ -69,8 +76,8 @@ with tab1:
     
     # Show scanner only if nothing is scanned yet
     if not qr_data:
-        st.info("👇 नीचे दिए गए डब्बे में QR कोड लाएं। पीछे वाला कैमरा (Back Camera) अपने-आप स्कैन कर लेगा।")
-        st.components.v1.html(scanner_html, height=350)
+        st.info("👇 डब्बे में QR कोड लाएं। पीछे वाला कैमरा (Back Camera) अपने-आप स्कैन कर लेगा।")
+        st.components.v1.html(scanner_html, height=380)
         
         st.markdown("---")
         st.markdown("**अगर कोड बहुत ख़राब है और स्कैन नहीं हो रहा, तो यहाँ हाथ से टाइप करें:**")
@@ -95,21 +102,21 @@ with tab1:
                 model_val, imei_val, mrp_val, ean_val, srno_val = parts[0], parts[1], parts[2], parts[3], parts[4]
             else:
                 imei_val = qr_data 
-                st.warning("⚠️ Unknown QR format. Filling raw data in IMEI box.")
+                st.warning("⚠️ Scanner read the data, but it's not in standard Jio format. Raw data filled in IMEI.")
         except:
             st.error("Error reading QR Data.")
 
         # FORM DETAILS (Appears only after scan)
         with st.form("service_form"):
-            st.markdown("### 🔒 Step 2: Scanned Details (Auto-filled)")
+            st.markdown("### 📋 Step 2: Scanned Details (Editable)")
             c1, c2 = st.columns(2)
             with c1:
-                st.text_input("Model Number", value=model_val, disabled=True)
-                st.text_input("MRP", value=mrp_val, disabled=True)
-                st.text_input("Serial No (SRNO)", value=srno_val, disabled=True)
+                model_in = st.text_input("Model Number", value=model_val)
+                mrp_in = st.text_input("MRP", value=mrp_val)
+                srno_in = st.text_input("Serial No (SRNO)", value=srno_val)
             with c2:
-                st.text_input("IMEI Number", value=imei_val, disabled=True)
-                st.text_input("EAN", value=ean_val, disabled=True)
+                imei_in = st.text_input("IMEI Number*", value=imei_val)
+                ean_in = st.text_input("EAN", value=ean_val)
 
             st.markdown("---")
             st.markdown("### 🛠️ Step 3: Service Information")
@@ -135,14 +142,14 @@ with tab1:
             if submit:
                 if problem == "-- Select --" or not retailer:
                     st.error("❌ Please enter Retailer Name and select a Problem.")
-                elif not imei_val:
+                elif not imei_in:
                     st.error("❌ Invalid IMEI Data.")
                 else:
                     new_id = f"JIO-{len(st.session_state.service_db)+1:04d}"
                     new_data = {
                         "ID": new_id, 
                         "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
-                        "Model": model_val, "IMEI": imei_val, "MRP": mrp_val, "EAN": ean_val, "SRNO": srno_val,
+                        "Model": model_in, "IMEI": imei_in, "MRP": mrp_in, "EAN": ean_in, "SRNO": srno_in,
                         "Retailer": retailer.upper(), "Problem": problem, "Action": action, 
                         "Status": "Pending" if "Pending" in status else "Delivered"
                     }
