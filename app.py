@@ -19,7 +19,7 @@ st.set_page_config(page_title="Jio Phone Service", page_icon="📱", layout="cen
 # 🔴 यहाँ अपना नया WEBHOOK और SHEET ID डालें 🔴
 # ==========================================
 WEBHOOK_URL = "यहाँ_अपना_नया_WEBHOOK_URL_डालें"
-SHEET_ID = "यहाँ_अपनी_Google_Sheet_की_ID_डालें"
+SHEET_ID = "यहाँ_अपनी_नई_Google_Sheet_की_ID_डालें"
 # ==========================================
 
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=ServiceDB"
@@ -137,16 +137,16 @@ with tab1:
         qr_data = ""
 
         if scan_method == "📷 Live Mobile Camera (लाइव कैमरा)":
-            st.info("💡 **TIP:** अगर चौकोर डब्बा स्कैन न हो, तो कैमरा को **IMEI वाले लम्बे बारकोड (Lines)** पर ले जाएं!")
+            st.info("💡 **TIP:** डब्बे के **4-कोने वाले चौकोर कोड** को इस लाल डब्बे के बीच में लाएं।")
             
-            # 🟢 WIDER SCANNER BOX FOR 1D BARCODES
+            # 🟢 PERFECT SQUARE SCANNER FOR 4-CORNER DATA MATRIX
             scanner_html = """
             <script src="https://unpkg.com/html5-qrcode"></script>
             <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
             <script>
                 const html5QrCode = new Html5Qrcode("reader");
-                // Box made wider to catch long barcodes easily
-                const config = { fps: 15, qrbox: { width: 300, height: 150 }, experimentalFeatures: { useBarCodeDetectorIfSupported: true } };
+                // Square box to easily catch the 4-corner Data Matrix
+                const config = { fps: 20, qrbox: { width: 250, height: 250 }, experimentalFeatures: { useBarCodeDetectorIfSupported: true } };
                 function setNativeValue(element, value) {
                     const prototype = Object.getPrototypeOf(element);
                     const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, 'value').set;
@@ -185,7 +185,7 @@ with tab1:
         
         if qr_data:
             if "<IMEI>" in qr_data.upper() or "<?XML" in qr_data.upper():
-                st.success("✅ Jio QR (XML) Successfully Decoded!")
+                st.success("✅ 4-Kona Jio QR (XML) Successfully Decoded!")
                 for key in parsed_data.keys():
                     match = re.search(f'<{key}>(.*?)</{key}>', qr_data, re.IGNORECASE)
                     if match: parsed_data[key] = match.group(1)
@@ -198,12 +198,8 @@ with tab1:
                     parsed_data["IMEI"] = qr_data 
             else:
                 parsed_data["IMEI"] = qr_data
-                # 🟢 SUCCESS MSG IF IT'S JUST A BARCODE
-                if len(qr_data) > 10 and qr_data.isdigit():
-                    st.success("✅ IMEI Barcode Successfully Read!")
-                else:
-                    st.warning("⚠️ Raw data filled in IMEI.")
 
+        # AUTO-FILL RETAILER LOGIC
         auto_retailer_name = ""
         if parsed_data["IMEI"] and not st.session_state.sales_db.empty:
             search_imei = str(parsed_data["IMEI"]).strip()
@@ -260,11 +256,13 @@ with tab1:
                     st.session_state.service_db = pd.concat([st.session_state.service_db, pd.DataFrame([new_data])], ignore_index=True)
                     st.session_state.last_bill_data = new_data
                     
+                    # 🟢 FIX: SILENT WEBHOOK POST (No Timeout Errors on Screen)
                     try:
                         if WEBHOOK_URL != "यहाँ_अपना_नया_WEBHOOK_URL_डालें":
-                            requests.post(WEBHOOK_URL, json=new_data, timeout=30)
-                            st.cache_data.clear()
-                    except: pass
+                            requests.post(WEBHOOK_URL, json=new_data, timeout=3) # Only waits 3 seconds
+                    except: 
+                        pass # Ignores error entirely so your app never hangs!
+                    
                     st.rerun()
 
 # ==========================================
@@ -298,16 +296,14 @@ with tab2:
                 st.session_state.service_db.loc[st.session_state.service_db['ID'] == row['ID'], 'Status'] = "Delivered"
                 try:
                     if WEBHOOK_URL != "यहाँ_अपना_नया_WEBHOOK_URL_डालें":
-                        requests.post(WEBHOOK_URL, json={"action":"update", "ID":row['ID'], "Status":"Delivered"}, timeout=30)
-                        st.cache_data.clear()
+                        requests.post(WEBHOOK_URL, json={"action":"update", "ID":row['ID'], "Status":"Delivered"}, timeout=3)
                 except: pass
                 st.rerun()
             if c2.button(f"🗑️ Delete", key=f"rm_{row['ID']}", use_container_width=True):
                 st.session_state.service_db = st.session_state.service_db[st.session_state.service_db['ID'] != row['ID']]
                 try:
                     if WEBHOOK_URL != "यहाँ_अपना_नया_WEBHOOK_URL_डालें":
-                        requests.post(WEBHOOK_URL, json={"action":"delete", "ID":row['ID']}, timeout=30)
-                        st.cache_data.clear()
+                        requests.post(WEBHOOK_URL, json={"action":"delete", "ID":row['ID']}, timeout=3)
                 except: pass
                 st.rerun()
 
@@ -352,6 +348,10 @@ with tab4:
 # ==========================================
 with tab5:
     st.markdown("### 📂 Upload Sales Data (For Auto-Fill)")
+    st.info("""
+        **ऑटोमैटिक रिटेलर का नाम कैसे लाएं?**
+        यहाँ अपनी उस Excel या CSV फाइल को अपलोड करें जिसमें आपने रिकॉर्ड रखा है कि कौन सा IMEI किस रिटेलर को बेचा गया है।
+    """)
     uploaded_file = st.file_uploader("📥 Upload Sales/Dispatch Excel File", type=["xlsx", "xls", "csv"])
     if uploaded_file is not None:
         try:
