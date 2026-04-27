@@ -2,16 +2,25 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import time
+import urllib.parse
 
 # 1. Page Configuration
 st.set_page_config(page_title="Jio Phone Service", page_icon="📱", layout="centered")
 
-# 2. Database Initialization (Temporary memory for testing)
+# 2. Database Initialization
 if 'service_db' not in st.session_state:
     st.session_state.service_db = pd.DataFrame(columns=[
         "ID", "Date", "Model", "IMEI", "MRP", "EAN", "SRNO",
         "Retailer", "Problem", "Action", "Status"
     ])
+
+# 🟢 SMART FIX: Catch QR Data from URL immediately
+if 'qr_val' not in st.session_state:
+    st.session_state.qr_val = ""
+
+if "qr" in st.query_params:
+    st.session_state.qr_val = st.query_params["qr"]
+    st.query_params.clear()  # Clear URL so it doesn't get stuck
 
 # 3. Main Header UI
 st.markdown("""
@@ -30,7 +39,9 @@ tab1, tab2, tab3 = st.tabs(["📝 New Scan & Entry", "⏳ Pending Phones", "✅ 
 with tab1:
     st.markdown("### 🔍 Step 1: Scan QR Code")
     
-    # 🟢 BACK-CAMERA LIVE SCANNER (HTML/JS)
+    qr_data = st.session_state.qr_val
+    
+    # 🟢 BACK-CAMERA LIVE SCANNER (URL REDIRECT METHOD)
     scanner_html = """
     <script src="https://unpkg.com/html5-qrcode"></script>
     <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
@@ -38,26 +49,17 @@ with tab1:
         const html5QrCode = new Html5Qrcode("reader");
         const config = { fps: 15, qrbox: { width: 220, height: 220 } };
 
-        // 🟢 FORCING BACK CAMERA (environment)
+        // Forcing Back Camera
         html5QrCode.start({ facingMode: "environment" }, config, 
             (decodedText) => {
-                // SUCCESS: Send Data to Streamlit Text Input
-                let inputs = window.parent.document.querySelectorAll('input[type="text"]');
-                inputs.forEach(inp => {
-                    if(inp.getAttribute('aria-label') === 'Scanned QR Code (Auto/Manual)') {
-                        let setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-                        setter.call(inp, decodedText);
-                        inp.dispatchEvent(new Event('input', { bubbles: true }));
-                    }
-                });
-                
-                // Stop camera and show success message
+                // SUCCESS: Stop camera and Redirect with Data in URL (100% Reliable)
                 html5QrCode.stop().then(() => {
-                    document.getElementById('reader').innerHTML = '<div style="padding: 80px 0; text-align: center; color: #15803d; font-size: 24px; font-weight: bold; background: #dcfce7; height: 100%;">✅ Scan Captured!</div>';
+                    document.getElementById('reader').innerHTML = '<div style="padding: 80px 0; text-align: center; color: #15803d; font-size: 24px; font-weight: bold; background: #dcfce7; height: 100%;">✅ Scan Captured! Please Wait...</div>';
+                    window.parent.location.search = "?qr=" + encodeURIComponent(decodedText);
                 });
             }, 
             (errorMessage) => {
-                // Ignore parsing errors while searching for QR
+                // Ignore background scanning errors
             }
         ).catch(err => {
             document.getElementById('reader').innerHTML = '<div style="color:red; padding:20px; background:white;">Camera Access Denied or Back Camera Not Found.</div>';
@@ -65,17 +67,21 @@ with tab1:
     </script>
     """
     
-    # Input box where JS will auto-fill the scanned data
-    qr_data = st.text_input("Scanned QR Code (Auto/Manual)", key="qr_val", placeholder="यहाँ स्कैनर ऑटोमैटिक डेटा भरेगा...")
-    
     # Show scanner only if nothing is scanned yet
     if not qr_data:
         st.info("👇 नीचे दिए गए डब्बे में QR कोड लाएं। पीछे वाला कैमरा (Back Camera) अपने-आप स्कैन कर लेगा।")
         st.components.v1.html(scanner_html, height=350)
+        
+        st.markdown("---")
+        st.markdown("**अगर कोड बहुत ख़राब है और स्कैन नहीं हो रहा, तो यहाँ हाथ से टाइप करें:**")
+        manual_entry = st.text_input("IMEI Number (Manual Entry)")
+        if st.button("Submit Manual Entry", type="secondary"):
+            if manual_entry:
+                st.session_state.qr_val = manual_entry
+                st.rerun()
     else:
-        st.success("✅ QR Code Successfully Captured!")
-        # Clear Button
-        if st.button("🔄 Retake Scan (दुबारा स्कैन करें)", type="secondary"):
+        st.success("✅ QR Code Data Successfully Captured!")
+        if st.button("🔄 Retake Scan (दुबारा स्कैन करें)"):
             st.session_state.qr_val = ""
             st.rerun()
 
@@ -93,61 +99,61 @@ with tab1:
         except:
             st.error("Error reading QR Data.")
 
-    # FORM DETAILS
-    with st.form("service_form"):
-        st.markdown("### 🔒 Step 2: Scanned Details (Read Only)")
-        c1, c2 = st.columns(2)
-        with c1:
-            st.text_input("Model Number", value=model_val, disabled=True)
-            st.text_input("MRP", value=mrp_val, disabled=True)
-            st.text_input("Serial No (SRNO)", value=srno_val, disabled=True)
-        with c2:
-            st.text_input("IMEI Number", value=imei_val, disabled=True)
-            st.text_input("EAN", value=ean_val, disabled=True)
+        # FORM DETAILS (Appears only after scan)
+        with st.form("service_form"):
+            st.markdown("### 🔒 Step 2: Scanned Details (Auto-filled)")
+            c1, c2 = st.columns(2)
+            with c1:
+                st.text_input("Model Number", value=model_val, disabled=True)
+                st.text_input("MRP", value=mrp_val, disabled=True)
+                st.text_input("Serial No (SRNO)", value=srno_val, disabled=True)
+            with c2:
+                st.text_input("IMEI Number", value=imei_val, disabled=True)
+                st.text_input("EAN", value=ean_val, disabled=True)
 
-        st.markdown("---")
-        st.markdown("### 🛠️ Step 3: Service Information")
-        retailer = st.text_input("👤 Retailer Name (किस रिटेलर का फ़ोन है?)*")
-        
-        problem = st.selectbox(
-            "⚠️ Phone Problem (फ़ोन में क्या दिक्कत है?)*",
-            ["-- Select --", "Battery Issue (बैटरी ख़राब)", "Software Dead (सॉफ्टवेयर डेड)", "Display Broken (डिस्प्ले टूटा है)", "Keypad Issue (कीपैड ख़राब)", "Charging Issue (चार्ज नहीं हो रहा)", "Other (अन्य)"]
-        )
-        
-        action = st.radio(
-            "🔄 Action Required (क्या करना है?)*",
-            ["Replace with New Phone (नया बदल कर देना है)", "Repair Same Phone (वही ठीक करके देना है)"]
-        )
-        
-        status = st.radio(
-            "📦 Current Status (स्टेटस क्या है?)*",
-            ["Pending (फ़ोन अभी पेंडिंग है)", "Delivered (दे दिया गया है)"]
-        )
+            st.markdown("---")
+            st.markdown("### 🛠️ Step 3: Service Information")
+            retailer = st.text_input("👤 Retailer Name (किस रिटेलर का फ़ोन है?)*")
+            
+            problem = st.selectbox(
+                "⚠️ Phone Problem (फ़ोन में क्या दिक्कत है?)*",
+                ["-- Select --", "Battery Issue (बैटरी ख़राब)", "Software Dead (सॉफ्टवेयर डेड)", "Display Broken (डिस्प्ले टूटा है)", "Keypad Issue (कीपैड ख़राब)", "Charging Issue (चार्ज नहीं हो रहा)", "Other (अन्य)"]
+            )
+            
+            action = st.radio(
+                "🔄 Action Required (क्या करना है?)*",
+                ["Replace with New Phone (नया बदल कर देना है)", "Repair Same Phone (वही ठीक करके देना है)"]
+            )
+            
+            status = st.radio(
+                "📦 Current Status (स्टेटस क्या है?)*",
+                ["Pending (फ़ोन अभी पेंडिंग है)", "Delivered (दे दिया गया है)"]
+            )
 
-        submit = st.form_submit_button("💾 Save Entry", type="primary", use_container_width=True)
+            submit = st.form_submit_button("💾 Save Entry", type="primary", use_container_width=True)
 
-        if submit:
-            if problem == "-- Select --" or not retailer:
-                st.error("❌ Please enter Retailer Name and select a Problem.")
-            elif not imei_val:
-                st.error("❌ Please Scan the QR Code first before saving.")
-            else:
-                new_id = f"JIO-{len(st.session_state.service_db)+1:04d}"
-                new_data = {
-                    "ID": new_id, 
-                    "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
-                    "Model": model_val, "IMEI": imei_val, "MRP": mrp_val, "EAN": ean_val, "SRNO": srno_val,
-                    "Retailer": retailer.upper(), "Problem": problem, "Action": action, 
-                    "Status": "Pending" if "Pending" in status else "Delivered"
-                }
-                
-                st.session_state.service_db = pd.concat([st.session_state.service_db, pd.DataFrame([new_data])], ignore_index=True)
-                st.success(f"🎉 Saved Successfully! ID: {new_id} is marked as **{new_data['Status']}**")
-                
-                # Auto clear scanner input after save
-                st.session_state.qr_val = ""
-                time.sleep(2)
-                st.rerun()
+            if submit:
+                if problem == "-- Select --" or not retailer:
+                    st.error("❌ Please enter Retailer Name and select a Problem.")
+                elif not imei_val:
+                    st.error("❌ Invalid IMEI Data.")
+                else:
+                    new_id = f"JIO-{len(st.session_state.service_db)+1:04d}"
+                    new_data = {
+                        "ID": new_id, 
+                        "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
+                        "Model": model_val, "IMEI": imei_val, "MRP": mrp_val, "EAN": ean_val, "SRNO": srno_val,
+                        "Retailer": retailer.upper(), "Problem": problem, "Action": action, 
+                        "Status": "Pending" if "Pending" in status else "Delivered"
+                    }
+                    
+                    st.session_state.service_db = pd.concat([st.session_state.service_db, pd.DataFrame([new_data])], ignore_index=True)
+                    st.success(f"🎉 Saved Successfully! ID: {new_id} is marked as **{new_data['Status']}**")
+                    
+                    # Auto clear scanner input after save
+                    st.session_state.qr_val = ""
+                    time.sleep(2)
+                    st.rerun()
 
 # ==========================================
 # TAB 2: PENDING PHONES DASHBOARD
@@ -176,10 +182,14 @@ with tab2:
                 </div>
             """, unsafe_allow_html=True)
             
-            if st.button(f"✅ Mark as Delivered (Done)", key=f"del_{row['ID']}", type="secondary", use_container_width=True):
+            c1, c2 = st.columns(2)
+            if c1.button(f"✅ Mark Delivered", key=f"del_{row['ID']}", type="secondary", use_container_width=True):
                 st.session_state.service_db.loc[st.session_state.service_db['ID'] == row['ID'], 'Status'] = "Delivered"
                 st.success(f"{row['ID']} marked as Delivered!")
                 time.sleep(1)
+                st.rerun()
+            if c2.button(f"🗑️ Delete", key=f"rm_{row['ID']}", use_container_width=True):
+                st.session_state.service_db = st.session_state.service_db[st.session_state.service_db['ID'] != row['ID']]
                 st.rerun()
 
 # ==========================================
