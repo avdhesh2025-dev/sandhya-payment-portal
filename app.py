@@ -27,7 +27,7 @@ if 'scan_key' not in st.session_state:
 if 'last_bill_data' not in st.session_state:
     st.session_state.last_bill_data = None
 
-# 🟢 PDF BILL GENERATOR FUNCTION
+# 🟢 PDF BILL GENERATOR FUNCTION (FIXED FOR HINDI TEXT ERROR)
 def generate_service_bill(data):
     if not HAS_FPDF: return None
     pdf = FPDF()
@@ -51,7 +51,9 @@ def generate_service_bill(data):
     def print_row(col1, col2):
         pdf.cell(60, 8, col1, border=1)
         pdf.set_font("Arial", '', 10)
-        pdf.cell(0, 8, f" {col2}", border=1, ln=True)
+        # 🟢 FIX: Remove non-English characters so PDF doesn't crash
+        clean_col2 = str(col2).encode('latin-1', 'ignore').decode('latin-1')
+        pdf.cell(0, 8, f" {clean_col2}", border=1, ln=True)
         pdf.set_font("Arial", 'B', 10)
 
     print_row("Receipt ID:", data['ID'])
@@ -60,9 +62,15 @@ def generate_service_bill(data):
     print_row("IMEI Number:", data['IMEI'])
     print_row("Model Number:", data['Model'])
     print_row("Manufacturer:", data['MFRNAME'])
-    print_row("Reported Problem:", data['Problem'])
-    print_row("Requested Action:", data['Action'])
-    print_row("Current Status:", data['Status'])
+    
+    # 🟢 Clean the Hindi brackets out for the Bill
+    prob_clean = str(data['Problem']).split(' (')[0]
+    act_clean = str(data['Action']).split(' (')[0]
+    status_clean = str(data['Status']).split(' (')[0]
+
+    print_row("Reported Problem:", prob_clean)
+    print_row("Requested Action:", act_clean)
+    print_row("Current Status:", status_clean)
 
     pdf.ln(15)
     pdf.set_font("Arial", 'I', 8)
@@ -86,7 +94,6 @@ tab1, tab2, tab3, tab4 = st.tabs(["📝 New Entry", "⏳ Pending", "✅ History"
 # TAB 1: NEW ENTRY & LIVE SCANNER
 # ==========================================
 with tab1:
-    # 🟢 If a bill was just generated, show it FIRST so user can download it safely
     if st.session_state.last_bill_data is not None:
         bill_data = st.session_state.last_bill_data
         st.success(f"🎉 Entry Saved Successfully! ID: {bill_data['ID']}")
@@ -111,22 +118,19 @@ with tab1:
             st.rerun()
 
     else:
-        # Show normal scanning UI
         st.markdown("### 🔍 Step 1: Scan QR Code")
         scan_method = st.radio("स्कैन का तरीका चुनें:", ["📷 Live Mobile Camera (लाइव कैमरा)", "🔫 Scanner Machine (गन स्कैनर)"])
         
         qr_data = ""
 
         if scan_method == "📷 Live Mobile Camera (लाइव कैमरा)":
-            st.info("👇 ख़राब QR कोड के लिए भी 'Live Scanner' को पास ले जाएं। यह हार्डवेयर स्कैनर का उपयोग करेगा।")
+            st.info("👇 ख़राब QR कोड के लिए भी 'Live Scanner' को पास ले जाएं।")
             
-            # 🟢 SMART SCANNER: Using Native Barcode Detector for heavily damaged codes
             scanner_html = """
             <script src="https://unpkg.com/html5-qrcode"></script>
             <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
             <script>
                 const html5QrCode = new Html5Qrcode("reader");
-                // HIGH FPS & Native detector for damaged codes
                 const config = { 
                     fps: 20, 
                     qrbox: { width: 250, height: 250 },
@@ -168,7 +172,6 @@ with tab1:
             st.session_state.scan_key += 1 
             st.rerun()
 
-        # 🟢 XML & Comma Decoder
         parsed_data = { "MFRNAME": "", "MODELNO": "", "IMEI": "", "MRP": "", "EAN": "", "SRNO": "" }
         
         if qr_data:
@@ -189,7 +192,6 @@ with tab1:
                 parsed_data["IMEI"] = qr_data
                 st.warning("⚠️ Raw data filled in IMEI.")
 
-        # FORM DETAILS
         with st.form("service_form"):
             st.markdown("### 📋 Step 2: Scanned Details (Auto-Boxed)")
             st.text_input("Manufacturer Name (MFRNAME)", value=parsed_data["MFRNAME"], disabled=True)
@@ -229,8 +231,6 @@ with tab1:
                     }
                     
                     st.session_state.service_db = pd.concat([st.session_state.service_db, pd.DataFrame([new_data])], ignore_index=True)
-                    
-                    # 🟢 Trigger Bill generation UI instead of instant clear
                     st.session_state.last_bill_data = new_data
                     st.rerun()
 
@@ -287,13 +287,10 @@ with tab4:
     
     if st.button("Search & Print Bill", type="primary"):
         if search_imei:
-            # Search in DB
             result = st.session_state.service_db[st.session_state.service_db['IMEI'] == search_imei]
-            
             if not result.empty:
                 st.success("✅ Record Found!")
                 found_data = result.iloc[0].to_dict()
-                
                 st.markdown(f"**Retailer:** {found_data['Retailer']} | **Status:** {found_data['Status']}")
                 
                 if HAS_FPDF:
