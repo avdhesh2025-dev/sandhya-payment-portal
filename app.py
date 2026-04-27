@@ -2,18 +2,19 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import time
+import re  # 🟢 Added Regex module to decode XML data
 
 # 1. Page Configuration
 st.set_page_config(page_title="Jio Phone Service", page_icon="📱", layout="centered")
 
-# 2. Database Initialization (Temporary memory for testing)
+# 2. Database Initialization
 if 'service_db' not in st.session_state:
     st.session_state.service_db = pd.DataFrame(columns=[
         "ID", "Date", "Model", "IMEI", "MRP", "EAN", "SRNO",
         "Retailer", "Problem", "Action", "Status"
     ])
 
-# 🟢 SMART FIX: Dynamic key counter to reset scanner without StreamlitAPIException
+# 🟢 SMART FIX: Dynamic key counter to reset scanner without errors
 if 'scan_key' not in st.session_state:
     st.session_state.scan_key = 0
 
@@ -50,7 +51,6 @@ with tab1:
             const html5QrCode = new Html5Qrcode("reader");
             const config = { fps: 15, qrbox: { width: 220, height: 220 } };
 
-            // This function forces Streamlit (React) to accept the value
             function setNativeValue(element, value) {
                 const prototype = Object.getPrototypeOf(element);
                 const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, 'value').set;
@@ -60,7 +60,6 @@ with tab1:
 
             html5QrCode.start({ facingMode: "environment" }, config, 
                 (decodedText) => {
-                    // Find the exact Streamlit input box using "includes" for safety
                     let inputs = window.parent.document.querySelectorAll('input[type="text"]');
                     inputs.forEach(inp => {
                         if(inp.getAttribute('aria-label') && inp.getAttribute('aria-label').includes('Scanned Data')) {
@@ -68,12 +67,11 @@ with tab1:
                         }
                     });
                     
-                    // Stop camera on success
                     html5QrCode.stop().then(() => {
                         document.getElementById('reader').innerHTML = '<div style="padding: 80px 0; text-align: center; color: #15803d; font-size: 24px; font-weight: bold; background: #dcfce7; height: 100%;">✅ Scan Successful! नीचे चेक करें 👇</div>';
                     });
                 }, 
-                (errorMessage) => { /* Ignore errors while seeking QR */ }
+                (errorMessage) => { /* Ignore errors */ }
             ).catch(err => {
                 document.getElementById('reader').innerHTML = '<div style="color:red; padding:20px; background:white;">Camera Error! Refresh page and allow permissions.</div>';
             });
@@ -81,36 +79,60 @@ with tab1:
         """
         st.components.v1.html(scanner_html, height=350)
         
-        # 🟢 Dynamic Key implemented here to prevent mutation error
         qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", key=f"qr_auto_{st.session_state.scan_key}")
         
     else:
         st.info("👇 नीचे क्लिक करें और मशीन से स्कैन करें।")
         qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", placeholder="Scanner will type data here...", key=f"qr_manual_{st.session_state.scan_key}")
 
-    # 🟢 Error-Free Reset Button
+    # Reset Button
     if st.button("🔄 Reset Scanner / Clear Data"):
-        st.session_state.scan_key += 1  # Generating a fresh empty box
+        st.session_state.scan_key += 1 
         st.rerun()
 
-    # Logic to auto-fill data based on scanned string
+    # 🟢 NEW LOGIC: XML & Comma Decoder
     model_val = imei_val = mrp_val = ean_val = srno_val = ""
     
     if qr_data:
-        try:
+        # Check if data is in Jio's XML format
+        if "<?xml" in qr_data or "<MODELNO>" in qr_data:
+            try:
+                # Using Regex to extract data from XML tags safely
+                m_match = re.search(r'<MODELNO>(.*?)</MODELNO>', qr_data, re.IGNORECASE)
+                i_match = re.search(r'<IMEI>(.*?)</IMEI>', qr_data, re.IGNORECASE)
+                mrp_match = re.search(r'<MRP>(.*?)</MRP>', qr_data, re.IGNORECASE)
+                e_match = re.search(r'<EAN>(.*?)</EAN>', qr_data, re.IGNORECASE)
+                s_match = re.search(r'<SRNO>(.*?)</SRNO>', qr_data, re.IGNORECASE)
+
+                model_val = m_match.group(1) if m_match else ""
+                imei_val = i_match.group(1) if i_match else ""
+                mrp_val = mrp_match.group(1) if mrp_match else ""
+                ean_val = e_match.group(1) if e_match else ""
+                srno_val = s_match.group(1) if s_match else ""
+                
+                if imei_val:
+                    st.success("✅ Jio QR (XML) Successfully Decoded!")
+                else:
+                    st.error("⚠️ XML format detected, but IMEI not found.")
+            except Exception as e:
+                st.error(f"Error parsing XML: {e}")
+                
+        # Fallback if it's a simple comma-separated format
+        elif ',' in qr_data:
             parts = qr_data.split(',')
             if len(parts) >= 5:
                 model_val, imei_val, mrp_val, ean_val, srno_val = parts[0], parts[1], parts[2], parts[3], parts[4]
                 st.success("✅ QR Code Successfully Read!")
             else:
                 imei_val = qr_data 
-                st.warning("⚠️ Scanner read the data, but it's not in standard Jio format. Raw data filled in IMEI.")
-        except:
-            st.error("Error reading QR Data.")
+                st.warning("⚠️ Scanner read the data, but format is unknown. Raw data filled in IMEI.")
+        else:
+            imei_val = qr_data
+            st.warning("⚠️ Raw data filled in IMEI.")
 
     # FORM DETAILS
     with st.form("service_form"):
-        st.markdown("### 🔒 Step 2: Scanned Details (Read Only)")
+        st.markdown("### 📋 Step 2: Scanned Details (Read Only)")
         c1, c2 = st.columns(2)
         with c1:
             st.text_input("Model Number", value=model_val, disabled=True)
@@ -145,7 +167,7 @@ with tab1:
             if problem == "-- Select --" or not retailer:
                 st.error("❌ Please enter Retailer Name and select a Problem.")
             elif not imei_val:
-                st.error("❌ Please Scan a QR Code first.")
+                st.error("❌ Please Scan a valid QR Code first.")
             else:
                 new_id = f"JIO-{len(st.session_state.service_db)+1:04d}"
                 new_data = {
@@ -159,7 +181,6 @@ with tab1:
                 st.session_state.service_db = pd.concat([st.session_state.service_db, pd.DataFrame([new_data])], ignore_index=True)
                 st.success(f"🎉 Saved Successfully! ID: {new_id} is marked as **{new_data['Status']}**")
                 
-                # 🟢 Auto-Reset Scanner Box safely after save
                 st.session_state.scan_key += 1
                 time.sleep(1.5)
                 st.rerun()
