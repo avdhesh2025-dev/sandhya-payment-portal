@@ -6,159 +6,204 @@ import time
 # 1. Page Configuration
 st.set_page_config(page_title="Jio Phone Service", page_icon="📱", layout="centered")
 
-# 2. Database Initialization
+# 2. Database Initialization (Temporary memory for testing)
 if 'service_db' not in st.session_state:
     st.session_state.service_db = pd.DataFrame(columns=[
         "ID", "Date", "Model", "IMEI", "MRP", "EAN", "SRNO",
         "Retailer", "Problem", "Action", "Status"
     ])
 
-# 3. Custom UI Header
+# 3. Main Header UI
 st.markdown("""
-    <div style='background: linear-gradient(135deg, #0b57d0 0%, #00c6ff 100%); padding: 20px; border-radius: 12px; text-align: center; color: white; margin-bottom: 20px;'>
-        <h1 style='margin:0; font-size: 28px; font-weight: 900;'>📱 JIO PHONE SERVICE</h1>
-        <p style='margin:5px 0 0 0; font-size: 14px;'>Sandhya Enterprises - Live QR Portal</p>
+    <div style='background: linear-gradient(135deg, #0b57d0 0%, #00c6ff 100%); padding: 20px; border-radius: 12px; text-align: center; color: white; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);'>
+        <h1 style='margin:0; font-size: 30px; font-weight: 900;'>📱 JIO PHONE SERVICE</h1>
+        <p style='margin:5px 0 0 0; font-size: 15px; font-weight: 600;'>Sandhya Enterprises - Live Return Portal</p>
     </div>
 """, unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["📝 New Live Scan", "⏳ Pending List", "✅ History"])
+# 4. Single Dashboard Tabs
+tab1, tab2, tab3 = st.tabs(["📝 New Scan & Entry", "⏳ Pending Phones", "✅ Delivered History"])
 
 # ==========================================
-# TAB 1: LIVE QR SCANNER (SQUARE BOX)
+# TAB 1: NEW ENTRY & LIVE BACK-CAMERA QR SCAN
 # ==========================================
 with tab1:
     st.markdown("### 🔍 Step 1: Scan QR Code")
-    st.info("नीचे दिए गए चौकोर डब्बे (Square Box) में QR कोड को लाएं। यह अपने आप स्कैन कर लेगा।")
-
-    # 🟢 LIVE SCANNER COMPONENT (HTML + JS)
-    # This creates a square viewfinder and uses a high-speed library for instant capture
+    
+    # 🟢 BACK-CAMERA LIVE SCANNER (HTML/JS)
     scanner_html = """
-    <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; position: relative;">
-        <div id="interactive" class="viewport" style="width: 100%; height: 300px; background: #000;">
-            <video autoplay="true" preload="auto" src="" muted="true" playsinline="true" style="width: 100%; height: 100%; object-fit: cover;"></video>
-            <div style="position: absolute; top: 50%; left: 50%; width: 180px; height: 180px; border: 3px solid red; transform: translate(-50%, -50%); box-shadow: 0 0 0 400px rgba(0,0,0,0.3);"></div>
-        </div>
-    </div>
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
     <script>
-        function onScanSuccess(decodedText, decodedResult) {
-            // Send result to Streamlit
-            const result = { data: decodedText, time: new Date().getTime() };
-            window.parent.postMessage({type: 'streamlit:setComponentValue', value: result}, '*');
-            // Stop scanning after success
-            html5QrcodeScanner.clear();
-        }
+        const html5QrCode = new Html5Qrcode("reader");
+        const config = { fps: 15, qrbox: { width: 220, height: 220 } };
 
-        const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 20, qrbox: 200 });
-        html5QrcodeScanner.render(onScanSuccess);
+        // 🟢 FORCING BACK CAMERA (environment)
+        html5QrCode.start({ facingMode: "environment" }, config, 
+            (decodedText) => {
+                // SUCCESS: Send Data to Streamlit Text Input
+                let inputs = window.parent.document.querySelectorAll('input[type="text"]');
+                inputs.forEach(inp => {
+                    if(inp.getAttribute('aria-label') === 'Scanned QR Code (Auto/Manual)') {
+                        let setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                        setter.call(inp, decodedText);
+                        inp.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                });
+                
+                // Stop camera and show success message
+                html5QrCode.stop().then(() => {
+                    document.getElementById('reader').innerHTML = '<div style="padding: 80px 0; text-align: center; color: #15803d; font-size: 24px; font-weight: bold; background: #dcfce7; height: 100%;">✅ Scan Captured!</div>';
+                });
+            }, 
+            (errorMessage) => {
+                // Ignore parsing errors while searching for QR
+            }
+        ).catch(err => {
+            document.getElementById('reader').innerHTML = '<div style="color:red; padding:20px; background:white;">Camera Access Denied or Back Camera Not Found.</div>';
+        });
     </script>
     """
     
-    # Run the scanner component
-    scan_result = st.components.v1.html(scanner_html, height=450)
+    # Input box where JS will auto-fill the scanned data
+    qr_data = st.text_input("Scanned QR Code (Auto/Manual)", key="qr_val", placeholder="यहाँ स्कैनर ऑटोमैटिक डेटा भरेगा...")
     
-    # Variable to hold data
-    qr_raw = ""
-    if st.button("🔄 Reset Scanner / Start New Scan"):
-        st.rerun()
+    # Show scanner only if nothing is scanned yet
+    if not qr_data:
+        st.info("👇 नीचे दिए गए डब्बे में QR कोड लाएं। पीछे वाला कैमरा (Back Camera) अपने-आप स्कैन कर लेगा।")
+        st.components.v1.html(scanner_html, height=350)
+    else:
+        st.success("✅ QR Code Successfully Captured!")
+        # Clear Button
+        if st.button("🔄 Retake Scan (दुबारा स्कैन करें)", type="secondary"):
+            st.session_state.qr_val = ""
+            st.rerun()
 
-    # Manual input as fallback
-    qr_manual = st.text_input("या फिर यहाँ IMEI टाइप करें (Manual Entry):", key="manual_qr")
-    
-    # Logic to process scanned data
+    # Logic to auto-fill data based on scanned string
     model_val = imei_val = mrp_val = ean_val = srno_val = ""
     
-    # Assuming JIO Format: Model,IMEI,MRP,EAN,SRNO
-    final_data = qr_manual if qr_manual else "" 
-    # (Note: In standard Streamlit, reading the JS message above requires a custom component, 
-    # as a simpler fix for now, we use the HD Camera Uploader logic but with a square CSS overlay if needed)
-    
-    # 🟢 Fallback for instant result without complex JS-to-Python bridge
-    st.markdown("---")
-    st.info("अगर ऊपर का लाइव स्कैनर आपके ब्राउज़र में लोड नहीं हो रहा, तो इस 'HD कैमरा' का उपयोग करें:")
-    img_file = st.file_uploader("📷 Click Here to capture QR (Select Camera)", type=['jpg', 'jpeg', 'png'])
-    
-    if img_file:
-        st.success("✅ Photo Uploaded! Processing...")
-        # Since pyzbar can be unstable on some servers, let's allow manual input 
-        # based on the photo for 100% reliability
-        st.warning("स्कैनर प्रोसेस कर रहा है... अगर डेटा नहीं आता, तो कृपया नीचे बॉक्स में भरें।")
+    if qr_data:
+        try:
+            parts = qr_data.split(',')
+            if len(parts) >= 5:
+                model_val, imei_val, mrp_val, ean_val, srno_val = parts[0], parts[1], parts[2], parts[3], parts[4]
+            else:
+                imei_val = qr_data 
+                st.warning("⚠️ Unknown QR format. Filling raw data in IMEI box.")
+        except:
+            st.error("Error reading QR Data.")
 
+    # FORM DETAILS
     with st.form("service_form"):
-        st.markdown("### 📋 Step 2: Product Details")
+        st.markdown("### 🔒 Step 2: Scanned Details (Read Only)")
         c1, c2 = st.columns(2)
         with c1:
-            m_no = st.text_input("Model Number", placeholder="e.g. F320B")
-            mrp = st.text_input("MRP", placeholder="e.g. 1999")
-            sr = st.text_input("Serial Number (SRNO)")
+            st.text_input("Model Number", value=model_val, disabled=True)
+            st.text_input("MRP", value=mrp_val, disabled=True)
+            st.text_input("Serial No (SRNO)", value=srno_val, disabled=True)
         with c2:
-            imei = st.text_input("IMEI Number (जरूरी)*")
-            ean = st.text_input("EAN")
+            st.text_input("IMEI Number", value=imei_val, disabled=True)
+            st.text_input("EAN", value=ean_val, disabled=True)
 
         st.markdown("---")
-        st.markdown("### 🛠️ Step 3: Job Card")
-        retailer = st.text_input("👤 Retailer Name*")
-        problem = st.selectbox("⚠️ Problem*", ["-- Select --", "Dead", "Battery", "Display", "Charging", "Software", "Other"])
-        action = st.radio("🔄 Action*", ["New Replacement", "Repair & Return"])
-        status = st.radio("📦 Status*", ["Pending (जमा है)", "Delivered (दे दिया)"])
+        st.markdown("### 🛠️ Step 3: Service Information")
+        retailer = st.text_input("👤 Retailer Name (किस रिटेलर का फ़ोन है?)*")
+        
+        problem = st.selectbox(
+            "⚠️ Phone Problem (फ़ोन में क्या दिक्कत है?)*",
+            ["-- Select --", "Battery Issue (बैटरी ख़राब)", "Software Dead (सॉफ्टवेयर डेड)", "Display Broken (डिस्प्ले टूटा है)", "Keypad Issue (कीपैड ख़राब)", "Charging Issue (चार्ज नहीं हो रहा)", "Other (अन्य)"]
+        )
+        
+        action = st.radio(
+            "🔄 Action Required (क्या करना है?)*",
+            ["Replace with New Phone (नया बदल कर देना है)", "Repair Same Phone (वही ठीक करके देना है)"]
+        )
+        
+        status = st.radio(
+            "📦 Current Status (स्टेटस क्या है?)*",
+            ["Pending (फ़ोन अभी पेंडिंग है)", "Delivered (दे दिया गया है)"]
+        )
 
-        save = st.form_submit_button("💾 SAVE JOB CARD", type="primary", use_container_width=True)
+        submit = st.form_submit_button("💾 Save Entry", type="primary", use_container_width=True)
 
-        if save:
-            if not imei or not retailer or problem == "-- Select --":
-                st.error("❌ कृपया IMEI, रिटेलर का नाम और प्रॉब्लम जरूर भरें।")
+        if submit:
+            if problem == "-- Select --" or not retailer:
+                st.error("❌ Please enter Retailer Name and select a Problem.")
+            elif not imei_val:
+                st.error("❌ Please Scan the QR Code first before saving.")
             else:
                 new_id = f"JIO-{len(st.session_state.service_db)+1:04d}"
-                new_entry = {
-                    "ID": new_id, "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
-                    "Model": m_no, "IMEI": imei, "MRP": mrp, "EAN": ean, "SRNO": sr,
-                    "Retailer": retailer.upper(), "Problem": problem, "Action": action,
+                new_data = {
+                    "ID": new_id, 
+                    "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
+                    "Model": model_val, "IMEI": imei_val, "MRP": mrp_val, "EAN": ean_val, "SRNO": srno_val,
+                    "Retailer": retailer.upper(), "Problem": problem, "Action": action, 
                     "Status": "Pending" if "Pending" in status else "Delivered"
                 }
-                st.session_state.service_db = pd.concat([st.session_state.service_db, pd.DataFrame([new_entry])], ignore_index=True)
-                st.success(f"🎉 Entry Saved! ID: {new_id}")
+                
+                st.session_state.service_db = pd.concat([st.session_state.service_db, pd.DataFrame([new_data])], ignore_index=True)
+                st.success(f"🎉 Saved Successfully! ID: {new_id} is marked as **{new_data['Status']}**")
+                
+                # Auto clear scanner input after save
+                st.session_state.qr_val = ""
+                time.sleep(2)
+                st.rerun()
+
+# ==========================================
+# TAB 2: PENDING PHONES DASHBOARD
+# ==========================================
+with tab2:
+    st.markdown("### ⏳ Pending Action Board")
+    
+    pending_df = st.session_state.service_db[st.session_state.service_db["Status"] == "Pending"]
+    
+    if pending_df.empty:
+        st.info("🎉 Good Job! No pending phones right now.")
+    else:
+        st.error(f"🚨 You have {len(pending_df)} phone(s) pending for service!")
+        
+        for idx, row in pending_df.iterrows():
+            st.markdown(f"""
+                <div style='border: 1px solid #f87171; padding: 15px; border-radius: 10px; background: #fef2f2; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);'>
+                    <div style='display: flex; justify-content: space-between;'>
+                        <h4 style='color: #b91c1c; margin: 0;'>👤 Retailer: {row['Retailer']}</h4>
+                        <span style='background: #b91c1c; color: white; padding: 3px 8px; border-radius: 5px; font-size: 12px;'>{row['ID']}</span>
+                    </div>
+                    <p style='margin: 8px 0 2px 0; color: #4b5563;'><b>📱 Model:</b> {row['Model']} | <b>IMEI:</b> {row['IMEI']}</p>
+                    <p style='margin: 2px 0; color: #4b5563;'><b>⚠️ Problem:</b> {row['Problem']}</p>
+                    <p style='margin: 2px 0; color: #1e3a8a;'><b>🛠️ Action:</b> {row['Action']}</p>
+                    <p style='margin: 6px 0 0 0; font-size: 12px; color: #9ca3af;'>📅 Received On: {row['Date']}</p>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            if st.button(f"✅ Mark as Delivered (Done)", key=f"del_{row['ID']}", type="secondary", use_container_width=True):
+                st.session_state.service_db.loc[st.session_state.service_db['ID'] == row['ID'], 'Status'] = "Delivered"
+                st.success(f"{row['ID']} marked as Delivered!")
                 time.sleep(1)
                 st.rerun()
 
 # ==========================================
-# TAB 2: PENDING DASHBOARD (WITH DELETE/DONE)
-# ==========================================
-with tab2:
-    st.markdown("### ⏳ Pending Replacements")
-    pending = st.session_state.service_db[st.session_state.service_db["Status"] == "Pending"]
-    
-    if pending.empty:
-        st.info("कोई पेंडिंग फ़ोन नहीं है।")
-    else:
-        for idx, row in pending.iterrows():
-            with st.container():
-                st.markdown(f"""
-                <div style='border: 2px solid #ef4444; padding: 15px; border-radius: 10px; background: white; margin-bottom: 10px;'>
-                    <b style='color: #0b57d0;'>ID: {row['ID']}</b> | 👤 <b>{row['Retailer']}</b><br>
-                    📱 {row['Model']} (IMEI: {row['IMEI']})<br>
-                    ⚠️ Problem: {row['Problem']} | 🛠️ {row['Action']}<br>
-                    <small>📅 {row['Date']}</small>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                c1, c2 = st.columns(2)
-                if c1.button(f"✅ Delivered", key=f"done_{row['ID']}"):
-                    st.session_state.service_db.loc[st.session_state.service_db['ID'] == row['ID'], 'Status'] = "Delivered"
-                    st.rerun()
-                if c2.button(f"🗑️ Delete", key=f"del_{row['ID']}"):
-                    st.session_state.service_db = st.session_state.service_db[st.session_state.service_db['ID'] != row['ID']]
-                    st.rerun()
-
-# ==========================================
-# TAB 3: HISTORY
+# TAB 3: DELIVERED HISTORY
 # ==========================================
 with tab3:
-    st.markdown("### ✅ Service History")
-    delivered = st.session_state.service_db[st.session_state.service_db["Status"] == "Delivered"]
+    st.markdown("### ✅ Delivered / Completed Phones")
     
-    if not delivered.empty:
-        st.dataframe(delivered, hide_index=True, use_container_width=True)
-        csv = delivered.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download Excel Report", csv, "Jio_Service_Report.csv", "text/csv", use_container_width=True)
+    delivered_df = st.session_state.service_db[st.session_state.service_db["Status"] == "Delivered"]
+    
+    if delivered_df.empty:
+        st.info("No completed services yet.")
     else:
-        st.write("कोई हिस्ट्री मौजूद नहीं है।")
+        st.dataframe(
+            delivered_df[["ID", "Date", "Retailer", "IMEI", "Problem", "Action"]].sort_values("ID", ascending=False), 
+            hide_index=True, 
+            use_container_width=True
+        )
+        
+        csv = delivered_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download Delivered History (Excel)",
+            data=csv,
+            file_name=f"Jio_Service_History_{datetime.now().strftime('%d-%m-%Y')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
