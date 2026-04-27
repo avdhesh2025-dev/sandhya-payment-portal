@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import time
 
 # 1. Page Configuration
 st.set_page_config(page_title="Jio Phone Service", page_icon="📱", layout="centered")
@@ -11,6 +12,10 @@ if 'service_db' not in st.session_state:
         "ID", "Date", "Model", "IMEI", "MRP", "EAN", "SRNO",
         "Retailer", "Problem", "Action", "Status"
     ])
+
+# 🟢 SMART FIX: Dynamic key counter to reset scanner without StreamlitAPIException
+if 'scan_key' not in st.session_state:
+    st.session_state.scan_key = 0
 
 # 3. Main Header UI
 st.markdown("""
@@ -32,10 +37,12 @@ with tab1:
     # स्कैन का तरीका
     scan_method = st.radio("स्कैन का तरीका चुनें:", ["📷 Live Mobile Camera (लाइव कैमरा)", "🔫 Scanner Machine (गन स्कैनर)"])
     
+    qr_data = ""
+
     if scan_method == "📷 Live Mobile Camera (लाइव कैमरा)":
         st.info("👇 डब्बे में QR कोड लाएं। पीछे वाला कैमरा (Back Camera) अपने-आप स्कैन कर लेगा।")
         
-        # 🟢 SUPER HACK: React DOM Auto-Fill Code
+        # 🟢 HTML/JS Scanner Code
         scanner_html = """
         <script src="https://unpkg.com/html5-qrcode"></script>
         <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
@@ -53,10 +60,10 @@ with tab1:
 
             html5QrCode.start({ facingMode: "environment" }, config, 
                 (decodedText) => {
-                    // Find the exact Streamlit input box and force-fill it
+                    // Find the exact Streamlit input box using "includes" for safety
                     let inputs = window.parent.document.querySelectorAll('input[type="text"]');
                     inputs.forEach(inp => {
-                        if(inp.getAttribute('aria-label') === '📷 Scanned Data (Auto-Fill)') {
+                        if(inp.getAttribute('aria-label') && inp.getAttribute('aria-label').includes('Scanned Data')) {
                             setNativeValue(inp, decodedText);
                         }
                     });
@@ -73,16 +80,17 @@ with tab1:
         </script>
         """
         st.components.v1.html(scanner_html, height=350)
-        qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", key="qr_auto")
+        
+        # 🟢 Dynamic Key implemented here to prevent mutation error
+        qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", key=f"qr_auto_{st.session_state.scan_key}")
         
     else:
         st.info("👇 नीचे क्लिक करें और मशीन से स्कैन करें।")
-        qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", placeholder="Scanner will type data here...", key="qr_manual")
+        qr_data = st.text_input("📷 Scanned Data (Auto-Fill)", placeholder="Scanner will type data here...", key=f"qr_manual_{st.session_state.scan_key}")
 
-    # Clear scanner button
+    # 🟢 Error-Free Reset Button
     if st.button("🔄 Reset Scanner / Clear Data"):
-        if "qr_auto" in st.session_state: st.session_state.qr_auto = ""
-        if "qr_manual" in st.session_state: st.session_state.qr_manual = ""
+        st.session_state.scan_key += 1  # Generating a fresh empty box
         st.rerun()
 
     # Logic to auto-fill data based on scanned string
@@ -150,6 +158,11 @@ with tab1:
                 
                 st.session_state.service_db = pd.concat([st.session_state.service_db, pd.DataFrame([new_data])], ignore_index=True)
                 st.success(f"🎉 Saved Successfully! ID: {new_id} is marked as **{new_data['Status']}**")
+                
+                # 🟢 Auto-Reset Scanner Box safely after save
+                st.session_state.scan_key += 1
+                time.sleep(1.5)
+                st.rerun()
 
 # ==========================================
 # TAB 2: PENDING PHONES DASHBOARD
@@ -182,6 +195,7 @@ with tab2:
             if c1.button(f"✅ Mark Delivered", key=f"del_{row['ID']}", type="secondary", use_container_width=True):
                 st.session_state.service_db.loc[st.session_state.service_db['ID'] == row['ID'], 'Status'] = "Delivered"
                 st.success(f"{row['ID']} marked as Delivered!")
+                time.sleep(1)
                 st.rerun()
             if c2.button(f"🗑️ Delete", key=f"rm_{row['ID']}", use_container_width=True):
                 st.session_state.service_db = st.session_state.service_db[st.session_state.service_db['ID'] != row['ID']]
