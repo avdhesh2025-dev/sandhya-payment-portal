@@ -18,7 +18,7 @@ st.set_page_config(page_title="Jio Phone Service", page_icon="📱", layout="cen
 # ==========================================
 # 🔴 यहाँ अपना नया WEBHOOK और SHEET ID डालें 🔴
 # ==========================================
-WEBHOOK_URL = "यहाँ_अपना_नया_WEBHOOK_URL_डालें"
+WEBHOOK_URL = "https://docs.google.com/spreadsheets/d/17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM/edit?usp=sharing"
 SHEET_ID = "यहाँ_अपनी_नई_Google_Sheet_की_ID_डालें"
 # ==========================================
 
