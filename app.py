@@ -136,9 +136,9 @@ with tab1:
         qr_data = ""
 
         if scan_method == "📷 Live Mobile Camera (लाइव कैमरा)":
-            st.warning("💡 **TIP:** मोबाइल को डब्बे से **6-8 इंच दूर** रखें। कैमरे का Auto-Zoom खुद पास ले आएगा ताकि फोटो साफ़ (Clear) रहे!")
+            st.info("💡 **TIP:** डब्बे का चौकोर कोड (Data Matrix) या IMEI का लम्बा बारकोड (Barcode), दोनों में से कोई भी स्कैन करें!")
             
-            # 🟢 AUTO-ZOOM ENABLED SCANNER (Using advanced constraints)
+            # 🟢 STABLE SCANNER WITH NO EXPERIMENTAL HACKS
             scanner_html = """
             <script src="https://unpkg.com/html5-qrcode"></script>
             <div id="reader" style="width: 100%; max-width: 400px; margin: auto; border: 4px solid #0b57d0; border-radius: 10px; overflow: hidden; background: #000;"></div>
@@ -147,7 +147,7 @@ with tab1:
                 const config = { 
                     fps: 15, 
                     qrbox: { width: 250, height: 250 }, 
-                    formatsToSupport: [ Html5QrcodeSupportedFormats.DATA_MATRIX, Html5QrcodeSupportedFormats.QR_CODE ] 
+                    formatsToSupport: [ Html5QrcodeSupportedFormats.DATA_MATRIX, Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128 ] 
                 };
 
                 function setNativeValue(element, value) {
@@ -157,8 +157,7 @@ with tab1:
                     element.dispatchEvent(new Event('input', { bubbles: true }));
                 }
 
-                // 🟢 Attempting to force zoom so user can hold camera further away
-                html5QrCode.start({ facingMode: "environment", advanced: [{ zoom: 2.0 }] }, config, 
+                html5QrCode.start({ facingMode: "environment" }, config, 
                     (decodedText) => {
                         let inputs = window.parent.document.querySelectorAll('input[type="text"]');
                         inputs.forEach(inp => {
@@ -167,23 +166,12 @@ with tab1:
                             }
                         });
                         html5QrCode.stop().then(() => {
-                            document.getElementById('reader').innerHTML = '<div style="padding: 80px 0; text-align: center; color: #15803d; font-size: 24px; font-weight: bold; background: #dcfce7; height: 100%;">✅ Code Caught! Scroll Down 👇</div>';
+                            document.getElementById('reader').innerHTML = '<div style="padding: 60px 0; text-align: center; color: #15803d; font-size: 22px; font-weight: bold; background: #dcfce7; height: 100%;">✅ Code Caught! Scroll Down 👇</div>';
                         });
                     }, 
                     (errorMessage) => { /* Ignore errors */ }
                 ).catch(err => {
-                    // Fallback without zoom if device doesn't support it
-                    html5QrCode.start({ facingMode: "environment" }, config, 
-                        (decodedText) => {
-                            let inputs = window.parent.document.querySelectorAll('input[type="text"]');
-                            inputs.forEach(inp => {
-                                if(inp.getAttribute('aria-label') && inp.getAttribute('aria-label').includes('Scanned Data')) {
-                                    setNativeValue(inp, decodedText);
-                                }
-                            });
-                            html5QrCode.stop();
-                        }, (e) => {}
-                    );
+                    document.getElementById('reader').innerHTML = '<div style="color:red; padding:20px; background:white;">Camera Error! Please allow camera permissions in Chrome.</div>';
                 });
             </script>
             """
