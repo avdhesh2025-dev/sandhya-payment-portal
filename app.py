@@ -31,8 +31,8 @@ st.markdown("""
 # ==========================================
 # 🔴 यहाँ अपना नया WEBHOOK और SHEET ID डालें 🔴
 # ==========================================
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwCobr5YdjZJedeXQxnzTVMlkEJ5LI7-1CAnAlf5_14QiAHe502xipIguOxT2ewOanpUQ/exec"
-SHEET_ID = "https://docs.google.com/spreadsheets/d/17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM/edit?usp=sharing"
+WEBHOOK_URL = "यहाँ_अपना_नया_WEBHOOK_URL_डालें"
+SHEET_ID = "यहाँ_अपनी_Google_Sheet_की_ID_डालें"
 # ==========================================
 
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=ServiceDB"
@@ -119,7 +119,7 @@ st.markdown("""
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📝 New Entry", "⏳ Pending", "✅ History", "🖨️ Re-Print Bill", "📂 Auto-Fill Setup"])
 
 # ==========================================
-# TAB 1: NEW ENTRY (SCAN OR SEARCH)
+# TAB 1: NEW ENTRY (SCAN, SEARCH OR MANUAL)
 # ==========================================
 with tab1:
     if st.session_state.last_bill_data is not None:
@@ -137,22 +137,25 @@ with tab1:
             st.rerun()
 
     else:
-        st.markdown("### 🔍 Step 1: Find Device")
+        st.markdown("### 🔍 Step 1: Find Device / Entry Method")
         
-        # 🟢 NEW: Option to Search Retailer or Scan
-        entry_method = st.radio("डिवाइस खोजने का तरीका चुनें:", ["🔍 Search Retailer & IMEI (स्मार्ट सर्च)", "📷 Scan / Paste Code (स्कैन/पेस्ट)"])
+        # 🟢 NEW: 3 Options (Including Manual)
+        entry_method = st.radio("डिवाइस खोजने का तरीका चुनें:", [
+            "🔍 Smart Search (रिटेलर से खोजें)", 
+            "📷 Scanner / Paste (स्कैन या पेस्ट)", 
+            "✍️ Manual Entry (हाथ से भरें)"
+        ])
         
         parsed_data = { "MFRNAME": "", "MODELNO": "", "IMEI": "", "MRP": "", "EAN": "", "SRNO": "" }
         auto_retailer_name = ""
 
-        # 🟢 SEARCH BY RETAILER LOGIC (THE GENIUS IDEA)
-        if entry_method == "🔍 Search Retailer & IMEI (स्मार्ट सर्च)":
+        # 🟢 1. SMART SEARCH LOGIC
+        if entry_method == "🔍 Smart Search (रिटेलर से खोजें)":
             if st.session_state.sales_db.empty:
                 st.warning("⚠️ स्मार्ट सर्च काम करने के लिए, पहले '📂 Auto-Fill Setup' टैब में Sales Data Excel अपलोड करें।")
             else:
                 st.info("💡 यहाँ रिटेलर का नाम चुनें, फिर बगल में उस रिटेलर को दिए गए सारे IMEI दिखेंगे।")
                 
-                # Find Column Names dynamically
                 ret_cols = [c for c in st.session_state.sales_db.columns if 'RETAILER' in str(c).upper() or 'NAME' in str(c).upper()]
                 imei_cols = [c for c in st.session_state.sales_db.columns if 'IMEI' in str(c).upper()]
                 model_cols = [c for c in st.session_state.sales_db.columns if 'MODEL' in str(c).upper()]
@@ -166,7 +169,6 @@ with tab1:
                     
                     if selected_ret != "-- Select --":
                         auto_retailer_name = selected_ret
-                        # Get all IMEIs for this retailer
                         ret_data = st.session_state.sales_db[st.session_state.sales_db[ret_cols[0]] == selected_ret]
                         imei_list = ret_data[imei_cols[0]].dropna().astype(str).tolist()
                         
@@ -177,15 +179,14 @@ with tab1:
                             parsed_data["IMEI"] = selected_imei
                             st.success("✅ Device Found & Details Auto-Filled!")
                             
-                            # Try to get Model from DB if available
                             if model_cols:
                                 match_row = ret_data[ret_data[imei_cols[0]].astype(str) == selected_imei].iloc[0]
                                 parsed_data["MODELNO"] = str(match_row[model_cols[0]])
                 else:
                     st.error("Excel File me 'Retailer' aur 'IMEI' column nahi mila.")
 
-        # 🟢 SCAN OR PASTE LOGIC (OLD WAY AS BACKUP)
-        else:
+        # 🟢 2. SCAN OR PASTE LOGIC
+        elif entry_method == "📷 Scanner / Paste (स्कैन या पेस्ट)":
             qr_data = st.text_input("📷 Scanned Data (Paste Here)", placeholder="यहाँ पेस्ट करें या गन से स्कैन करें...", key=f"qr_manual_{st.session_state.scan_key}")
 
             if st.button("🔄 Clear Data"):
@@ -208,7 +209,6 @@ with tab1:
                     parsed_data["IMEI"] = qr_data
                     st.success("✅ Single Code Detected!")
 
-            # Auto-Find Retailer from Scan
             if parsed_data["IMEI"] and not st.session_state.sales_db.empty:
                 search_imei = str(parsed_data["IMEI"]).strip()
                 imei_cols = [c for c in st.session_state.sales_db.columns if 'IMEI' in str(c).upper()]
@@ -218,21 +218,26 @@ with tab1:
                     if not match_df.empty:
                         auto_retailer_name = str(match_df.iloc[0][ret_cols[0]])
                         st.success(f"🤖 Retailer Auto-Found: **{auto_retailer_name}**")
+        
+        # 🟢 3. MANUAL ENTRY LOGIC
+        else:
+            st.info("💡 **हाथ से भरें:** नीचे दिए गए डब्बों में आप खुद से कोई भी नंबर या डिटेल टाइप कर सकते हैं।")
 
-        # 🟢 FORM DETAILS (A4 Clean View)
+        # 🟢 FORM DETAILS (COMPLETELY UNLOCKED & EDITABLE)
         with st.form("service_form"):
             st.markdown("### 📋 Step 2: Phone Details")
-            st.caption("डब्बे अपने-आप भर जाएंगे, अगर कुछ खाली रहे तो आप टाइप कर सकते हैं।")
+            st.caption("नीचे दिए गए डब्बों में आप टाइप कर सकते हैं या बदलाव कर सकते हैं।")
             
+            # All boxes are now fully editable (disabled=False)
             mfr_in = st.text_input("Manufacturer Name (MFRNAME)", value=parsed_data["MFRNAME"])
             c1, c2 = st.columns(2)
             with c1:
                 model_in = st.text_input("Model Number", value=parsed_data["MODELNO"])
-                mrp_in = st.text_input("MRP (₹)", value=parsed_data["MRP"])
+                mrp_in = st.text_input("MRP (₹) - [सिर्फ नंबर लिखें]", value=parsed_data["MRP"])
                 srno_in = st.text_input("Serial No (SRNO)", value=parsed_data["SRNO"])
             with c2:
-                imei_in = st.text_input("IMEI Number*", value=parsed_data["IMEI"])
-                ean_in = st.text_input("EAN", value=parsed_data["EAN"])
+                imei_in = st.text_input("IMEI Number (15 Digits)*", value=parsed_data["IMEI"])
+                ean_in = st.text_input("EAN Code", value=parsed_data["EAN"])
 
             st.markdown("---")
             st.markdown("### 🛠️ Step 3: Service Information")
