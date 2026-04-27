@@ -30,8 +30,9 @@ st.markdown("""
 # ==========================================
 # 🔴 WEBHOOK AND SHEET ID
 # ==========================================
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwCobr5YdjZJedeXQxnzTVMlkEJ5LI7-1CAnAlf5_14QiAHe502xipIguOxT2ewOanpUQ/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzclpA2vXlcwScmEYvAjmOye2pYYr3yDnx6OnrlXVEHer7HxG9lrSKdrW1l6-ckABnbpQ/exec"
 SHEET_ID = "https://docs.google.com/spreadsheets/d/17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM/edit?usp=sharing"
+# ==========================================
 
 csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=ServiceDB"
 
@@ -50,7 +51,7 @@ def load_data():
 if 'service_db' not in st.session_state:
     st.session_state.service_db = load_data()
 
-# 🟢 SALES DATABASE (बिक्री का रिकॉर्ड)
+# 🟢 SALES DATABASE
 if 'sales_db' not in st.session_state:
     st.session_state.sales_db = pd.DataFrame(columns=["Date", "MFRNAME", "Model", "IMEI", "MRP", "EAN", "SRNO", "Retailer"])
 
@@ -124,7 +125,7 @@ st.markdown("""
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["🛒 New Sale (सेल)", "🛠️ Service Return (सर्विस)", "⏳ Pending", "✅ History", "📂 Data & Bills"])
 
 # ==========================================
-# TAB 1: NEW SALE (नया फ़ोन बेचना) - As you requested!
+# TAB 1: NEW SALE (नया फ़ोन बेचना)
 # ==========================================
 with tab1:
     st.markdown("### 🛒 New Sale (Retailer Dispatch)")
@@ -181,40 +182,55 @@ with tab1:
 # ==========================================
 with tab2:
     st.markdown("### 🛠️ Service Entry (Return / Faulty)")
-    st.info("💡 **खराब फ़ोन की वापसी:** अगर कोई फ़ोन ख़राब निकलता है, तो बस रिटेलर का नाम चुनें, उसका बिका हुआ फ़ोन यहाँ खुद आ जाएगा।")
+    st.info("💡 **खराब फ़ोन की वापसी:** रिटेलर का नाम और IMEI चुनें। फ़ोन का मॉडल, MRP और 'बिक्री की तारीख' खुद आ जाएगी।")
     
     entry_method = st.radio("डिवाइस खोजने का तरीका चुनें:", ["🔍 Smart Search (रिटेलर से खोजें)", "📷 Scanner / Paste (स्कैन या पेस्ट)"])
     
-    parsed_data = { "MFRNAME": "", "MODELNO": "", "IMEI": "", "MRP": "", "EAN": "", "SRNO": "" }
+    parsed_data = { "MFRNAME": "", "MODELNO": "", "IMEI": "", "MRP": "", "EAN": "", "SRNO": "", "SALE_DATE": "" }
     auto_retailer_name = ""
 
     # 1. SMART SEARCH LOGIC (फ्रॉम Sales DB)
     if entry_method == "🔍 Smart Search (रिटेलर से खोजें)":
         if st.session_state.sales_db.empty:
-            st.warning("⚠️ अभी तक कोई फ़ोन नहीं बेचा गया है। पहले '🛒 New Sale' में जाकर फ़ोन बेचें।")
+            st.warning("⚠️ अभी तक कोई फ़ोन नहीं बेचा गया है। पहले '🛒 New Sale' में जाकर फ़ोन बेचें या 'Data & Bills' टैब में पुरानी एक्सेल डालें।")
         else:
-            retailer_list = st.session_state.sales_db['Retailer'].dropna().unique().tolist()
-            colA, colB = st.columns(2)
-            with colA:
-                selected_ret = st.selectbox("👤 Select Retailer*", ["-- Select --"] + sorted(retailer_list))
+            # 🟢 SMART COLUMN FINDER (It will catch columns no matter what they are named)
+            def get_val(row, possible_names):
+                for col in row.index:
+                    if any(p in str(col).upper() for p in possible_names):
+                        val = str(row[col])
+                        return val if val.lower() != 'nan' else ""
+                return ""
+
+            ret_cols = [c for c in st.session_state.sales_db.columns if 'RETAILER' in str(c).upper() or 'NAME' in str(c).upper()]
+            imei_cols = [c for c in st.session_state.sales_db.columns if 'IMEI' in str(c).upper()]
             
-            if selected_ret != "-- Select --":
-                auto_retailer_name = selected_ret
-                ret_data = st.session_state.sales_db[st.session_state.sales_db['Retailer'] == selected_ret]
-                imei_list = ret_data['IMEI'].dropna().astype(str).tolist()
+            if ret_cols and imei_cols:
+                retailer_list = st.session_state.sales_db[ret_cols[0]].dropna().unique().tolist()
+                colA, colB = st.columns(2)
+                with colA:
+                    selected_ret = st.selectbox("👤 Select Retailer*", ["-- Select --"] + sorted(retailer_list))
                 
-                with colB:
-                    selected_imei = st.selectbox("📱 Select Phone IMEI*", ["-- Select --"] + imei_list)
+                if selected_ret != "-- Select --":
+                    auto_retailer_name = selected_ret
+                    ret_data = st.session_state.sales_db[st.session_state.sales_db[ret_cols[0]] == selected_ret]
+                    imei_list = ret_data[imei_cols[0]].dropna().astype(str).tolist()
                     
-                if selected_imei != "-- Select --":
-                    match_row = ret_data[ret_data['IMEI'].astype(str) == selected_imei].iloc[0]
-                    parsed_data["IMEI"] = str(match_row.get("IMEI", ""))
-                    parsed_data["MODELNO"] = str(match_row.get("Model", ""))
-                    parsed_data["MFRNAME"] = str(match_row.get("MFRNAME", ""))
-                    parsed_data["MRP"] = str(match_row.get("MRP", ""))
-                    parsed_data["SRNO"] = str(match_row.get("SRNO", ""))
-                    parsed_data["EAN"] = str(match_row.get("EAN", ""))
-                    st.success("✅ Device Found in Sales Record! Details Auto-Filled.")
+                    with colB:
+                        selected_imei = st.selectbox("📱 Select Phone IMEI*", ["-- Select --"] + imei_list)
+                        
+                    if selected_imei != "-- Select --":
+                        match_row = ret_data[ret_data[imei_cols[0]].astype(str) == selected_imei].iloc[0]
+                        
+                        parsed_data["IMEI"] = selected_imei
+                        parsed_data["MODELNO"] = get_val(match_row, ["MODEL"])
+                        parsed_data["MFRNAME"] = get_val(match_row, ["MFRNAME", "MANUFACTURER"])
+                        parsed_data["MRP"] = get_val(match_row, ["MRP", "PRICE", "RATE"])
+                        parsed_data["SRNO"] = get_val(match_row, ["SRNO", "SERIAL"])
+                        parsed_data["EAN"] = get_val(match_row, ["EAN"])
+                        parsed_data["SALE_DATE"] = get_val(match_row, ["DATE", "TIME"])
+                        
+                        st.success("✅ Device Found in Sales Record! Details Auto-Filled.")
 
     # 2. SCAN OR PASTE LOGIC
     elif entry_method == "📷 Scanner / Paste (स्कैन या पेस्ट)":
@@ -222,8 +238,9 @@ with tab2:
         if qr_data:
             if "<IMEI>" in qr_data.upper() or "<?XML" in qr_data.upper():
                 for key in parsed_data.keys():
-                    match = re.search(f'<{key}>(.*?)</{key}>', qr_data, re.IGNORECASE)
-                    if match: parsed_data[key] = match.group(1)
+                    if key != "SALE_DATE":
+                        match = re.search(f'<{key}>(.*?)</{key}>', qr_data, re.IGNORECASE)
+                        if match: parsed_data[key] = match.group(1)
             elif ',' in qr_data:
                 parts = qr_data.split(',')
                 if len(parts) >= 5:
@@ -233,10 +250,21 @@ with tab2:
 
         if parsed_data["IMEI"] and not st.session_state.sales_db.empty:
             search_imei = str(parsed_data["IMEI"]).strip()
-            match_df = st.session_state.sales_db[st.session_state.sales_db['IMEI'].astype(str).str.strip() == search_imei]
-            if not match_df.empty:
-                auto_retailer_name = str(match_df.iloc[0]['Retailer'])
-                st.success(f"🤖 Retailer Auto-Found from Sales Record: **{auto_retailer_name}**")
+            imei_cols = [c for c in st.session_state.sales_db.columns if 'IMEI' in str(c).upper()]
+            ret_cols = [c for c in st.session_state.sales_db.columns if 'RETAILER' in str(c).upper() or 'NAME' in str(c).upper()]
+            date_cols = [c for c in st.session_state.sales_db.columns if 'DATE' in str(c).upper()]
+            
+            if imei_cols and ret_cols:
+                match_df = st.session_state.sales_db[st.session_state.sales_db[imei_cols[0]].astype(str).str.strip() == search_imei]
+                if not match_df.empty:
+                    auto_retailer_name = str(match_df.iloc[0][ret_cols[0]])
+                    st.success(f"🤖 Retailer Auto-Found from Sales Record: **{auto_retailer_name}**")
+                    if date_cols:
+                        parsed_data["SALE_DATE"] = str(match_df.iloc[0][date_cols[0]])
+
+    # 🟢 SHOW SALE DATE (WARRANTY CHECK)
+    if parsed_data["SALE_DATE"]:
+        st.info(f"📅 **Sale Date (यह फ़ोन कब बेचा गया था):** {parsed_data['SALE_DATE']}")
 
     # SERVICE FORM
     with st.form("service_form"):
