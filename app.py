@@ -15,27 +15,25 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🔴 यहाँ अपना नया WEBHOOK और SHEET ID डालें 🔴
+# 🔴 FIXED WEBHOOK AND SHEET ID
 # ==========================================
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwq8_2sAhirNEqEBNYvIQ7qsUhaXELXblnXNbnIL1mpp7lnxCB25NBC5WabA92da1jA9g/exec"
-SHEET_ID = "https://docs.google.com/spreadsheets/d/17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM/edit?usp=sharing"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwq8_2sAhirNEqEBNYvIQ7qsUhaXELXblnXNbnIL1mpp71nxCB25NBC5WabA92da1jA9g/exec"
+SHEET_ID = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
 # ==========================================
 
-# 🟢 SMART DATA LOADER (इग्नोर करेगा स्पेस और एरर)
-@st.cache_data(ttl=1) # 1 second auto-refresh
+# 🟢 SMART DATA LOADER
+@st.cache_data(ttl=1)
 def load_data_from_sheet(sheet_name, expected_columns):
     url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={sheet_name}&cb={int(time.time())}"
     try:
         df = pd.read_csv(url).dropna(how="all").fillna("")
         if not df.empty:
-            # कॉलम के नाम से स्पेस हटा देता है (e.g., 'Retailer Name' -> 'RetailerName')
             df.columns = [str(c).replace(" ", "").strip() for c in df.columns]
             return df
     except Exception as e:
-        pass # अगर शीट प्राइवेट है तो यह एरर को इग्नोर करेगा
+        pass 
     return pd.DataFrame(columns=expected_columns)
 
-# लोड करें
 st.session_state.auth_retailers = load_data_from_sheet("Authorized_Retailers", ["RetailerName", "Mobile", "Auth_UPI"])
 st.session_state.payment_ledger = load_data_from_sheet("Payment_Ledger", ["Date", "RetailerName", "Amount", "Mode", "SenderUPI_Mobile", "Status", "Reference"])
 
@@ -64,7 +62,6 @@ with tab1:
         with st.form("payment_form"):
             col1, col2 = st.columns(2)
             with col1:
-                # Get Retailer names dynamically
                 ret_col = "RetailerName" if "RetailerName" in st.session_state.auth_retailers.columns else st.session_state.auth_retailers.columns[0]
                 retailer_list = ["-- Select Retailer --"] + st.session_state.auth_retailers[ret_col].astype(str).tolist()
                 
@@ -85,7 +82,6 @@ with tab1:
                     if pay_mode != "Cash":
                         auth_data = st.session_state.auth_retailers[st.session_state.auth_retailers[ret_col] == selected_retailer].iloc[0]
                         
-                        # Fetch UPI and Mobile Safely
                         auth_upi = str(auth_data.get("Auth_UPI", str(auth_data.iloc[-1]))).strip().lower()
                         auth_mobile = str(auth_data.get("Mobile", str(auth_data.iloc[1]))).strip()
                         entered_sender = str(sender_detail).strip().lower()
@@ -111,8 +107,7 @@ with tab1:
                         "Reference": purpose
                     }
                     try:
-                        if WEBHOOK_URL != "यहाँ_अपना_नया_WEBHOOK_URL_डालें":
-                            requests.post(WEBHOOK_URL, json=new_payment, timeout=3)
+                        requests.post(WEBHOOK_URL, json=new_payment, timeout=3)
                     except: pass
                     
                     st.cache_data.clear()
@@ -132,7 +127,7 @@ with tab2:
             try:
                 styled_df = st.session_state.payment_ledger.style.applymap(highlight_danger, subset=['Status'])
             except:
-                styled_df = st.session_state.payment_ledger # Fallback without colors if columns missing
+                styled_df = st.session_state.payment_ledger
         
         st.dataframe(styled_df, use_container_width=True)
 
@@ -153,8 +148,7 @@ with tab3:
                     "Auth_UPI": new_ret_upi.lower()
                 }
                 try:
-                    if WEBHOOK_URL != "यहाँ_अपना_नया_WEBHOOK_URL_डालें":
-                        requests.post(WEBHOOK_URL, json=new_ret, timeout=3)
+                    requests.post(WEBHOOK_URL, json=new_ret, timeout=3)
                 except: pass
                 
                 st.success(f"✅ {new_ret_name} added! Updating list...")
