@@ -44,56 +44,53 @@ try:
 except ImportError:
     HAS_OCR = False
 
-# 🟢 GLOBAL SWEEPER AI (Sabse Powerful Logic)
+# 🟢 THE "NUMBER-ONLY" COMMAND AI (Your Idea)
 def extract_details_from_image(img):
     if not HAS_OCR: return {}
     img = img.convert('L')
-    text = pytesseract.image_to_string(img)
+    
+    # 1. COMMAND: --psm 11 (Ignores logos/images, reads only scattered text)
+    text = pytesseract.image_to_string(img, config='--psm 11')
     details = {}
     
-    # 1. DATE & TIME
+    # 2. DATE & TIME
     date_match = re.search(r'([0-9]{1,2}:[0-9]{2}\s*[APM]+\s*on\s*[0-9]{1,2}\s*[A-Za-z]+\s*[0-9]{4})', text, re.IGNORECASE)
     if date_match: details['date'] = date_match.group(1).replace("on", "").strip()
     
-    # 2. AMOUNT
+    # 3. AMOUNT
     amts = re.findall(r'\b([0-9]{1,3},[0-9]{3})\b', text)
     if amts: details['amount'] = float(amts[-1].replace(',', ''))
         
-    # 3. UTR
+    # 4. UTR
     utrs = re.findall(r'\b([0-9]{12})\b', text)
     if utrs: details['utr'] = utrs[-1]
 
-    # 4. SENDER 4 DIGITS (Global Sweeper)
+    # 5. SENDER 4 DIGITS (Number-Only X-Ray Filter)
     details['sender'] = ""
-    amt_str = str(int(details['amount'])) if 'amount' in details else ""
     
-    # Pura page chhan maaro, har wo 4 number nikaalo jiske aage-pichhe koi number na ho
-    matches = re.finditer(r'(?<!\d)([0-9]{4})(?!\d)', text)
-    valid_candidates = []
-    
-    for m in matches:
-        val = m.group(1)
+    # Step A: Find the receiver's number (which has @) to block it (e.g. 8890)
+    blocked_nums = []
+    blocked_matches = re.findall(r'([0-9]{4})@', text)
+    if blocked_matches: blocked_nums.extend(blocked_matches)
         
-        # Filter 1: Saal (Year) hatao
-        if val in ['2024', '2025', '2026', '2027']: continue
-            
-        # Filter 2: Amount (3000) hatao
-        if val == amt_str: continue
-            
-        # Filter 3: Receiver ka number (Jiske aas-paas '@' ho) hatao
-        near_text = text[max(0, m.end() - 2) : min(len(text), m.end() + 15)]
-        if '@' in near_text: continue
-            
-        # Filter 4: UTR ka hissa na ho
-        near_text_before = text[max(0, m.start() - 10) : m.start()].lower()
-        if 'utr' in near_text_before: continue
-
-        # Agar yahan tak pass ho gaya, to list me daal do
-        valid_candidates.append(val)
-
-    # Jo list me sabse aakhiri bacha (wo 100% 9424 hi hoga)
-    if valid_candidates:
-        details['sender'] = valid_candidates[-1]
+    # Step B: COMMAND - Convert entire text into ONLY Numbers and Spaces!
+    pure_numbers_only = re.sub(r'\D', ' ', text)
+    
+    # Step C: Split into separate numbers
+    number_list = pure_numbers_only.split()
+    
+    # Step D: Keep ONLY those that are exactly 4 digits long
+    four_digit_list = [num for num in number_list if len(num) == 4]
+    
+    # Step E: Filter out the garbage (Years, Amounts, and Blocked 8890)
+    amt_str = str(int(details['amount'])) if 'amount' in details else ""
+    exclude_list = ['2024', '2025', '2026', '2027', amt_str] + blocked_nums
+    
+    final_candidates = [num for num in four_digit_list if num not in exclude_list]
+    
+    # The last remaining 4-digit number at the bottom of the page is the Sender!
+    if final_candidates:
+        details['sender'] = final_candidates[-1]
 
     return details
 
@@ -147,7 +144,7 @@ with tab1:
     if st.session_state.auth_retailers.empty:
         st.warning("⚠️ अभी कोई अधिकृत (Authorized) रिटेलर लिस्ट नहीं है।")
     else:
-        st.info("📸 **Global Sweeper AI:** अब यह पूरे पेज से सही 4 अंक खोज निकालेगा, चाहे वो UTR के नीचे ही क्यों न छिपे हों!")
+        st.info("📸 **Number-Only Scanner:** यह मशीन अब लोगो या टेक्स्ट देखेगी ही नहीं! सिर्फ़ शुद्ध नंबर निकालेगी।")
         uploaded_slip = st.file_uploader("Upload Payment Screenshot (JPG/PNG)", type=['png', 'jpg', 'jpeg'])
         
         if uploaded_slip is not None:
@@ -156,7 +153,7 @@ with tab1:
             with colA:
                 st.image(image, caption="Uploaded Slip", use_column_width=True)
             with colB:
-                with st.spinner("पूरा पेज स्कैन कर रहा हूँ..."):
+                with st.spinner("फोटो से सिर्फ नंबर निकाल रहा हूँ..."):
                     extracted = extract_details_from_image(image)
                     if extracted:
                         st.success("✅ स्लिप से डेटा निकाल लिया गया है!")
