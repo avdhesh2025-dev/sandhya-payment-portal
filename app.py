@@ -22,8 +22,8 @@ st.markdown("""
 # ==========================================
 # 🔴 WEBHOOK AND SHEET ID
 # ==========================================
-WEBHOOK_URL = "यहाँ_अपना_नया_WEBHOOK_URL_डालें"
-SHEET_ID = "यहाँ_अपनी_Google_Sheet_की_ID_डालें"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzU2L8lwOW4oWqu8ybP1rhJ0XEDG8G72avdxPmBUL_hUyNfEP93b8RPquwxKQH8ZptMLg/exec"
+SHEET_ID = "https://docs.google.com/spreadsheets/d/17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM/edit?usp=sharing"
 # ==========================================
 
 # 2. Database Initialization
