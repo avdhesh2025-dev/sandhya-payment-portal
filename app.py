@@ -9,7 +9,7 @@ from PIL import Image
 # 1. Page Style & Layout
 st.set_page_config(page_title="Cyber Safe Payment Portal", page_icon="🛡️", layout="wide")
 
-# 🟢 3D & A4 Size CSS (Design same rakha hai)
+# 🟢 3D & A4 Size CSS
 st.markdown("""
     <style>
     .main .block-container { 
@@ -26,6 +26,11 @@ st.markdown("""
         background-color: #f8fafc !important;
         border: 1px solid #cbd5e1 !important;
         font-weight: bold;
+    }
+    input:disabled {
+        color: #1e3a8a !important;
+        -webkit-text-fill-color: #1e3a8a !important;
+        background-color: #e2e8f0 !important;
     }
     .red-alert { background-color: #fef2f2; color: #dc2626; padding: 15px; border-left: 5px solid #dc2626; border-radius: 5px; font-weight: bold; margin-bottom: 20px;}
     .green-alert { background-color: #f0fdf4; color: #166534; padding: 15px; border-left: 5px solid #166534; border-radius: 5px; font-weight: bold; margin-bottom: 20px;}
@@ -45,36 +50,32 @@ try:
 except ImportError:
     HAS_OCR = False
 
-# 🟢 IMPROVED OCR FILTER
+# 🟢 POWERFUL AI FILTER (Deep Search)
 def extract_details_from_image(img):
     if not HAS_OCR: return {}
     img = img.convert('L')
     text = pytesseract.image_to_string(img)
     details = {}
     
-    # 1. DATE & TIME
+    # 1. DATE & TIME (Strict format match)
     date_match = re.search(r'([0-9]{1,2}:[0-9]{2}\s*[APM]+\s*on\s*[0-9]{1,2}\s*[A-Za-z]+\s*[0-9]{4})', text, re.IGNORECASE)
     if date_match: details['date'] = date_match.group(1).replace("on", "").strip()
     
-    # 2. AMOUNT (Better Logic)
-    amts = re.findall(r'(?:Rs\.?|INR|₹)?\s*([0-9]{1,2},[0-9]{3}|[0-9]{3,6})\b', text)
-    valid_amts = [float(a.replace(',', '')) for a in amts if a not in ['2024', '2025', '2026', '2027']]
-    if valid_amts:
-        details['amount'] = valid_amts[-1] # Hamesha aakhiri wala amount uthayega
+    # 2. AMOUNT (Strictly look for ₹ or Rs symbol to avoid catching UTR parts)
+    amts = re.findall(r'[₹Rs]\s*([0-9]{1,3}(?:,[0-9]{3})*)', text)
+    if amts:
+        # Get the last valid amount found (usually Debited amount is at the bottom)
+        details['amount'] = float(amts[-1].replace(',', ''))
         
-    # 3. SENDER 4 DIGITS (Find all, pick LAST)
-    acc_matches = re.findall(r'[X\*]{4,}([0-9]{4})', text, re.IGNORECASE)
-    if len(acc_matches) > 1:
-        details['sender'] = acc_matches[-1] # Agar 2 mile (8890 aur 9424), to aakhiri wala (9424) lega
-    elif len(acc_matches) == 1:
-        details['sender'] = acc_matches[0]
+    # 3. SENDER 4 DIGITS (Strictly requires at least 5 'X's before the 4 digits)
+    acc_matches = re.findall(r'[Xx\*]{5,}([0-9]{4})\b', text)
+    if acc_matches:
+        details['sender'] = acc_matches[-1] # Hamesha aakhiri wala uthayega (Debited From)
         
-    # 4. UTR
-    utr_match = re.search(r'UTR.*?([0-9]{12})', text, re.IGNORECASE)
-    if utr_match: details['utr'] = utr_match.group(1)
-    else:
-        t_match = re.search(r'(T[0-9]{15,})', text)
-        if t_match: details['utr'] = t_match.group(1)
+    # 4. UTR (Strictly 12 continuous digits)
+    utrs = re.findall(r'\b([0-9]{12})\b', text)
+    if utrs:
+        details['utr'] = utrs[-1]
         
     return details
 
@@ -128,7 +129,7 @@ with tab1:
     if st.session_state.auth_retailers.empty:
         st.warning("⚠️ अभी कोई अधिकृत (Authorized) रिटेलर लिस्ट नहीं है।")
     else:
-        st.info("📸 **Smart Auto-Fill:** स्लिप अपलोड करें, ऐप खुद भरेगा। अगर कोई गलती हो, तो आप उसे हाथ से सुधार (Edit) सकते हैं!")
+        st.info("📸 **Deep Search OCR:** स्लिप अपलोड करें, ऐप अब सख्त नियमों के साथ डेटा निकालेगा।")
         uploaded_slip = st.file_uploader("Upload Payment Screenshot (JPG/PNG)", type=['png', 'jpg', 'jpeg'])
         
         if uploaded_slip is not None:
@@ -137,10 +138,11 @@ with tab1:
             with colA:
                 st.image(image, caption="Uploaded Slip", use_column_width=True)
             with colB:
-                with st.spinner("फोटो पढ़ रहा हूँ..."):
+                with st.spinner("डीप स्कैनिंग चालू है..."):
                     extracted = extract_details_from_image(image)
                     if extracted:
-                        st.success("✅ स्लिप से डेटा निकाल लिया गया है! अगर कुछ गलत हो तो उसे बॉक्स में बदल लें।")
+                        st.success("✅ स्लिप से डेटा निकाल लिया गया है!")
+                        # Default fallback agar koi field miss ho jaye
                         st.session_state.auto_amt = float(extracted.get('amount', 0.0))
                         st.session_state.auto_utr = extracted.get('utr', '')
                         st.session_state.auto_sender = extracted.get('sender', '')
@@ -149,7 +151,7 @@ with tab1:
                         st.warning("⚠️ फोटो साफ़ नहीं है, कृपया हाथ से भरें।")
 
         with st.form("payment_form"):
-            # UNLOCKED (Editable) DATE
+            # UNLOCKED DATE
             curr_date = st.session_state.auto_date if st.session_state.auto_date else datetime.now().strftime("%d-%m-%Y %I:%M %p")
             entry_date = st.text_input("📅 Date & Time*", value=curr_date)
             
@@ -163,7 +165,6 @@ with tab1:
                 # UNLOCKED AMOUNT
                 amount = st.number_input("Amount Received (Rs)*", min_value=0.0, step=10.0, value=float(st.session_state.auto_amt))
                 
-                # JPB / eTop Options
                 remark_type = st.selectbox("📝 Remark / Purpose*", ["eTop", "JPB", "Other"])
                 if remark_type == "Other":
                     purpose = st.text_input("Type Other Purpose*")
@@ -171,7 +172,6 @@ with tab1:
                     purpose = remark_type
                 
             with col2:
-                # FIXED ONLINE
                 st.info("💳 Payment Mode: UPI / Online (Fixed)")
                 pay_mode = "UPI / Online" 
                 
