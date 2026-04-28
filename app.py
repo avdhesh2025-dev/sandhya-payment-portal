@@ -50,32 +50,52 @@ try:
 except ImportError:
     HAS_OCR = False
 
-# 🟢 POWERFUL AI FILTER (Deep Search)
+# 🟢 EXTREME STRICT AI (Only reads below "Debited from")
 def extract_details_from_image(img):
     if not HAS_OCR: return {}
     img = img.convert('L')
     text = pytesseract.image_to_string(img)
     details = {}
     
-    # 1. DATE & TIME (Strict format match)
+    # 1. DATE & TIME
     date_match = re.search(r'([0-9]{1,2}:[0-9]{2}\s*[APM]+\s*on\s*[0-9]{1,2}\s*[A-Za-z]+\s*[0-9]{4})', text, re.IGNORECASE)
     if date_match: details['date'] = date_match.group(1).replace("on", "").strip()
     
-    # 2. AMOUNT (Strictly look for ₹ or Rs symbol to avoid catching UTR parts)
-    amts = re.findall(r'[₹Rs]\s*([0-9]{1,3}(?:,[0-9]{3})*)', text)
-    if amts:
-        # Get the last valid amount found (usually Debited amount is at the bottom)
-        details['amount'] = float(amts[-1].replace(',', ''))
-        
-    # 3. SENDER 4 DIGITS (Strictly requires at least 5 'X's before the 4 digits)
-    acc_matches = re.findall(r'[Xx\*]{5,}([0-9]{4})\b', text)
-    if acc_matches:
-        details['sender'] = acc_matches[-1] # Hamesha aakhiri wala uthayega (Debited From)
-        
-    # 4. UTR (Strictly 12 continuous digits)
+    # 2. UTR (Usually 12 digits anywhere in text)
     utrs = re.findall(r'\b([0-9]{12})\b', text)
-    if utrs:
-        details['utr'] = utrs[-1]
+    if utrs: details['utr'] = utrs[-1]
+
+    # --- 🔪 SPLIT RECEIPT IN HALF ---
+    # AI ab upar ka hissa bhool jayega aur sirf "Debited" ke niche dhundhega
+    lower_text = text.lower()
+    debited_section = text
+    if "debited" in lower_text:
+        start_idx = lower_text.find("debited")
+        debited_section = text[start_idx:] # Sirf niche ka hissa bacha
+        
+    # 3. SENDER 4 DIGITS (Sirf Debited section me)
+    acc_matches = re.findall(r'[Xx\*]{3,}\s*([0-9]{4})\b', debited_section)
+    if acc_matches:
+        details['sender'] = acc_matches[-1]
+    else:
+        # Fallback: Agar X na dikhe to aakhiri 4 number uthao jo saal (2026) na ho
+        four_digits = re.findall(r'\b([0-9]{4})\b', debited_section)
+        valid_four = [x for x in four_digits if x not in ['2024', '2025', '2026', '2027']]
+        if valid_four: details['sender'] = valid_four[-1]
+
+    # 4. AMOUNT (Sirf Debited section me 3,000 jaisa comma wala number)
+    try:
+        amts = re.findall(r'[₹Rs]\s*([0-9]{1,3}(?:,[0-9]{3})*)', debited_section)
+        if not amts:
+            amts = re.findall(r'\b([0-9]{1,3}(?:,[0-9]{3})+)\b', debited_section)
+        if amts:
+            details['amount'] = float(amts[-1].replace(',', ''))
+        else:
+            # Agar niche na mile to pure page me aakhiri amount dhundho
+            all_amts = re.findall(r'\b([0-9]{1,3}(?:,[0-9]{3})+)\b', text)
+            if all_amts: details['amount'] = float(all_amts[-1].replace(',', ''))
+    except:
+        pass
         
     return details
 
@@ -129,7 +149,7 @@ with tab1:
     if st.session_state.auth_retailers.empty:
         st.warning("⚠️ अभी कोई अधिकृत (Authorized) रिटेलर लिस्ट नहीं है।")
     else:
-        st.info("📸 **Deep Search OCR:** स्लिप अपलोड करें, ऐप अब सख्त नियमों के साथ डेटा निकालेगा।")
+        st.info("📸 **Strict Debited OCR:** स्लिप अपलोड करें, ऐप सीधा 'Debited from' सेक्शन पढ़ेगा!")
         uploaded_slip = st.file_uploader("Upload Payment Screenshot (JPG/PNG)", type=['png', 'jpg', 'jpeg'])
         
         if uploaded_slip is not None:
@@ -138,11 +158,10 @@ with tab1:
             with colA:
                 st.image(image, caption="Uploaded Slip", use_column_width=True)
             with colB:
-                with st.spinner("डीप स्कैनिंग चालू है..."):
+                with st.spinner("नीचे का हिस्सा स्कैन कर रहा हूँ..."):
                     extracted = extract_details_from_image(image)
                     if extracted:
                         st.success("✅ स्लिप से डेटा निकाल लिया गया है!")
-                        # Default fallback agar koi field miss ho jaye
                         st.session_state.auto_amt = float(extracted.get('amount', 0.0))
                         st.session_state.auto_utr = extracted.get('utr', '')
                         st.session_state.auto_sender = extracted.get('sender', '')
@@ -151,7 +170,7 @@ with tab1:
                         st.warning("⚠️ फोटो साफ़ नहीं है, कृपया हाथ से भरें।")
 
         with st.form("payment_form"):
-            # UNLOCKED DATE
+            # UNLOCKED DATE (Disabled Hata Diya)
             curr_date = st.session_state.auto_date if st.session_state.auto_date else datetime.now().strftime("%d-%m-%Y %I:%M %p")
             entry_date = st.text_input("📅 Date & Time*", value=curr_date)
             
