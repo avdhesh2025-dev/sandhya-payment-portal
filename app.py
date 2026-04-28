@@ -22,8 +22,8 @@ st.markdown("""
 # ==========================================
 # 🔴 WEBHOOK AND SHEET ID
 # ==========================================
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzU2L8lwOW4oWqu8ybP1rhJ0XEDG8G72avdxPmBUL_hUyNfEP93b8RPquwxKQH8ZptMLg/exec"
-SHEET_ID = "https://docs.google.com/spreadsheets/d/17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM/edit?usp=sharing"
+WEBHOOK_URL = "यहाँ_अपना_नया_WEBHOOK_URL_डालें"
+SHEET_ID = "यहाँ_अपनी_Google_Sheet_की_ID_डालें"
 # ==========================================
 
 # 2. Database Initialization
@@ -117,7 +117,7 @@ with tab1:
                     st.success("💾 Payment Entry Saved to Ledger.")
 
 # ==========================================
-# TAB 2: TRANSACTION LEDGER
+# TAB 2: TRANSACTION LEDGER (FIXED ERROR HERE)
 # ==========================================
 with tab2:
     st.markdown("### 📋 Transaction History")
@@ -129,7 +129,13 @@ with tab2:
             color = '#fef2f2' if 'UNVERIFIED' in str(val) else ''
             return f'background-color: {color}'
 
-        st.dataframe(st.session_state.payment_ledger.style.applymap(highlight_danger, subset=['Status']), use_container_width=True)
+        # 🟢 CRASH-PROOF STYLING (Handles both old and new Pandas versions)
+        try:
+            styled_df = st.session_state.payment_ledger.style.map(highlight_danger, subset=['Status'])
+        except AttributeError:
+            styled_df = st.session_state.payment_ledger.style.applymap(highlight_danger, subset=['Status'])
+
+        st.dataframe(styled_df, use_container_width=True)
         
         csv = st.session_state.payment_ledger.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Download Ledger (Excel)", data=csv, file_name=f"Payment_Ledger_{datetime.now().strftime('%d-%m-%Y')}.csv", mime="text/csv")
