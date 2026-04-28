@@ -50,7 +50,7 @@ try:
 except ImportError:
     HAS_OCR = False
 
-# 🟢 EXTREME STRICT AI (Only reads below "Debited from")
+# 🟢 MULTI-LAYER OCR AI
 def extract_details_from_image(img):
     if not HAS_OCR: return {}
     img = img.convert('L')
@@ -61,41 +61,43 @@ def extract_details_from_image(img):
     date_match = re.search(r'([0-9]{1,2}:[0-9]{2}\s*[APM]+\s*on\s*[0-9]{1,2}\s*[A-Za-z]+\s*[0-9]{4})', text, re.IGNORECASE)
     if date_match: details['date'] = date_match.group(1).replace("on", "").strip()
     
-    # 2. UTR (Usually 12 digits anywhere in text)
-    utrs = re.findall(r'\b([0-9]{12})\b', text)
-    if utrs: details['utr'] = utrs[-1]
-
-    # --- 🔪 SPLIT RECEIPT IN HALF ---
-    # AI ab upar ka hissa bhool jayega aur sirf "Debited" ke niche dhundhega
-    lower_text = text.lower()
-    debited_section = text
-    if "debited" in lower_text:
-        start_idx = lower_text.find("debited")
-        debited_section = text[start_idx:] # Sirf niche ka hissa bacha
+    # 2. AMOUNT
+    amts = re.findall(r'[₹Rs]\s*([0-9]{1,3}(?:,[0-9]{3})*)', text)
+    if amts:
+        details['amount'] = float(amts[-1].replace(',', ''))
         
-    # 3. SENDER 4 DIGITS (Sirf Debited section me)
-    acc_matches = re.findall(r'[Xx\*]{3,}\s*([0-9]{4})\b', debited_section)
-    if acc_matches:
-        details['sender'] = acc_matches[-1]
-    else:
-        # Fallback: Agar X na dikhe to aakhiri 4 number uthao jo saal (2026) na ho
-        four_digits = re.findall(r'\b([0-9]{4})\b', debited_section)
-        valid_four = [x for x in four_digits if x not in ['2024', '2025', '2026', '2027']]
-        if valid_four: details['sender'] = valid_four[-1]
+    # 3. UTR (Strictly 12 digits)
+    utrs = re.findall(r'\b([0-9]{12})\b', text)
+    if utrs:
+        details['utr'] = utrs[-1]
 
-    # 4. AMOUNT (Sirf Debited section me 3,000 jaisa comma wala number)
-    try:
-        amts = re.findall(r'[₹Rs]\s*([0-9]{1,3}(?:,[0-9]{3})*)', debited_section)
-        if not amts:
-            amts = re.findall(r'\b([0-9]{1,3}(?:,[0-9]{3})+)\b', debited_section)
-        if amts:
-            details['amount'] = float(amts[-1].replace(',', ''))
-        else:
-            # Agar niche na mile to pure page me aakhiri amount dhundho
-            all_amts = re.findall(r'\b([0-9]{1,3}(?:,[0-9]{3})+)\b', text)
-            if all_amts: details['amount'] = float(all_amts[-1].replace(',', ''))
-    except:
-        pass
+    # 4. SENDER 4 DIGITS (Multi-Layer Logic)
+    sender_found = ""
+    # Layer 1: Normal Search with XXXXX
+    acc_matches = re.findall(r'[Xx\*\.\-]{2,}\s*([0-9]{4})\b', text)
+    if acc_matches:
+        sender_found = acc_matches[-1]
+        
+    # Layer 2: Intelligent 'Debited' Section Search
+    if not sender_found:
+        lower_text = text.lower()
+        if "debited" in lower_text:
+            deb_sec = text[lower_text.find("debited"):]
+            fours = re.findall(r'\b([0-9]{4})\b', deb_sec)
+            
+            # Saal (Year) hatao
+            valid_fours = [x for x in fours if x not in ['2024','2025','2026','2027']]
+            
+            # Amount hatao (agar amount 3000 jaise 4 digit ka hai)
+            if 'amount' in details:
+                amt_str = str(int(details['amount']))
+                valid_fours = [x for x in valid_fours if x != amt_str]
+                
+            if valid_fours:
+                sender_found = valid_fours[0] # Jo pehla 4 ank bacha, wahi Bank A/C hai
+                
+    if sender_found:
+        details['sender'] = sender_found
         
     return details
 
@@ -149,7 +151,7 @@ with tab1:
     if st.session_state.auth_retailers.empty:
         st.warning("⚠️ अभी कोई अधिकृत (Authorized) रिटेलर लिस्ट नहीं है।")
     else:
-        st.info("📸 **Strict Debited OCR:** स्लिप अपलोड करें, ऐप सीधा 'Debited from' सेक्शन पढ़ेगा!")
+        st.info("📸 **Deep Search OCR:** स्लिप अपलोड करें, ऐप अब सख्त नियमों के साथ डेटा निकालेगा।")
         uploaded_slip = st.file_uploader("Upload Payment Screenshot (JPG/PNG)", type=['png', 'jpg', 'jpeg'])
         
         if uploaded_slip is not None:
@@ -158,7 +160,7 @@ with tab1:
             with colA:
                 st.image(image, caption="Uploaded Slip", use_column_width=True)
             with colB:
-                with st.spinner("नीचे का हिस्सा स्कैन कर रहा हूँ..."):
+                with st.spinner("डीप स्कैनिंग चालू है..."):
                     extracted = extract_details_from_image(image)
                     if extracted:
                         st.success("✅ स्लिप से डेटा निकाल लिया गया है!")
@@ -170,7 +172,6 @@ with tab1:
                         st.warning("⚠️ फोटो साफ़ नहीं है, कृपया हाथ से भरें।")
 
         with st.form("payment_form"):
-            # UNLOCKED DATE (Disabled Hata Diya)
             curr_date = st.session_state.auto_date if st.session_state.auto_date else datetime.now().strftime("%d-%m-%Y %I:%M %p")
             entry_date = st.text_input("📅 Date & Time*", value=curr_date)
             
@@ -180,8 +181,6 @@ with tab1:
                 retailer_list = ["-- Select Retailer --"] + st.session_state.auth_retailers[ret_col].astype(str).tolist()
                 
                 selected_retailer = st.selectbox("👤 Select Retailer*", retailer_list)
-                
-                # UNLOCKED AMOUNT
                 amount = st.number_input("Amount Received (Rs)*", min_value=0.0, step=10.0, value=float(st.session_state.auto_amt))
                 
                 remark_type = st.selectbox("📝 Remark / Purpose*", ["eTop", "JPB", "Other"])
@@ -193,11 +192,7 @@ with tab1:
             with col2:
                 st.info("💳 Payment Mode: UPI / Online (Fixed)")
                 pay_mode = "UPI / Online" 
-                
-                # UNLOCKED SENDER
                 sender_detail = st.text_input("Sender Bank ke 4 Ank (eg. 9424)*", value=st.session_state.auto_sender)
-                
-                # UNLOCKED UTR
                 utr_number = st.text_input("UTR Number / Transaction ID*", value=st.session_state.auto_utr)
                 
             if st.form_submit_button("🔍 Verify & Save Payment", type="primary", use_container_width=True):
@@ -214,7 +209,6 @@ with tab1:
                     auth_mobile = str(auth_data.get("Mobile", "")).strip()
                     entered_sender = str(sender_detail).strip().lower()
                     
-                    # Verification Logic
                     if entered_sender == auth_upi or entered_sender == auth_mobile or entered_sender in auth_upi:
                         status = "Verified (Safe)"
                         alert_type_val = "success"
