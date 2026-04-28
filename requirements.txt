@@ -9,3 +9,8 @@ streamlit
 pandas
 pyzbar
 Pillow
+streamlit
+pandas
+requests
+Pillow
+pytesseract
