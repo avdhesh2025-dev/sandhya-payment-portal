@@ -17,40 +17,29 @@ st.markdown("""
 # ==========================================
 # 🔴 यहाँ अपना नया WEBHOOK और SHEET ID डालें 🔴
 # ==========================================
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzrsJYjhwSkdQZxjb2yUL67vwRtC2Kc5sJU21n7OtDEbm1uGMEhbz3JBZmUXAhSN28sGA/exec"
-SHEET_ID = "https://docs.google.com/spreadsheets/d/17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM/edit?usp=sharing"
+WEBHOOK_URL = "यहाँ_अपना_नया_WEBHOOK_URL_डालें"
+SHEET_ID = "यहाँ_अपनी_Google_Sheet_की_ID_डालें"
 # ==========================================
 
-@st.cache_data(ttl=2)
-def load_retailers():
+# 🟢 SMART DATA LOADER (इग्नोर करेगा स्पेस और एरर)
+@st.cache_data(ttl=1) # 1 second auto-refresh
+def load_data_from_sheet(sheet_name, expected_columns):
+    url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={sheet_name}&cb={int(time.time())}"
     try:
-        url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Authorized_Retailers&cb={int(time.time())}"
         df = pd.read_csv(url).dropna(how="all").fillna("")
-        if not df.empty and "RetailerName" in df.columns:
+        if not df.empty:
+            # कॉलम के नाम से स्पेस हटा देता है (e.g., 'Retailer Name' -> 'RetailerName')
+            df.columns = [str(c).replace(" ", "").strip() for c in df.columns]
             return df
-    except: pass
-    return pd.DataFrame(columns=["RetailerName", "Mobile", "Auth_UPI"])
+    except Exception as e:
+        pass # अगर शीट प्राइवेट है तो यह एरर को इग्नोर करेगा
+    return pd.DataFrame(columns=expected_columns)
 
-@st.cache_data(ttl=2)
-def load_ledger():
-    try:
-        url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Payment_Ledger&cb={int(time.time())}"
-        df = pd.read_csv(url).dropna(how="all").fillna("")
-        if not df.empty and "Amount" in df.columns:
-            return df
-    except: pass
-    return pd.DataFrame(columns=["Date", "RetailerName", "Amount", "Mode", "SenderUPI_Mobile", "Status", "Reference"])
+# लोड करें
+st.session_state.auth_retailers = load_data_from_sheet("Authorized_Retailers", ["RetailerName", "Mobile", "Auth_UPI"])
+st.session_state.payment_ledger = load_data_from_sheet("Payment_Ledger", ["Date", "RetailerName", "Amount", "Mode", "SenderUPI_Mobile", "Status", "Reference"])
 
-if 'auth_retailers' not in st.session_state:
-    st.session_state.auth_retailers = load_retailers()
-else:
-    st.session_state.auth_retailers = load_retailers()
-
-if 'payment_ledger' not in st.session_state:
-    st.session_state.payment_ledger = load_ledger()
-else:
-    st.session_state.payment_ledger = load_ledger()
-
+# Header
 st.markdown("""
     <div style='background: linear-gradient(90deg, #b91c1c 0%, #ef4444 100%); padding: 25px; border-radius: 10px; text-align: center; color: white; margin-bottom: 25px;'>
         <h1 style='margin:0; font-size: 34px; font-weight: 800;'>🛡️ CYBER-SAFE PAYMENT PORTAL</h1>
@@ -58,18 +47,27 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
+# Refresh Button
+if st.button("🔄 Sync Data with Google Sheet"):
+    st.cache_data.clear()
+    st.rerun()
+
 tab1, tab2, tab3 = st.tabs(["💰 Register Payment", "📋 Transaction Ledger", "🛡️ Manage Authorized Retailers"])
 
 with tab1:
     st.markdown("### 💰 New Payment Entry & Verification")
     
     if st.session_state.auth_retailers.empty:
-        st.warning("⚠️ अभी कोई अधिकृत (Authorized) रिटेलर लिस्ट नहीं है। पहले 'Manage Authorized Retailers' टैब में रिटेलर्स जोड़ें या सीधे Google Sheet में पेस्ट करें।")
+        st.warning("⚠️ अभी कोई अधिकृत (Authorized) रिटेलर लिस्ट नहीं है।")
+        st.info("💡 **चेक करें:** क्या आपने अपनी Google Sheet को 'Anyone with the link' पर Share किया है? अगर नहीं, तो अभी करें और ऊपर 'Sync Data' बटन दबाएं।")
     else:
         with st.form("payment_form"):
             col1, col2 = st.columns(2)
             with col1:
-                retailer_list = ["-- Select Retailer --"] + st.session_state.auth_retailers["RetailerName"].astype(str).tolist()
+                # Get Retailer names dynamically
+                ret_col = "RetailerName" if "RetailerName" in st.session_state.auth_retailers.columns else st.session_state.auth_retailers.columns[0]
+                retailer_list = ["-- Select Retailer --"] + st.session_state.auth_retailers[ret_col].astype(str).tolist()
+                
                 selected_retailer = st.selectbox("👤 Select Retailer*", retailer_list)
                 amount = st.number_input("Amount Received (रुपये)*", min_value=0.0, step=10.0)
                 purpose = st.text_input("Reference / Purpose (किस काम के लिए?)")
@@ -85,9 +83,11 @@ with tab1:
                 else:
                     status = "Verified"
                     if pay_mode != "Cash":
-                        auth_data = st.session_state.auth_retailers[st.session_state.auth_retailers["RetailerName"] == selected_retailer].iloc[0]
-                        auth_upi = str(auth_data.get("Auth_UPI", "")).strip().lower()
-                        auth_mobile = str(auth_data.get("Mobile", "")).strip()
+                        auth_data = st.session_state.auth_retailers[st.session_state.auth_retailers[ret_col] == selected_retailer].iloc[0]
+                        
+                        # Fetch UPI and Mobile Safely
+                        auth_upi = str(auth_data.get("Auth_UPI", str(auth_data.iloc[-1]))).strip().lower()
+                        auth_mobile = str(auth_data.get("Mobile", str(auth_data.iloc[1]))).strip()
                         entered_sender = str(sender_detail).strip().lower()
                         
                         if entered_sender == auth_upi or entered_sender == auth_mobile or entered_sender in auth_upi:
@@ -114,8 +114,9 @@ with tab1:
                         if WEBHOOK_URL != "यहाँ_अपना_नया_WEBHOOK_URL_डालें":
                             requests.post(WEBHOOK_URL, json=new_payment, timeout=3)
                     except: pass
+                    
                     st.cache_data.clear()
-                    time.sleep(1)
+                    time.sleep(1.5)
                     st.rerun()
 
 with tab2:
@@ -128,7 +129,11 @@ with tab2:
         try:
             styled_df = st.session_state.payment_ledger.style.map(highlight_danger, subset=['Status'])
         except:
-            styled_df = st.session_state.payment_ledger.style.applymap(highlight_danger, subset=['Status'])
+            try:
+                styled_df = st.session_state.payment_ledger.style.applymap(highlight_danger, subset=['Status'])
+            except:
+                styled_df = st.session_state.payment_ledger # Fallback without colors if columns missing
+        
         st.dataframe(styled_df, use_container_width=True)
 
 with tab3:
@@ -151,9 +156,10 @@ with tab3:
                     if WEBHOOK_URL != "यहाँ_अपना_नया_WEBHOOK_URL_डालें":
                         requests.post(WEBHOOK_URL, json=new_ret, timeout=3)
                 except: pass
-                st.success(f"✅ {new_ret_name} added to safe list!")
+                
+                st.success(f"✅ {new_ret_name} added! Updating list...")
                 st.cache_data.clear()
-                time.sleep(1)
+                time.sleep(1.5)
                 st.rerun()
             else:
                 st.error("❌ सभी फील्ड भरना जरूरी है।")
@@ -161,4 +167,3 @@ with tab3:
     st.markdown("---")
     st.markdown("#### Your Safe List (From Google Sheet)")
     st.dataframe(st.session_state.auth_retailers, use_container_width=True)
-    st.info("💡 **TIP:** अगर आप एक साथ कई रिटेलर्स जोड़ना चाहते हैं, तो सीधे अपनी Google Sheet के 'Authorized_Retailers' पन्ने में जाकर पेस्ट कर दें। ऐप उसे खुद पढ़ लेगा!")
