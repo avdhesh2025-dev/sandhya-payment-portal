@@ -44,43 +44,44 @@ try:
 except ImportError:
     HAS_OCR = False
 
-# 🟢 BULLETPROOF AI (Number Hunter)
+# 🟢 HALF-SCREEN SCANNER LOGIC
 def extract_details_from_image(img):
     if not HAS_OCR: return {}
-    img = img.convert('L') # Convert to Grayscale
+    img = img.convert('L')
     text = pytesseract.image_to_string(img)
     details = {}
     
-    # 1. DATE & TIME
+    # 1. DATE & TIME (Puri slip se nikalega)
     date_match = re.search(r'([0-9]{1,2}:[0-9]{2}\s*[APM]+\s*on\s*[0-9]{1,2}\s*[A-Za-z]+\s*[0-9]{4})', text, re.IGNORECASE)
     if date_match: details['date'] = date_match.group(1).replace("on", "").strip()
     
-    # 2. AMOUNT (Bulletproof: Just look for numbers with comma like 3,000 or 10,000)
+    # 2. AMOUNT (Puri slip se nikalega)
     amts = re.findall(r'\b([0-9]{1,3},[0-9]{3})\b', text)
-    if amts:
-        details['amount'] = float(amts[-1].replace(',', ''))
+    if amts: details['amount'] = float(amts[-1].replace(',', ''))
         
-    # 3. UTR (Strictly 12 digits)
+    # 3. UTR (Puri slip se nikalega)
     utrs = re.findall(r'\b([0-9]{12})\b', text)
-    if utrs:
-        details['utr'] = utrs[-1]
+    if utrs: details['utr'] = utrs[-1]
 
-    # 4. SENDER 4 DIGITS (Bulletproof: Extract ALL 4 digit numbers from the whole slip)
-    all_4_digits = re.findall(r'(?<!\d)([0-9]{4})(?!\d)', text)
+    # 🔪 4. SENDER 4 DIGITS (Sirf niche ke 50% hisse se nikalega)
+    lines = text.split('\n')
+    half_point = int(len(lines) * 0.45) # Upar ka 45% hissa kaat diya (Jisme 8890 hota hai)
+    bottom_half_text = '\n'.join(lines[half_point:])
     
-    # Filter 1: Saal (Year) hata do
+    # Ab sirf niche ke hisse me 4 ank dhundhega
+    all_4_digits = re.findall(r'(?<!\d)([0-9]{4})(?!\d)', bottom_half_text)
+    
+    # Faltu numbers hatayega
     clean_4_digits = [x for x in all_4_digits if x not in ['2024', '2025', '2026', '2027']]
-    
-    # Filter 2: Agar amount 3000 hai to usko bhi hata do
     if 'amount' in details:
         amt_str = str(int(details['amount']))
         clean_4_digits = [x for x in clean_4_digits if x != amt_str]
         
-    # Jo bacha (Normally ye ['8890', '9424'] bachenge), usme se sabse AAKHIRI wala uthao
-    if len(clean_4_digits) > 1:
-        details['sender'] = clean_4_digits[-1] 
-    elif len(clean_4_digits) == 1:
-        details['sender'] = clean_4_digits[0]
+    # Agar niche ke hisse me kuch mila, tabhi box bharega, warna KHAAli chhod dega!
+    if clean_4_digits:
+        details['sender'] = clean_4_digits[-1]
+    else:
+        details['sender'] = "" # Galat number bharne se accha hai khali chhod do
         
     return details
 
@@ -134,7 +135,7 @@ with tab1:
     if st.session_state.auth_retailers.empty:
         st.warning("⚠️ अभी कोई अधिकृत (Authorized) रिटेलर लिस्ट नहीं है।")
     else:
-        st.info("📸 **Bulletproof OCR:** स्लिप अपलोड करें। अब यह 100% सही अमाउंट और कस्टमर का नंबर निकालेगा।")
+        st.info("📸 **Half-Screen OCR:** स्लिप अपलोड करें। अब यह 8890 को जिंदगी में कभी नहीं छुएगा!")
         uploaded_slip = st.file_uploader("Upload Payment Screenshot (JPG/PNG)", type=['png', 'jpg', 'jpeg'])
         
         if uploaded_slip is not None:
@@ -143,7 +144,7 @@ with tab1:
             with colA:
                 st.image(image, caption="Uploaded Slip", use_column_width=True)
             with colB:
-                with st.spinner("नंबर्स स्कैन कर रहा हूँ..."):
+                with st.spinner("नीचे का हिस्सा स्कैन कर रहा हूँ..."):
                     extracted = extract_details_from_image(image)
                     if extracted:
                         st.success("✅ स्लिप से डेटा निकाल लिया गया है!")
