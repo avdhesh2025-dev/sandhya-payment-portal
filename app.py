@@ -4,33 +4,30 @@ from datetime import datetime
 import time
 import requests
 import re
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageEnhance
 
-# 1. Page Configuration & Professional Design
+# 1. Page Configuration & UI
 st.set_page_config(page_title="Cyber Safe Payment Portal", page_icon="🛡️", layout="wide")
 
 st.markdown("""
     <style>
     .main .block-container { 
-        background-color: #ffffff; padding: 2rem 3rem; border-radius: 15px; 
-        max-width: 850px; box-shadow: 0px 10px 40px rgba(0,0,0,0.2); margin: auto;
+        background-color: #ffffff; padding: 2rem; border-radius: 15px; 
+        max-width: 850px; box-shadow: 0px 10px 40px rgba(0,0,0,0.1); margin: auto;
     }
     .stTextInput input, .stSelectbox div[data-baseweb="select"], .stNumberInput input {
-        box-shadow: inset 3px 3px 6px rgba(0,0,0,0.1); border-radius: 10px !important;
-        background-color: #f0f4f8 !important; border: 1px solid #cbd5e1 !important;
-        font-weight: bold; font-size: 18px !important; color: #1e293b !important;
+        box-shadow: inset 2px 2px 5px rgba(0,0,0,0.05); border-radius: 8px !important;
+        background-color: #f8fafc !important; border: 1px solid #cbd5e1 !important;
+        font-weight: bold; font-size: 16px !important;
     }
-    .red-alert { background-color: #fff1f2; color: #be123c; padding: 20px; border-left: 8px solid #be123c; border-radius: 10px; font-weight: bold; margin-bottom: 25px; }
-    .green-alert { background-color: #f0fdf4; color: #15803d; padding: 20px; border-left: 8px solid #15803d; border-radius: 10px; font-weight: bold; margin-bottom: 25px; }
+    .red-alert { background-color: #fef2f2; color: #dc2626; padding: 15px; border-left: 6px solid #dc2626; border-radius: 8px; font-weight: bold; margin-bottom: 20px; }
+    .green-alert { background-color: #f0fdf4; color: #16a34a; padding: 15px; border-left: 6px solid #16a34a; border-radius: 8px; font-weight: bold; margin-bottom: 20px; }
     </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# 🔴 FIXED WEBHOOK AND SHEET ID
-# ==========================================
+# Webhook Details
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwq8_2sAhirNEqEBNYvIQ7qsUhaXELXblnXNbnIL1mpp71nxCB25NBC5WabA92da1jA9g/exec"
 SHEET_ID = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
-# ==========================================
 
 try:
     import pytesseract
@@ -38,46 +35,55 @@ try:
 except ImportError:
     HAS_OCR = False
 
-# 🟢 MAGIC SCAN LOGIC
-def extract_magic_data(img):
+# 🟢 ADVANCED X-RAY PROCESSING AI
+def extract_data_advanced(img):
     if not HAS_OCR: return {}
-    img_gray = ImageOps.grayscale(img)
-    # config psm 11 focuses on finding text scattered everywhere
-    full_text = pytesseract.image_to_string(img_gray, config='--psm 11')
+    
+    # STEP 1: X-RAY PRE-PROCESSING (Cleans screen reflections)
+    img = img.convert('L') # GrayScale
+    img = ImageOps.autocontrast(img) # Contrast badhao
+    enhancer = ImageEnhance.Sharpness(img)
+    img = enhancer.enhance(2.0) # Sharpness badhao
+    
+    # STEP 2: Read with Scattered Text Logic
+    text = pytesseract.image_to_string(img, config='--psm 11')
     res = {}
 
-    # 1. UTR Anchor
-    utr_match = re.search(r'\b([0-9]{12})\b', full_text)
-    if utr_match: res['utr'] = utr_match.group(1)
-        
-    # 2. Date/Time
-    dt_match = re.search(r'(\d{1,2}:\d{2}\s*[APM]+\s*on\s*\d{1,2}\s*[A-Za-z]+\s*\d{4})', full_text, re.IGNORECASE)
+    # 1. Date/Time
+    dt_match = re.search(r'(\d{1,2}:\d{2}\s*[APM]+\s*on\s*\d{1,2}\s*[A-Za-z]+\s*\d{4})', text, re.IGNORECASE)
     if dt_match: res['date'] = dt_match.group(1).replace("on", "").strip()
 
-    # 3. Amount (Comma or Dot check)
-    amt_match = re.findall(r'[₹Rs]\s*([0-9,]{2,10})', full_text)
+    # 2. UTR (12 Digits)
+    utr_match = re.search(r'\b(\d{12})\b', text)
+    if utr_match: res['utr'] = utr_match.group(1)
+
+    # 3. Amount (Look for ₹ or comma)
+    amt_match = re.findall(r'[₹Rs]\s*([0-9,]{2,10})', text)
     if amt_match: res['amount'] = float(amt_match[-1].replace(',', ''))
 
-    # 4. MAGIC DEBITED FIX: Block receivers and years, take the last remaining 4-digit
-    blocked_ids = re.findall(r'(\d{4})@', full_text) # IDs like 8890
-    all_fours = re.findall(r'\b(\d{4})\b', full_text)
-    
-    clean_nums = []
-    for n in all_fours:
-        if n in ['2024', '2025', '2026', '2027']: continue
-        if n in blocked_ids: continue
-        if 'amount' in res and n == str(int(res['amount'])): continue
-        clean_nums.append(n)
+    # 4. SENDER 4-DIGIT (The "Debited" Section Logic)
+    lower_text = text.lower()
+    if "debited" in lower_text:
+        # 'debited from' ke baad waala hissa hi scan karo
+        start_scan = lower_text.find("debited")
+        target_text = text[start_scan : start_scan + 200] 
+        nums = re.findall(r'\b(\d{4})\b', target_text)
+        # Year aur amount filter karo
+        valid = [n for n in nums if n not in ['2024','2025','2026','2027']]
+        if valid: res['sender'] = valid[0]
 
-    if clean_nums:
-        # Sender is always the lowest 4-digit numeric string in PhonePe layouts
-        res['sender'] = clean_nums[-1]
+    # Fallback if Debited logic fails
+    if 'sender' not in res:
+        blocked = re.findall(r'(\d{4})@', text)
+        nums = re.findall(r'\b(\d{4})\b', text)
+        clean = [n for n in nums if n not in ['2024','2025','2026','2027'] and n not in blocked]
+        if clean: res['sender'] = clean[-1]
 
     return res
 
-# 🟢 DB SYNC
+# Database Load
 @st.cache_data(ttl=1)
-def sync_db(name, cols):
+def load_db(name, cols):
     url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={name}&cb={int(time.time())}"
     try:
         df = pd.read_csv(url).dropna(how="all").fillna("")
@@ -85,60 +91,51 @@ def sync_db(name, cols):
         return df
     except: return pd.DataFrame(columns=cols)
 
-# Load Session Data
-st.session_state.auth_retailers = sync_db("Authorized_Retailers", ["RetailerName", "Mobile", "Auth_UPI"])
-st.session_state.payment_ledger = sync_db("Payment_Ledger", ["Date", "RetailerName", "Amount", "Mode", "SenderUPI_Mobile", "Status", "Reference"])
+st.session_state.auth_retailers = load_db("Authorized_Retailers", ["RetailerName", "Mobile", "Auth_UPI"])
+st.session_state.payment_ledger = load_db("Payment_Ledger", ["Date", "RetailerName", "Amount", "Mode", "SenderUPI_Mobile", "Status", "Reference"])
 
-# Header UI
-st.markdown("<div style='background: linear-gradient(90deg, #b91c1c 0%, #ef4444 100%); padding: 30px; border-radius: 15px; text-align: center; color: white; margin-bottom: 30px;'><h1 style='margin:0; font-size: 36px;'>🛡️ CYBER-SAFE PAYMENT PORTAL</h1><p style='margin:5px 0 0 0; font-size: 18px;'>Sandhya Enterprises - Universal Verification</p></div>", unsafe_allow_html=True)
+# Header
+st.markdown("<div style='background: linear-gradient(90deg, #b91c1c 0%, #ef4444 100%); padding: 25px; border-radius: 12px; text-align: center; color: white; margin-bottom: 25px;'><h1 style='margin:0; font-size: 32px;'>🛡️ CYBER-SAFE PAYMENT PORTAL</h1><p style='margin:5px 0 0 0; font-size: 16px;'>Sandhya Enterprises - Smart Verification</p></div>", unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["💰 Register Payment", "📋 Transaction Ledger", "🛡️ Manage Retailers"])
+tab1, tab2, tab3 = st.tabs(["💰 Register Payment", "📋 Ledger", "🛡️ Retailers"])
 
 with tab1:
-    if st.button("🔄 Sync with Google Sheet"): st.rerun()
-    
-    st.info("📸 **Magic OCR Activated:** स्लिप अपलोड करें। यह अब 8890 को इग्नोर करके आपका 9424 ही पकड़ेगा।")
-    up_file = st.file_uploader("Upload Slip", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
+    if st.button("🔄 Sync Sheet"): st.rerun()
+    up_file = st.file_uploader("Upload Slip Screenshot", type=['png', 'jpg', 'jpeg'])
     
     if up_file:
-        with st.spinner("AI Magic Scanning (Wait 2 sec)..."):
-            extracted = extract_magic_data(Image.open(up_file))
-            if extracted:
-                st.session_state.f_amt = extracted.get('amount', 0.0)
-                st.session_state.f_utr = extracted.get('utr', '')
-                st.session_state.f_snd = extracted.get('sender', '')
-                st.session_state.f_dat = extracted.get('date', datetime.now().strftime("%d-%m-%Y %I:%M %p"))
-                st.success("✅ स्लिप स्कैन हो गई! नीचे चेक करें।")
+        with st.spinner("AI X-Ray Scanning..."):
+            extracted = extract_data_advanced(Image.open(up_file))
+            st.session_state.up_amt = extracted.get('amount', 0.0)
+            st.session_state.up_utr = extracted.get('utr', '')
+            st.session_state.up_snd = extracted.get('sender', '')
+            st.session_state.up_dat = extracted.get('date', datetime.now().strftime("%d-%m-%Y %I:%M %p"))
 
-    with st.form("p_form"):
-        f_date = st.text_input("📅 Date & Time*", value=st.session_state.get('f_dat', datetime.now().strftime("%d-%m-%Y %I:%M %p")))
+    with st.form("main_form"):
+        f_date = st.text_input("📅 Entry Date*", value=st.session_state.get('up_dat', datetime.now().strftime("%d-%m-%Y %I:%M %p")))
         c1, c2 = st.columns(2)
         with c1:
-            ret_list = ["-- Select Retailer --"] + st.session_state.auth_retailers["RetailerName"].tolist()
-            sel_ret = st.selectbox("👤 Select Retailer*", ret_list)
-            f_amt = st.number_input("Amount (Rs)*", value=float(st.session_state.get('f_amt', 0.0)))
+            sel_ret = st.selectbox("👤 Select Retailer*", ["-- Select --"] + st.session_state.auth_retailers["RetailerName"].tolist())
+            f_amt = st.number_input("Amount (Rs)*", value=float(st.session_state.get('up_amt', 0.0)))
             f_rem = st.selectbox("📝 Remark*", ["eTop", "JPB", "Other"])
         with c2:
             st.write("💳 **Payment: UPI / Online**")
-            f_snd = st.text_input("Sender Bank 4-Ank*", value=st.session_state.get('f_snd', ''))
-            f_utr = st.text_input("UTR Number*", value=st.session_state.get('f_utr', ''))
-        
-        if st.form_submit_button("🔍 VERIFY & SAVE TO SHEET", use_container_width=True, type="primary"):
-            if sel_ret == "-- Select Retailer --" or f_amt <= 0:
-                st.error("❌ कृपया रिटेलर चुनें और अमाउंट चेक करें।")
+            f_snd = st.text_input("Sender Bank 4-Digit*", value=st.session_state.get('up_snd', ''))
+            f_utr = st.text_input("UTR Number*", value=st.session_state.get('up_utr', ''))
+            
+        if st.form_submit_button("🔍 VERIFY & SAVE", use_container_width=True, type="primary"):
+            if sel_ret == "-- Select --" or f_amt <= 0:
+                st.error("❌ नाम और अमाउंट ज़रूरी है।")
             else:
-                # Security Match
                 auth_row = st.session_state.auth_retailers[st.session_state.auth_retailers["RetailerName"] == sel_ret].iloc[0]
                 is_safe = f_snd in str(auth_row["Auth_UPI"]) or f_snd in str(auth_row["Mobile"])
                 status = "Verified (Safe)" if is_safe else "UNVERIFIED (Danger)"
                 
                 payload = {"sheet_name": "Payment_Ledger", "Date": f_date, "RetailerName": sel_ret, "Amount": f_amt, "Mode": "UPI", "SenderUPI_Mobile": f_snd, "Status": status, "Reference": f"{f_rem} (UTR: {f_utr})"}
-                
                 requests.post(WEBHOOK_URL, json=payload, timeout=10)
-                if not is_safe:
-                    st.markdown(f"<div class='red-alert'>🚨 **RED ALERT:** सावधान! यह पेमेंट {sel_ret} के रजिस्टर्ड नंबर ({auth_row['Auth_UPI']}) से नहीं आया है!</div>", unsafe_allow_html=True)
-                else:
-                    st.markdown("<div class='green-alert'>✅ **SAFE PAYMENT:** एंट्री सुरक्षित रूप से एक्सेल में सेव कर दी गई है।</div>", unsafe_allow_html=True)
+                
+                if is_safe: st.markdown("<div class='green-alert'>✅ SAFE PAYMENT: एक्सेल में सेव हो गया।</div>", unsafe_allow_html=True)
+                else: st.markdown(f"<div class='red-alert'>🚨 ALERT: यह नंबर {f_snd} रजिस्टर्ड लिस्ट में नहीं है!</div>", unsafe_allow_html=True)
                 time.sleep(2)
                 st.rerun()
 
@@ -146,12 +143,4 @@ with tab2:
     st.dataframe(st.session_state.payment_ledger, use_container_width=True)
 
 with tab3:
-    with st.form("add_r"):
-        n1, n2, n3 = st.columns(3)
-        name = n1.text_input("Retailer Name")
-        mob = n2.text_input("Mobile Number")
-        upi = n3.text_input("Bank 4-Digit (eg. 9424)")
-        if st.form_submit_button("➕ Add Authorized Retailer"):
-            requests.post(WEBHOOK_URL, json={"sheet_name": "Authorized_Retailers", "RetailerName": name.upper(), "Mobile": mob, "Auth_UPI": upi})
-            st.success("✅ Retailer added to Master List!")
-            st.rerun()
+    st.write("Manage Authorized Retailers here...")
