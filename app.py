@@ -44,10 +44,10 @@ try:
 except ImportError:
     HAS_OCR = False
 
-# 🟢 TARGETED SNIPER AI (Anchor Method)
+# 🟢 ULTIMATE ANTI-@ LOGIC FOR SENDER
 def extract_details_from_image(img):
     if not HAS_OCR: return {}
-    img = img.convert('L') 
+    img = img.convert('L')
     text = pytesseract.image_to_string(img)
     details = {}
     
@@ -59,32 +59,45 @@ def extract_details_from_image(img):
     amts = re.findall(r'\b([0-9]{1,3},[0-9]{3})\b', text)
     if amts: details['amount'] = float(amts[-1].replace(',', ''))
         
-    # 3. UTR (Strictly 12 digits)
+    # 3. UTR
     utrs = re.findall(r'\b([0-9]{12})\b', text)
-    if utrs:
-        details['utr'] = utrs[-1]
+    if utrs: details['utr'] = utrs[-1]
 
-    # 4. SENDER 4 DIGITS (Sniper Logic: Look ONLY right before the UTR)
-    details['sender'] = "" # Default khali rakho
+    # 4. SENDER 4 DIGITS (The Ultimate Fix)
+    details['sender'] = ""
+    valid_senders = []
     
-    if 'utr' in details:
-        utr_str = details['utr']
-        utr_pos = text.rfind(utr_str) # UTR ka location dhundho
+    # Search rule: Find XXXX1234
+    x_matches = re.finditer(r'[Xx\*]{3,}\s*([0-9]{4})', text)
+    for m in x_matches:
+        four_digits = m.group(1)
+        # Check exactly what comes after the 4 digits
+        next_chars = text[m.end() : m.end() + 10]
         
-        if utr_pos != -1:
-            # Sirf UTR ke thik upar wale 150 akshar uthao (Jahan sirf 9424 hoga, 8890 nahi)
-            text_near_utr = text[max(0, utr_pos - 150) : utr_pos]
+        # AGAR '@' LAGA HAI TO US NUMBER KO TURANT REJECT KAR DO!
+        if '@' not in next_chars:
+            valid_senders.append(four_digits)
             
-            # Us chhote se hisse me 4 digit dhundho
-            fours = re.findall(r'(?<!\d)([0-9]{4})(?!\d)', text_near_utr)
-            
-            # Saal aur Amount ko hatao
+    # Agar Tesseract 'X' padhna hi bhool gaya ho (due to screen photo)
+    if not valid_senders:
+        lower_text = text.lower()
+        deb_idx = lower_text.rfind("debited")
+        if deb_idx != -1:
+            bottom_text = text[deb_idx:]
+            fours = re.findall(r'(?<!\d)([0-9]{4})(?!\d)', bottom_text)
             clean_fours = [x for x in fours if x not in ['2024', '2025', '2026', '2027']]
             if 'amount' in details:
                 clean_fours = [x for x in clean_fours if x != str(int(details['amount']))]
-                
-            if clean_fours:
-                details['sender'] = clean_fours[-1] # Jo bacha, wahi Bank A/C hai
+            
+            # Ek baar fir check karo ki niche wale numbers me '@' to nahi hai
+            for f in clean_fours:
+                pos = bottom_text.find(f)
+                if pos != -1 and '@' not in bottom_text[pos : pos + 10]:
+                    valid_senders.append(f)
+
+    # Jo sabse aakhiri pakka number bacha, wahi sender hai
+    if valid_senders:
+        details['sender'] = valid_senders[-1]
 
     return details
 
@@ -138,7 +151,7 @@ with tab1:
     if st.session_state.auth_retailers.empty:
         st.warning("⚠️ अभी कोई अधिकृत (Authorized) रिटेलर लिस्ट नहीं है।")
     else:
-        st.info("📸 **Sniper OCR:** अब यह 8890 को कभी नहीं छुएगा। अगर लोगो की वजह से नंबर नहीं दिखा, तो डब्बा खाली रहेगा!")
+        st.info("📸 **Anti-@ OCR:** अब यह जिंदगी में कभी 8890 को नहीं छुएगा!")
         uploaded_slip = st.file_uploader("Upload Payment Screenshot (JPG/PNG)", type=['png', 'jpg', 'jpeg'])
         
         if uploaded_slip is not None:
@@ -147,10 +160,10 @@ with tab1:
             with colA:
                 st.image(image, caption="Uploaded Slip", use_column_width=True)
             with colB:
-                with st.spinner("UTR के पास का डेटा स्कैन कर रहा हूँ..."):
+                with st.spinner("स्कैनिंग चालू है..."):
                     extracted = extract_details_from_image(image)
                     if extracted:
-                        st.success("✅ स्कैनिंग पूरी हुई!")
+                        st.success("✅ स्लिप से डेटा निकाल लिया गया है!")
                         st.session_state.auto_amt = float(extracted.get('amount', 0.0))
                         st.session_state.auto_utr = extracted.get('utr', '')
                         st.session_state.auto_sender = extracted.get('sender', '')
