@@ -2,190 +2,176 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import time
-import requests
 
-# FPDF for Bill Generation
-try:
-    from fpdf import FPDF
-    HAS_FPDF = True
-except ImportError:
-    HAS_FPDF = False
+# 1. Page Configuration & Clean CSS
+st.set_page_config(page_title="Cyber Safe Payment Portal", page_icon="🛡️", layout="wide")
 
-# 1. Page Configuration & A4 CSS Design
-st.set_page_config(page_title="Sandhya Repair & Service", page_icon="🔧", layout="centered")
-
-# A4 Page Look
 st.markdown("""
     <style>
     .main .block-container {
-        background-color: #ffffff;
+        background-color: #f8fafc;
         padding: 2rem;
         border-radius: 12px;
-        box-shadow: 0px 8px 20px rgba(0,0,0,0.1);
-        max-width: 800px;
+        max-width: 900px;
     }
+    .red-alert { background-color: #fef2f2; color: #dc2626; padding: 15px; border-left: 5px solid #dc2626; border-radius: 5px; font-weight: bold; }
+    .green-alert { background-color: #f0fdf4; color: #166534; padding: 15px; border-left: 5px solid #166534; border-radius: 5px; font-weight: bold; }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🔴 यहाँ अपना गूगल शीट डेटा फिर से भरें 🔴
+# 🔴 WEBHOOK AND SHEET ID
 # ==========================================
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzuGfQwsktUljAVELCbCfaXLUJV1b5-hy7Y6ErCT89Y_ZnrmPO0X_wCX9AXBf4oAGNrcA/exec"
-SHEET_ID = "https://docs.google.com/spreadsheets/d/17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM/edit?usp=sharing"
+WEBHOOK_URL = "यहाँ_अपना_नया_WEBHOOK_URL_डालें"
+SHEET_ID = "यहाँ_अपनी_Google_Sheet_की_ID_डालें"
 # ==========================================
 
-csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=ServiceDB"
+# 2. Database Initialization
+# Master list of Authorized Retailers (Name, Mobile, Auth_UPI)
+if 'auth_retailers' not in st.session_state:
+    st.session_state.auth_retailers = pd.DataFrame(columns=["RetailerName", "Mobile", "Auth_UPI"])
 
-@st.cache_data(ttl=2)
-def load_data():
-    try:
-        cb = int(time.time())
-        df = pd.read_csv(f"{csv_url}&cb={cb}").dropna(how="all").fillna("")
-        return df
-    except:
-        return pd.DataFrame(columns=["JobID", "Date", "CustName", "Mobile", "Address", "Category", "ProductDetail", "Fault", "EstCost", "DeliveryDate", "Status"])
+# Transaction Ledger
+if 'payment_ledger' not in st.session_state:
+    st.session_state.payment_ledger = pd.DataFrame(columns=[
+        "Date", "RetailerName", "Amount", "Mode", "SenderUPI_Mobile", "Status", "Reference"
+    ])
 
-# Database Initialization
-if 'repair_db' not in st.session_state:
-    st.session_state.repair_db = load_data()
-else:
-    st.session_state.repair_db = load_data()
-
-if 'last_receipt_data' not in st.session_state:
-    st.session_state.last_receipt_data = None
-
-# 🟢 CRASH-PROOF PDF BILL GENERATOR
-def generate_repair_receipt(data):
-    if not HAS_FPDF: return None
-    pdf = FPDF()
-    pdf.add_page()
-    
-    # Header
-    pdf.set_font("Arial", 'B', 20)
-    pdf.cell(0, 10, "SANDHYA ENTERPRISES", ln=True, align='C')
-    pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 6, "Repair & Service Receipt", ln=True, align='C')
-    pdf.set_font("Arial", '', 9)
-    pdf.cell(0, 5, "Register office: Rosera Road, Meghpatti, Samastipur, Bihar", ln=True, align='C')
-    pdf.cell(0, 5, "Contact: 7479584179 | Email: smp.sandhya02@gmail.com", ln=True, align='C')
-    pdf.line(10, 40, 200, 40)
-    pdf.ln(10)
-    
-    pdf.set_font("Arial", 'B', 10)
-    
-    def print_row(col1, col2):
-        pdf.cell(50, 8, col1, border=1)
-        pdf.set_font("Arial", '', 10)
-        clean_col2 = str(col2).encode('latin-1', 'ignore').decode('latin-1')
-        pdf.cell(0, 8, f" {clean_col2}", border=1, ln=True)
-        pdf.set_font("Arial", 'B', 10)
-
-    # .get() makes it 100% crash-proof against KeyErrors
-    print_row("Bill No / Job ID:", data.get('JobID', 'N/A'))
-    print_row("Date & Time:", data.get('Date', data.get('EntryDate', 'N/A')))
-    print_row("Customer Name:", data.get('CustName', 'N/A'))
-    print_row("Mobile Number:", data.get('Mobile', 'N/A'))
-    print_row("Item Category:", data.get('Category', 'N/A'))
-    print_row("Product Model:", data.get('ProductDetail', 'N/A'))
-    print_row("Problem:", data.get('Fault', 'N/A'))
-    print_row("Estimated Cost:", f"Rs. {data.get('EstCost', '0')}")
-    print_row("Delivery Date:", data.get('DeliveryDate', 'N/A'))
-    
-    pdf.ln(15)
-    pdf.set_font("Arial", 'I', 8)
-    pdf.cell(0, 5, "Authorized Signatory - Sandhya Enterprises", align='R')
-    return pdf.output(dest='S').encode('latin-1')
-
-# Header
+# 3. Main UI Header
 st.markdown("""
-    <div style='background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%); padding: 20px; border-radius: 10px; text-align: center; color: white; margin-bottom: 20px;'>
-        <h1 style='margin:0; font-size: 30px;'>🛠️ REPAIR & SERVICE PORTAL</h1>
-        <p style='margin:0;'>Sandhya Enterprises - Universal Desk</p>
+    <div style='background: linear-gradient(90deg, #b91c1c 0%, #ef4444 100%); padding: 25px; border-radius: 10px; text-align: center; color: white; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+        <h1 style='margin:0; font-size: 34px; font-weight: 800;'>🛡️ CYBER-SAFE PAYMENT PORTAL</h1>
+        <p style='margin:5px 0 0 0; font-size: 16px;'>Sandhya Enterprises - Authorized Transactions Only</p>
     </div>
 """, unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["📝 New Entry (नयी एंट्री)", "⏳ Pending (पेंडिंग)", "✅ Delivered (दे दिया)"])
+# 4. Tabs
+tab1, tab2, tab3, tab4 = st.tabs(["💰 Register Payment", "📋 Transaction Ledger", "🛡️ Manage Authorized Retailers", "📂 Upload Excel"])
 
-# TAB 1: NEW ENTRY
+# ==========================================
+# TAB 1: REGISTER PAYMENT (VERIFICATION LOGIC)
+# ==========================================
 with tab1:
-    if st.session_state.last_receipt_data:
-        res = st.session_state.last_receipt_data
-        st.success(f"✅ Job ID {res['JobID']} Saved Successfully!")
-        if HAS_FPDF:
-            pdf = generate_repair_receipt(res)
-            st.download_button("📥 Print Receipt (PDF)", data=pdf, file_name=f"Bill_{res['JobID']}.pdf", use_container_width=True)
-        if st.button("➕ Next Customer"):
-            st.session_state.last_receipt_data = None
-            st.rerun()
+    st.markdown("### 💰 New Payment Entry & Verification")
+    st.info("💡 **सुरक्षा चेक:** पेमेंट की एंट्री करने से पहले यह ऐप चेक करेगा कि पैसा अधिकृत (Authorized) अकाउंट से आया है या किसी अनजान (Unknown) अकाउंट से।")
+
+    if st.session_state.auth_retailers.empty:
+        st.warning("⚠️ अभी कोई अधिकृत (Authorized) रिटेलर लिस्ट नहीं है। पहले 'Manage Authorized Retailers' टैब में रिटेलर्स जोड़ें या Excel अपलोड करें।")
     else:
-        with st.form("repair_form"):
-            st.markdown("#### 👤 Customer Details")
-            c1, c2 = st.columns(2)
-            name = c1.text_input("Name (नाम)*")
-            mobile = c2.text_input("Mobile (नंबर)*")
-            address = st.text_input("Address (पता)")
+        with st.form("payment_form"):
+            col1, col2 = st.columns(2)
             
-            st.markdown("#### 📱 Repair Details")
-            category = st.selectbox("Category*", ["Mobile", "Fan", "Charger", "Other"])
-            prod = st.text_input("Item Name/Model*")
-            fault = st.text_area("Problem (खराबी)*")
-            
-            st.markdown("#### 💰 Charges")
-            cost = st.text_input("Cost (₹)*")
-            del_date = st.text_input("Delivery (कब मिलेगा?)*")
-            
-            submit = st.form_submit_button("💾 Save & Generate Bill", type="primary", use_container_width=True)
-            
-            if submit:
-                if not name or not mobile or not prod:
-                    st.error("❌ कृपया जरूरी जानकारी भरें (नाम, मोबाइल, सामान)")
+            with col1:
+                retailer_list = ["-- Select Retailer --"] + st.session_state.auth_retailers["RetailerName"].tolist()
+                selected_retailer = st.selectbox("👤 Select Retailer*", retailer_list)
+                amount = st.number_input("Amount Received (रुपये)*", min_value=0.0, step=10.0)
+                purpose = st.text_input("Reference / Purpose (किस काम के लिए?)")
+                
+            with col2:
+                pay_mode = st.selectbox("Payment Mode*", ["UPI / Online", "Bank Transfer (NEFT/RTGS)", "Cash"])
+                sender_detail = st.text_input("Sender UPI ID / Mobile No. (किस नंबर/UPI से पैसा आया?)*", placeholder="e.g. 9876543210@ybl")
+                
+            verify_and_save = st.form_submit_button("🔍 Verify & Save Payment", type="primary", use_container_width=True)
+
+            if verify_and_save:
+                if selected_retailer == "-- Select Retailer --" or amount <= 0:
+                    st.error("❌ कृपया रिटेलर का नाम और सही अमाउंट डालें।")
+                elif pay_mode != "Cash" and not sender_detail:
+                    st.error("❌ ऑनलाइन पेमेंट के लिए भेजने वाले का UPI ID या नंबर डालना अनिवार्य है!")
                 else:
-                    new_id = f"REP-{int(time.time())}"
-                    new_data = {
-                        "action": "add", 
-                        "JobID": new_id, 
-                        "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
-                        "CustName": name.upper(), 
-                        "Mobile": mobile, 
-                        "Address": address,
-                        "Category": category, 
-                        "ProductDetail": prod, 
-                        "Fault": fault,
-                        "EstCost": cost, 
-                        "DeliveryDate": del_date, 
-                        "Status": "Pending"
-                    }
+                    # 🟢 VERIFICATION LOGIC 🟢
+                    status = "Verified"
+                    alert_msg = ""
                     
-                    try:
-                        # 3-second silent webhook attempt
-                        if WEBHOOK_URL != "यहाँ_अपना_नया_WEBHOOK_URL_डालें":
-                            requests.post(WEBHOOK_URL, json=new_data, timeout=3)
-                    except:
-                        pass # Never show connection error, just proceed to bill
+                    if pay_mode != "Cash":
+                        # Find the authorized details for this retailer
+                        auth_data = st.session_state.auth_retailers[st.session_state.auth_retailers["RetailerName"] == selected_retailer].iloc[0]
+                        auth_upi = str(auth_data["Auth_UPI"]).strip().lower()
+                        auth_mobile = str(auth_data["Mobile"]).strip()
+                        entered_sender = str(sender_detail).strip().lower()
                         
-                    st.session_state.last_receipt_data = new_data
-                    st.rerun()
+                        # Check if entered sender matches Auth UPI OR Auth Mobile
+                        if entered_sender == auth_upi or entered_sender == auth_mobile or entered_sender in auth_upi:
+                            status = "Verified (Safe)"
+                            alert_msg = f"✅ **SAFE PAYMENT:** यह पेमेंट {selected_retailer} के अधिकृत (Authorized) नंबर/UPI से आया है।"
+                            st.markdown(f"<div class='green-alert'>{alert_msg}</div><br>", unsafe_allow_html=True)
+                        else:
+                            status = "UNVERIFIED (Danger)"
+                            alert_msg = f"🚨 **RED ALERT:** सावधान! यह पेमेंट {selected_retailer} के पक्के नंबर से **नहीं** आया है! (Authorized: {auth_upi} | Received From: {sender_detail}). कृपया इसकी जांच करें!"
+                            st.markdown(f"<div class='red-alert'>{alert_msg}</div><br>", unsafe_allow_html=True)
+                    else:
+                        status = "Cash (Safe)"
+                        st.success("✅ Cash Payment Recorded.")
 
-# TAB 2: PENDING
+                    # Save the transaction
+                    new_payment = {
+                        "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
+                        "RetailerName": selected_retailer,
+                        "Amount": amount,
+                        "Mode": pay_mode,
+                        "SenderUPI_Mobile": sender_detail if pay_mode != "Cash" else "Hand Cash",
+                        "Status": status,
+                        "Reference": purpose
+                    }
+                    st.session_state.payment_ledger = pd.concat([st.session_state.payment_ledger, pd.DataFrame([new_payment])], ignore_index=True)
+                    st.success("💾 Payment Entry Saved to Ledger.")
+
+# ==========================================
+# TAB 2: TRANSACTION LEDGER
+# ==========================================
 with tab2:
-    pending = st.session_state.repair_db[st.session_state.repair_db["Status"].astype(str).str.contains("Pending", na=False)]
-    if pending.empty: 
-        st.info("No pending jobs.")
+    st.markdown("### 📋 Transaction History")
+    if st.session_state.payment_ledger.empty:
+        st.info("अभी तक कोई ट्रांज़ैक्शन नहीं हुआ है।")
     else:
-        for idx, row in pending.iterrows():
-            st.markdown(f"**{row['CustName']}** - {row['ProductDetail']} (₹{row['EstCost']})")
-            if st.button(f"Mark Completed - {row['JobID']}"):
-                try:
-                    if WEBHOOK_URL != "यहाँ_अपना_नया_WEBHOOK_URL_डालें":
-                        requests.post(WEBHOOK_URL, json={"action": "update", "ID": row['JobID'], "Status": "Delivered"}, timeout=3)
-                except:
-                    pass
-                st.session_state.repair_db.loc[st.session_state.repair_db['JobID'] == row['JobID'], 'Status'] = "Delivered"
-                st.rerun()
+        # Highlight risky transactions
+        def highlight_danger(val):
+            color = '#fef2f2' if 'UNVERIFIED' in str(val) else ''
+            return f'background-color: {color}'
 
-# TAB 3: HISTORY
+        st.dataframe(st.session_state.payment_ledger.style.applymap(highlight_danger, subset=['Status']), use_container_width=True)
+        
+        csv = st.session_state.payment_ledger.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download Ledger (Excel)", data=csv, file_name=f"Payment_Ledger_{datetime.now().strftime('%d-%m-%Y')}.csv", mime="text/csv")
+
+# ==========================================
+# TAB 3: MANAGE AUTHORIZED RETAILERS
+# ==========================================
 with tab3:
-    if st.session_state.repair_db.empty:
-        st.info("No data available.")
-    else:
-        st.dataframe(st.session_state.repair_db, use_container_width=True)
+    st.markdown("### 🛡️ Authorized Retailer Registry")
+    st.info("सिर्फ उन्ही रिटेलर्स और उनके UPI/नंबर को यहाँ डालें जिन पर आपको भरोसा है।")
+    
+    with st.form("add_retailer"):
+        c1, c2, c3 = st.columns(3)
+        new_ret_name = c1.text_input("Retailer Name*")
+        new_ret_mob = c2.text_input("Registered Mobile Number*")
+        new_ret_upi = c3.text_input("Authorized UPI ID*")
+        
+        if st.form_submit_button("➕ Add Authorized Retailer"):
+            if new_ret_name and new_ret_mob and new_ret_upi:
+                new_ret = {"RetailerName": new_ret_name.upper(), "Mobile": new_ret_mob, "Auth_UPI": new_ret_upi.lower()}
+                st.session_state.auth_retailers = pd.concat([st.session_state.auth_retailers, pd.DataFrame([new_ret])], ignore_index=True)
+                st.success(f"✅ {new_ret_name} added to safe list!")
+                st.rerun()
+            else:
+                st.error("❌ सभी फील्ड भरना जरूरी है।")
+                
+    st.markdown("---")
+    st.markdown("#### Your Safe List")
+    st.dataframe(st.session_state.auth_retailers, use_container_width=True)
+
+# ==========================================
+# TAB 4: UPLOAD EXCEL (BULK ADD)
+# ==========================================
+with tab4:
+    st.markdown("### 📂 Upload Retailer Master List")
+    st.info("आप चाहें तो एक साथ अपनी Excel फाइल से सारे 'Authorized Retailers' की लिस्ट अपलोड कर सकते हैं।")
+    st.caption("Excel में ये कॉलम होने चाहिए: 'RetailerName', 'Mobile', 'Auth_UPI'")
+    
+    uploaded_file = st.file_uploader("📥 Upload Excel/CSV", type=["xlsx", "xls", "csv"])
+    if uploaded_file is not None:
+        try:
+            df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
+            st.session_state.auth_retailers = pd.concat([st.session_state.auth_retailers, df], ignore_index=True)
+            st.success("✅ Master List Loaded Successfully!")
+        except Exception as e: st.error(f"Error: {e}")
