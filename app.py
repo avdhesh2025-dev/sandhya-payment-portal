@@ -15,7 +15,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🔴 FIXED WEBHOOK AND SHEET ID
+# 🔴 WEBHOOK AND SHEET ID
 # ==========================================
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwq8_2sAhirNEqEBNYvIQ7qsUhaXELXblnXNbnIL1mpp71nxCB25NBC5WabA92da1jA9g/exec"
 SHEET_ID = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
@@ -28,6 +28,7 @@ def load_data_from_sheet(sheet_name, expected_columns):
     try:
         df = pd.read_csv(url).dropna(how="all").fillna("")
         if not df.empty:
+            # Space aur extra characters ko saaf karega
             df.columns = [str(c).replace(" ", "").strip() for c in df.columns]
             return df
     except Exception as e:
@@ -114,22 +115,28 @@ with tab1:
                     time.sleep(1.5)
                     st.rerun()
 
+# 🟢 CRASH-PROOF TRANSACTION LEDGER TAB
 with tab2:
     st.markdown("### 📋 Transaction History")
     if st.session_state.payment_ledger.empty:
         st.info("अभी तक कोई ट्रांज़ैक्शन नहीं हुआ है।")
     else:
-        def highlight_danger(val):
-            return 'background-color: #fef2f2; color: #dc2626; font-weight: bold;' if 'UNVERIFIED' in str(val) else ''
-        try:
-            styled_df = st.session_state.payment_ledger.style.map(highlight_danger, subset=['Status'])
-        except:
-            try:
-                styled_df = st.session_state.payment_ledger.style.applymap(highlight_danger, subset=['Status'])
-            except:
-                styled_df = st.session_state.payment_ledger
+        df_to_show = st.session_state.payment_ledger.copy()
         
-        st.dataframe(styled_df, use_container_width=True)
+        # Check if 'Status' column actually exists before trying to color it
+        if "Status" in df_to_show.columns:
+            def highlight_danger(val):
+                return 'background-color: #fef2f2; color: #dc2626; font-weight: bold;' if 'UNVERIFIED' in str(val) else ''
+            
+            try:
+                styled_df = df_to_show.style.map(highlight_danger, subset=['Status'])
+            except AttributeError:
+                styled_df = df_to_show.style.applymap(highlight_danger, subset=['Status'])
+                
+            st.dataframe(styled_df, use_container_width=True)
+        else:
+            # Agar Status column sheet me nahi milta, toh normal table dikhayega bina crash hue
+            st.dataframe(df_to_show, use_container_width=True)
 
 with tab3:
     st.markdown("### 🛡️ Add Authorized Retailer")
