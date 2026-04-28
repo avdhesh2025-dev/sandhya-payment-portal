@@ -3,6 +3,8 @@ import pandas as pd
 from datetime import datetime
 import time
 import requests
+import re
+from PIL import Image
 
 # 1. Page Style & Layout
 st.set_page_config(page_title="Cyber Safe Payment Portal", page_icon="🛡️", layout="wide")
@@ -16,11 +18,40 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🔴 WEBHOOK AND SHEET ID (Aapki Detail Pehle se Set Hai)
+# 🔴 WEBHOOK AND SHEET ID
 # ==========================================
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwq8_2sAhirNEqEBNYvIQ7qsUhaXELXblnXNbnIL1mpp71nxCB25NBC5WabA92da1jA9g/exec"
 SHEET_ID = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
 # ==========================================
+
+# 🟢 Tesseract OCR Setup
+try:
+    import pytesseract
+    HAS_OCR = True
+except ImportError:
+    HAS_OCR = False
+
+def extract_details_from_image(img):
+    if not HAS_OCR: return {}
+    text = pytesseract.image_to_string(img)
+    details = {}
+    
+    # 1. Amount Extract (₹ 3,000 ya Rs 3000)
+    amt_match = re.search(r'(?:₹|Rs\.?)\s*([0-9,]+)', text, re.IGNORECASE)
+    if amt_match:
+        details['amount'] = float(amt_match.group(1).replace(',', ''))
+        
+    # 2. UTR / Transaction ID Extract
+    utr_match = re.search(r'(?:UTR(?: No)?[\s:]*([0-9]{12}))|(T[0-9]{15,})', text, re.IGNORECASE)
+    if utr_match:
+        details['utr'] = utr_match.group(1) if utr_match.group(1) else utr_match.group(2)
+        
+    # 3. Last 4 Digits Extract (e.g. XXXX8890 ya XXXXXX9424)
+    acc_match = re.search(r'X{4,}([0-9]{4})', text)
+    if acc_match:
+        details['sender'] = acc_match.group(1)
+        
+    return details
 
 # 🟢 SMART DATA LOADER
 @st.cache_data(ttl=1)
@@ -35,15 +66,19 @@ def load_data_from_sheet(sheet_name, expected_columns):
         pass 
     return pd.DataFrame(columns=expected_columns)
 
-# Data Load Karein
 st.session_state.auth_retailers = load_data_from_sheet("Authorized_Retailers", ["RetailerName", "Mobile", "Auth_UPI"])
 st.session_state.payment_ledger = load_data_from_sheet("Payment_Ledger", ["Date", "RetailerName", "Amount", "Mode", "SenderUPI_Mobile", "Status", "Reference"])
+
+# State variables for Auto-Fill
+if 'auto_amt' not in st.session_state: st.session_state.auto_amt = 0.0
+if 'auto_utr' not in st.session_state: st.session_state.auto_utr = ""
+if 'auto_sender' not in st.session_state: st.session_state.auto_sender = ""
 
 # Header
 st.markdown("""
     <div style='background: linear-gradient(90deg, #b91c1c 0%, #ef4444 100%); padding: 25px; border-radius: 10px; text-align: center; color: white; margin-bottom: 25px;'>
         <h1 style='margin:0; font-size: 34px; font-weight: 800;'>🛡️ CYBER-SAFE PAYMENT PORTAL</h1>
-        <p style='margin:5px 0 0 0; font-size: 16px;'>Sandhya Enterprises - Authorized Transactions Only</p>
+        <p style='margin:5px 0 0 0; font-size: 16px;'>Sandhya Enterprises - Smart OCR Verification</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -53,15 +88,29 @@ if st.button("🔄 Sync Data with Google Sheet"):
 
 tab1, tab2, tab3 = st.tabs(["💰 Register Payment", "📋 Transaction Ledger", "🛡️ Manage Authorized Retailers"])
 
-# ==========================================
-# TAB 1: REGISTER PAYMENT
-# ==========================================
 with tab1:
     st.markdown("### 💰 New Payment Entry & Verification")
     
     if st.session_state.auth_retailers.empty:
-        st.warning("⚠️ Abhi koi Authorized Retailer list nahi hai. Pehle 'Manage Authorized Retailers' me add karein.")
+        st.warning("⚠️ अभी कोई अधिकृत (Authorized) रिटेलर लिस्ट नहीं है।")
     else:
+        # 🟢 SCREENSHOT UPLOAD SECTION
+        st.info("📸 **Smart Auto-Fill:** यहाँ पेमेंट स्लिप (Screenshot) अपलोड करें, बाकी डिटेल्स ऐप खुद भर लेगा!")
+        uploaded_slip = st.file_uploader("Upload Payment Screenshot (JPG/PNG)", type=['png', 'jpg', 'jpeg'])
+        
+        if uploaded_slip is not None:
+            image = Image.open(uploaded_slip)
+            st.image(image, caption="Uploaded Slip", width=300)
+            with st.spinner("फोटो पढ़ रहा हूँ..."):
+                extracted = extract_details_from_image(image)
+                if extracted:
+                    st.success("✅ स्लिप से डेटा निकाल लिया गया है! नीचे डब्बों में चेक करें।")
+                    st.session_state.auto_amt = extracted.get('amount', 0.0)
+                    st.session_state.auto_utr = extracted.get('utr', '')
+                    st.session_state.auto_sender = extracted.get('sender', '')
+                else:
+                    st.warning("⚠️ फोटो साफ़ नहीं है या डेटा नहीं मिल पाया। कृपया हाथ से भरें।")
+
         with st.form("payment_form"):
             col1, col2 = st.columns(2)
             with col1:
@@ -69,27 +118,29 @@ with tab1:
                 retailer_list = ["-- Select Retailer --"] + st.session_state.auth_retailers[ret_col].astype(str).tolist()
                 
                 selected_retailer = st.selectbox("👤 Select Retailer*", retailer_list)
-                amount = st.number_input("Amount Received (Rs)*", min_value=0.0, step=10.0)
-                purpose = st.text_input("UTR Number / Reference (Slip se dekh kar)*")
+                
+                # Auto-Filled Fields
+                amount = st.number_input("Amount Received (Rs)*", min_value=0.0, step=10.0, value=st.session_state.auto_amt)
+                purpose = st.text_input("UTR Number / Reference*", value=st.session_state.auto_utr)
+                
             with col2:
                 pay_mode = st.selectbox("Payment Mode*", ["UPI / Online", "Bank Transfer", "Cash"])
-                sender_detail = st.text_input("Sender UPI ya Bank ke Aakhiri 4 Ank (eg. 9424)*")
+                sender_detail = st.text_input("Sender UPI ya Bank ke Aakhiri 4 Ank (eg. 9424)*", value=st.session_state.auto_sender)
                 
             if st.form_submit_button("🔍 Verify & Save Payment", type="primary", use_container_width=True):
                 if selected_retailer == "-- Select Retailer --" or amount <= 0:
-                    st.error("❌ Kripya sahi detail bharein.")
+                    st.error("❌ कृपया रिटेलर का नाम और सही अमाउंट डालें।")
                 elif pay_mode != "Cash" and (not sender_detail or not purpose):
-                    st.error("❌ Online payment ke liye UTR aur Sender detail jaruri hai!")
+                    st.error("❌ ऑनलाइन पेमेंट के लिए UTR और Sender detail जरूरी है!")
                 else:
                     status = "Verified"
                     if pay_mode != "Cash":
                         auth_data = st.session_state.auth_retailers[st.session_state.auth_retailers[ret_col] == selected_retailer].iloc[0]
                         
-                        auth_upi = str(auth_data.get("Auth_UPI", "")).strip().lower()
-                        auth_mobile = str(auth_data.get("Mobile", "")).strip()
+                        auth_upi = str(auth_data.get("Auth_UPI", str(auth_data.iloc[-1]))).strip().lower()
+                        auth_mobile = str(auth_data.get("Mobile", str(auth_data.iloc[1]))).strip()
                         entered_sender = str(sender_detail).strip().lower()
                         
-                        # Verification Logic: Direct match ya 4-digit match
                         if entered_sender == auth_upi or entered_sender == auth_mobile or entered_sender in auth_upi:
                             status = "Verified (Safe)"
                             st.markdown(f"<div class='green-alert'>✅ **SAFE PAYMENT:** Ye {selected_retailer} ke pakke account se aaya hai.</div><br>", unsafe_allow_html=True)
@@ -114,13 +165,14 @@ with tab1:
                         requests.post(WEBHOOK_URL, json=new_payment, timeout=3)
                     except: pass
                     
+                    # Reset auto-fill memory after save
+                    st.session_state.auto_amt = 0.0
+                    st.session_state.auto_utr = ""
+                    st.session_state.auto_sender = ""
                     st.cache_data.clear()
                     time.sleep(1.5)
                     st.rerun()
 
-# ==========================================
-# TAB 2: TRANSACTION LEDGER
-# ==========================================
 with tab2:
     st.markdown("### 📋 Transaction History")
     if st.session_state.payment_ledger.empty:
@@ -138,9 +190,6 @@ with tab2:
         else:
             st.dataframe(df_to_show, use_container_width=True)
 
-# ==========================================
-# TAB 3: MANAGE RETAILERS
-# ==========================================
 with tab3:
     st.markdown("### 🛡️ Add Authorized Retailer")
     with st.form("add_retailer"):
