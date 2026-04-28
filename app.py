@@ -6,7 +6,7 @@ import requests
 import re
 from PIL import Image, ImageOps
 
-# 1. Page Configuration & Professional 3D A4 Design
+# 1. Page Configuration & Professional Design
 st.set_page_config(page_title="Cyber Safe Payment Portal", page_icon="🛡️", layout="wide")
 
 st.markdown("""
@@ -20,8 +20,8 @@ st.markdown("""
         background-color: #f0f4f8 !important; border: 1px solid #cbd5e1 !important;
         font-weight: bold; font-size: 18px !important; color: #1e293b !important;
     }
-    .red-alert { background-color: #fff1f2; color: #be123c; padding: 20px; border-left: 8px solid #be123c; border-radius: 10px; font-weight: bold; font-size: 18px; margin-bottom: 25px; box-shadow: 2px 4px 10px rgba(0,0,0,0.1); }
-    .green-alert { background-color: #f0fdf4; color: #15803d; padding: 20px; border-left: 8px solid #15803d; border-radius: 10px; font-weight: bold; font-size: 18px; margin-bottom: 25px; box-shadow: 2px 4px 10px rgba(0,0,0,0.1); }
+    .red-alert { background-color: #fff1f2; color: #be123c; padding: 20px; border-left: 8px solid #be123c; border-radius: 10px; font-weight: bold; margin-bottom: 25px; }
+    .green-alert { background-color: #f0fdf4; color: #15803d; padding: 20px; border-left: 8px solid #15803d; border-radius: 10px; font-weight: bold; margin-bottom: 25px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -38,47 +38,44 @@ try:
 except ImportError:
     HAS_OCR = False
 
-# 🟢 MAGIC LOGIC: TARGETED ZOOM SCANNING
+# 🟢 MAGIC SCAN LOGIC
 def extract_magic_data(img):
     if not HAS_OCR: return {}
-    
-    # Image Cleanup
     img_gray = ImageOps.grayscale(img)
+    # config psm 11 focuses on finding text scattered everywhere
     full_text = pytesseract.image_to_string(img_gray, config='--psm 11')
     res = {}
 
-    # 1. Extract UTR First (Anchor)
+    # 1. UTR Anchor
     utr_match = re.search(r'\b([0-9]{12})\b', full_text)
-    if utr_match:
-        res['utr'] = utr_match.group(1)
+    if utr_match: res['utr'] = utr_match.group(1)
         
-    # 2. Extract Date/Time
+    # 2. Date/Time
     dt_match = re.search(r'(\d{1,2}:\d{2}\s*[APM]+\s*on\s*\d{1,2}\s*[A-Za-z]+\s*\d{4})', full_text, re.IGNORECASE)
     if dt_match: res['date'] = dt_match.group(1).replace("on", "").strip()
 
-    # 3. Extract Amount (Looking for ₹ or comma)
+    # 3. Amount (Comma or Dot check)
     amt_match = re.findall(r'[₹Rs]\s*([0-9,]{2,10})', full_text)
     if amt_match: res['amount'] = float(amt_match[-1].replace(',', ''))
 
-    # 4. MAGIC FIX FOR DEBITED 4 DIGITS
-    # Logic: Convert to pure numbers, block receiver IDs, take the last one
-    blocked = re.findall(r'(\d{4})@', full_text) # Receiver ID like 8890
-    nums = re.findall(r'\b(\d{4})\b', full_text)
+    # 4. MAGIC DEBITED FIX: Block receivers and years, take the last remaining 4-digit
+    blocked_ids = re.findall(r'(\d{4})@', full_text) # IDs like 8890
+    all_fours = re.findall(r'\b(\d{4})\b', full_text)
     
     clean_nums = []
-    for n in nums:
-        if n in ['2024', '2025', '2026', '2027']: continue # Year filter
-        if n in blocked: continue # Receiver filter
-        if 'amount' in res and n == str(int(res['amount'])): continue # Amount filter
+    for n in all_fours:
+        if n in ['2024', '2025', '2026', '2027']: continue
+        if n in blocked_ids: continue
+        if 'amount' in res and n == str(int(res['amount'])): continue
         clean_nums.append(n)
 
     if clean_nums:
-        # Most PhonePe receipts list sender at the absolute bottom
+        # Sender is always the lowest 4-digit numeric string in PhonePe layouts
         res['sender'] = clean_nums[-1]
 
     return res
 
-# 🟢 DATABASE SYNC
+# 🟢 DB SYNC
 @st.cache_data(ttl=1)
 def sync_db(name, cols):
     url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={name}&cb={int(time.time())}"
@@ -88,22 +85,23 @@ def sync_db(name, cols):
         return df
     except: return pd.DataFrame(columns=cols)
 
+# Load Session Data
 st.session_state.auth_retailers = sync_db("Authorized_Retailers", ["RetailerName", "Mobile", "Auth_UPI"])
 st.session_state.payment_ledger = sync_db("Payment_Ledger", ["Date", "RetailerName", "Amount", "Mode", "SenderUPI_Mobile", "Status", "Reference"])
 
-# Header
-st.markdown("<div style='background: linear-gradient(90deg, #b91c1c 0%, #ef4444 100%); padding: 30px; border-radius: 15px; text-align: center; color: white; margin-bottom: 30px;'><h1 style='margin:0; font-size: 36px;'>🛡️ CYBER-SAFE PAYMENT PORTAL</h1><p style='margin:5px 0 0 0; font-size: 18px;'>Sandhya Enterprises - Authorized Business Only</p></div>", unsafe_allow_html=True)
+# Header UI
+st.markdown("<div style='background: linear-gradient(90deg, #b91c1c 0%, #ef4444 100%); padding: 30px; border-radius: 15px; text-align: center; color: white; margin-bottom: 30px;'><h1 style='margin:0; font-size: 36px;'>🛡️ CYBER-SAFE PAYMENT PORTAL</h1><p style='margin:5px 0 0 0; font-size: 18px;'>Sandhya Enterprises - Universal Verification</p></div>", unsafe_allow_html=True)
 
 tab1, tab2, tab3 = st.tabs(["💰 Register Payment", "📋 Transaction Ledger", "🛡️ Manage Retailers"])
 
 with tab1:
     if st.button("🔄 Sync with Google Sheet"): st.rerun()
     
-    st.info("📸 **Magic OCR Activated:** स्लिप अपलोड करें। अब यह एक्सिस बैंक के लोगो को इग्नोर करके सीधा आपका नंबर पकड़ेगा।")
+    st.info("📸 **Magic OCR Activated:** स्लिप अपलोड करें। यह अब 8890 को इग्नोर करके आपका 9424 ही पकड़ेगा।")
     up_file = st.file_uploader("Upload Slip", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
     
     if up_file:
-        with st.spinner("AI Magic Scanning..."):
+        with st.spinner("AI Magic Scanning (Wait 2 sec)..."):
             extracted = extract_magic_data(Image.open(up_file))
             if extracted:
                 st.session_state.f_amt = extracted.get('amount', 0.0)
@@ -127,20 +125,20 @@ with tab1:
         
         if st.form_submit_button("🔍 VERIFY & SAVE TO SHEET", use_container_width=True, type="primary"):
             if sel_ret == "-- Select Retailer --" or f_amt <= 0:
-                st.error("❌ कृपया नाम और अमाउंट चेक करें।")
+                st.error("❌ कृपया रिटेलर चुनें और अमाउंट चेक करें।")
             else:
-                # Security Check
-                auth_data = st.session_state.auth_retailers[st.session_state.auth_retailers["RetailerName"] == sel_ret].iloc[0]
-                is_safe = f_snd in str(auth_data["Auth_UPI"]) or f_snd in str(auth_data["Mobile"])
+                # Security Match
+                auth_row = st.session_state.auth_retailers[st.session_state.auth_retailers["RetailerName"] == sel_ret].iloc[0]
+                is_safe = f_snd in str(auth_row["Auth_UPI"]) or f_snd in str(auth_row["Mobile"])
                 status = "Verified (Safe)" if is_safe else "UNVERIFIED (Danger)"
                 
                 payload = {"sheet_name": "Payment_Ledger", "Date": f_date, "RetailerName": sel_ret, "Amount": f_amt, "Mode": "UPI", "SenderUPI_Mobile": f_snd, "Status": status, "Reference": f"{f_rem} (UTR: {f_utr})"}
                 
                 requests.post(WEBHOOK_URL, json=payload, timeout=10)
                 if not is_safe:
-                    st.markdown(f"<div class='red-alert'>🚨 **RED ALERT:** यह पेमेंट {sel_ret} के रजिस्टर्ड नंबर से नहीं आया है!</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='red-alert'>🚨 **RED ALERT:** सावधान! यह पेमेंट {sel_ret} के रजिस्टर्ड नंबर ({auth_row['Auth_UPI']}) से नहीं आया है!</div>", unsafe_allow_html=True)
                 else:
-                    st.markdown("<div class='green-alert'>✅ **SAFE PAYMENT:** डेटा सेव कर लिया गया है।</div>", unsafe_allow_html=True)
+                    st.markdown("<div class='green-alert'>✅ **SAFE PAYMENT:** एंट्री सुरक्षित रूप से एक्सेल में सेव कर दी गई है।</div>", unsafe_allow_html=True)
                 time.sleep(2)
                 st.rerun()
 
@@ -150,9 +148,10 @@ with tab2:
 with tab3:
     with st.form("add_r"):
         n1, n2, n3 = st.columns(3)
-        name = n1.text_input("Name")
-        mob = n2.text_input("Mobile")
-        upi = n3.text_input("Bank 4-Digit")
-        if st.form_submit_button("Add Retailer"):
+        name = n1.text_input("Retailer Name")
+        mob = n2.text_input("Mobile Number")
+        upi = n3.text_input("Bank 4-Digit (eg. 9424)")
+        if st.form_submit_button("➕ Add Authorized Retailer"):
             requests.post(WEBHOOK_URL, json={"sheet_name": "Authorized_Retailers", "RetailerName": name.upper(), "Mobile": mob, "Auth_UPI": upi})
+            st.success("✅ Retailer added to Master List!")
             st.rerun()
