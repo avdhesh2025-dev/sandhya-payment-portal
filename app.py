@@ -17,8 +17,8 @@ st.markdown("""
 # ==========================================
 # 🔴 यहाँ अपना नया WEBHOOK और SHEET ID डालें 🔴
 # ==========================================
-WEBHOOK_URL = "यहाँ_अपना_नया_WEBHOOK_URL_डालें"
-SHEET_ID = "यहाँ_अपनी_Google_Sheet_की_ID_डालें"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwq8_2sAhirNEqEBNYvIQ7qsUhaXELXblnXNbnIL1mpp7lnxCB25NBC5WabA92da1jA9g/exec"
+SHEET_ID = "https://docs.google.com/spreadsheets/d/17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM/edit?usp=sharing"
 # ==========================================
 
 # 🟢 SMART DATA LOADER (इग्नोर करेगा स्पेस और एरर)
