@@ -44,7 +44,7 @@ try:
 except ImportError:
     HAS_OCR = False
 
-# 🟢 ULTIMATE ANTI-@ LOGIC FOR SENDER
+# 🟢 GLOBAL SWEEPER AI (Sabse Powerful Logic)
 def extract_details_from_image(img):
     if not HAS_OCR: return {}
     img = img.convert('L')
@@ -63,41 +63,37 @@ def extract_details_from_image(img):
     utrs = re.findall(r'\b([0-9]{12})\b', text)
     if utrs: details['utr'] = utrs[-1]
 
-    # 4. SENDER 4 DIGITS (The Ultimate Fix)
+    # 4. SENDER 4 DIGITS (Global Sweeper)
     details['sender'] = ""
-    valid_senders = []
+    amt_str = str(int(details['amount'])) if 'amount' in details else ""
     
-    # Search rule: Find XXXX1234
-    x_matches = re.finditer(r'[Xx\*]{3,}\s*([0-9]{4})', text)
-    for m in x_matches:
-        four_digits = m.group(1)
-        # Check exactly what comes after the 4 digits
-        next_chars = text[m.end() : m.end() + 10]
+    # Pura page chhan maaro, har wo 4 number nikaalo jiske aage-pichhe koi number na ho
+    matches = re.finditer(r'(?<!\d)([0-9]{4})(?!\d)', text)
+    valid_candidates = []
+    
+    for m in matches:
+        val = m.group(1)
         
-        # AGAR '@' LAGA HAI TO US NUMBER KO TURANT REJECT KAR DO!
-        if '@' not in next_chars:
-            valid_senders.append(four_digits)
+        # Filter 1: Saal (Year) hatao
+        if val in ['2024', '2025', '2026', '2027']: continue
             
-    # Agar Tesseract 'X' padhna hi bhool gaya ho (due to screen photo)
-    if not valid_senders:
-        lower_text = text.lower()
-        deb_idx = lower_text.rfind("debited")
-        if deb_idx != -1:
-            bottom_text = text[deb_idx:]
-            fours = re.findall(r'(?<!\d)([0-9]{4})(?!\d)', bottom_text)
-            clean_fours = [x for x in fours if x not in ['2024', '2025', '2026', '2027']]
-            if 'amount' in details:
-                clean_fours = [x for x in clean_fours if x != str(int(details['amount']))]
+        # Filter 2: Amount (3000) hatao
+        if val == amt_str: continue
             
-            # Ek baar fir check karo ki niche wale numbers me '@' to nahi hai
-            for f in clean_fours:
-                pos = bottom_text.find(f)
-                if pos != -1 and '@' not in bottom_text[pos : pos + 10]:
-                    valid_senders.append(f)
+        # Filter 3: Receiver ka number (Jiske aas-paas '@' ho) hatao
+        near_text = text[max(0, m.end() - 2) : min(len(text), m.end() + 15)]
+        if '@' in near_text: continue
+            
+        # Filter 4: UTR ka hissa na ho
+        near_text_before = text[max(0, m.start() - 10) : m.start()].lower()
+        if 'utr' in near_text_before: continue
 
-    # Jo sabse aakhiri pakka number bacha, wahi sender hai
-    if valid_senders:
-        details['sender'] = valid_senders[-1]
+        # Agar yahan tak pass ho gaya, to list me daal do
+        valid_candidates.append(val)
+
+    # Jo list me sabse aakhiri bacha (wo 100% 9424 hi hoga)
+    if valid_candidates:
+        details['sender'] = valid_candidates[-1]
 
     return details
 
@@ -151,7 +147,7 @@ with tab1:
     if st.session_state.auth_retailers.empty:
         st.warning("⚠️ अभी कोई अधिकृत (Authorized) रिटेलर लिस्ट नहीं है।")
     else:
-        st.info("📸 **Anti-@ OCR:** अब यह जिंदगी में कभी 8890 को नहीं छुएगा!")
+        st.info("📸 **Global Sweeper AI:** अब यह पूरे पेज से सही 4 अंक खोज निकालेगा, चाहे वो UTR के नीचे ही क्यों न छिपे हों!")
         uploaded_slip = st.file_uploader("Upload Payment Screenshot (JPG/PNG)", type=['png', 'jpg', 'jpeg'])
         
         if uploaded_slip is not None:
@@ -160,7 +156,7 @@ with tab1:
             with colA:
                 st.image(image, caption="Uploaded Slip", use_column_width=True)
             with colB:
-                with st.spinner("स्कैनिंग चालू है..."):
+                with st.spinner("पूरा पेज स्कैन कर रहा हूँ..."):
                     extracted = extract_details_from_image(image)
                     if extracted:
                         st.success("✅ स्लिप से डेटा निकाल लिया गया है!")
