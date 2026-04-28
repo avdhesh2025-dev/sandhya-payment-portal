@@ -31,44 +31,34 @@ try:
 except ImportError:
     HAS_OCR = False
 
-# 🟢 SMART FILTER: OCR EXTRACTION
+# 🟢 ADVANCED SMART FILTER (Fix for 2026 and Mobile Number)
 def extract_details_from_image(img):
     if not HAS_OCR: return {}
-    
-    # Image ko thoda clear karne ke liye Grayscale me convert karte hain
-    img = img.convert('L')
+    img = img.convert('L') # Convert to grayscale for better reading
     text = pytesseract.image_to_string(img)
     details = {}
     
-    # 1. AMOUNT: PhonePe me ₹ symbol ya comma wala bada number
-    amt_match = re.search(r'[₹₹Rs]\s*([0-9,]+)', text, re.IGNORECASE)
-    if not amt_match:
-        # Fallback: Sirf 3,000 jaisa comma wala number dhoonde
-        amt_match = re.search(r'\b([0-9]{1,2},[0-9]{3})\b', text)
-        
+    # 1. AMOUNT FIX: Ignore years like 2024, 2025, 2026
+    amt_match = re.search(r'[₹Rs]\s*([0-9,]+)', text, re.IGNORECASE)
     if amt_match:
-        try:
-            details['amount'] = float(amt_match.group(1).replace(',', ''))
+        try: details['amount'] = float(amt_match.group(1).replace(',', ''))
         except: pass
-        
-    # 2. UTR / Transaction ID
-    utr_match = re.search(r'UTR.*?([0-9]{12})', text, re.IGNORECASE)
-    if not utr_match:
-        utr_match = re.search(r'(?:T[0-9]{15,})', text) # PayTM/PhonePe Txn ID
-    if not utr_match:
-        utr_match = re.search(r'([0-9]{12})', text) # Koi bhi 12 digit
-        
+    else:
+        # Agar ₹ symbol read na ho, toh numbers dhoondein jo saal (year) na hon
+        numbers = re.findall(r'\b([0-9]{1,2},[0-9]{3}|[0-9]{3,5})\b', text)
+        valid_amts = [float(n.replace(',', '')) for n in numbers if n not in ['2024', '2025', '2026', '2027']]
+        if valid_amts:
+            details['amount'] = valid_amts[0]
+            
+    # 2. UTR FIX
+    utr_match = re.search(r'(?:UTR.*?|T)([0-9]{12,22})', text, re.IGNORECASE)
     if utr_match:
-        # Pura match group nikalenge
-        match_str = utr_match.group(1) if len(utr_match.groups()) > 0 and utr_match.group(1) else utr_match.group(0)
-        details['utr'] = match_str.replace("T", "") # T hata kar clean number
+        details['utr'] = utr_match.group(1)
         
-    # 3. SENDER 4 DIGITS (Smart Logic)
-    # PhonePe me 2 baar 'XXXX' aate hain. Sender ka aakhiri (Debited From) me hota hai.
-    acc_matches = re.findall(r'[Xx\*]{4,}([0-9]{4})', text)
+    # 3. SENDER 4 DIGITS FIX (Pick the absolute last masked number)
+    acc_matches = re.findall(r'[X\*]{4,}([0-9]{4})', text, re.IGNORECASE)
     if acc_matches:
-        # -1 ka matlab hai sabse aakhiri wala uthana hai (Jo sender ka hota hai)
-        details['sender'] = acc_matches[-1] 
+        details['sender'] = acc_matches[-1] # Sabse aakhiri wala humesha sender ka hota hai
         
     return details
 
@@ -111,20 +101,18 @@ tab1, tab2, tab3 = st.tabs(["💰 Register Payment", "📋 Transaction Ledger", 
 with tab1:
     st.markdown("### 💰 New Payment Entry & Verification")
     
-    # 🟢 PERSISTENT ALERT MESSAGE LOGIC
     if st.session_state.alert_msg:
         if st.session_state.alert_type == "success":
             st.markdown(f"<div class='green-alert'>{st.session_state.alert_msg}</div>", unsafe_allow_html=True)
         else:
             st.markdown(f"<div class='red-alert'>{st.session_state.alert_msg}</div>", unsafe_allow_html=True)
-        # Ek baar dikha kar clear kar denge taki hamesha na rahe
         st.session_state.alert_msg = ""
         st.session_state.alert_type = ""
     
     if st.session_state.auth_retailers.empty:
         st.warning("⚠️ अभी कोई अधिकृत (Authorized) रिटेलर लिस्ट नहीं है।")
     else:
-        st.info("📸 **Smart Auto-Fill:** यहाँ पेमेंट स्लिप (Screenshot) अपलोड करें, बाकी डिटेल्स ऐप खुद भर लेगा!")
+        st.info("📸 **Smart Auto-Fill:** यहाँ पेमेंट स्लिप अपलोड करें, ऐप खुद डेटा पढ़ेगा!")
         uploaded_slip = st.file_uploader("Upload Payment Screenshot (JPG/PNG)", type=['png', 'jpg', 'jpeg'])
         
         if uploaded_slip is not None:
@@ -136,14 +124,17 @@ with tab1:
                 with st.spinner("फोटो पढ़ रहा हूँ..."):
                     extracted = extract_details_from_image(image)
                     if extracted:
-                        st.success("✅ स्लिप से डेटा निकाल लिया गया है! नीचे डब्बों में चेक करें।")
+                        st.success("✅ स्लिप से डेटा निकाल लिया गया है!")
                         st.session_state.auto_amt = extracted.get('amount', 0.0)
                         st.session_state.auto_utr = extracted.get('utr', '')
                         st.session_state.auto_sender = extracted.get('sender', '')
                     else:
-                        st.warning("⚠️ फोटो साफ़ नहीं है या डेटा नहीं मिल पाया। कृपया हाथ से भरें।")
+                        st.warning("⚠️ फोटो साफ़ नहीं है, कृपया हाथ से भरें।")
 
         with st.form("payment_form"):
+            # New Date & Time Box
+            entry_date = st.text_input("📅 Date & Time*", value=datetime.now().strftime("%d-%m-%Y %I:%M %p"))
+            
             col1, col2 = st.columns(2)
             with col1:
                 ret_col = "RetailerName" if "RetailerName" in st.session_state.auth_retailers.columns else st.session_state.auth_retailers.columns[0]
@@ -151,59 +142,64 @@ with tab1:
                 
                 selected_retailer = st.selectbox("👤 Select Retailer*", retailer_list)
                 amount = st.number_input("Amount Received (Rs)*", min_value=0.0, step=10.0, value=float(st.session_state.auto_amt))
-                purpose = st.text_input("UTR Number / Reference*", value=st.session_state.auto_utr)
+                
+                # JPB / eTop Options
+                remark_type = st.selectbox("📝 Remark / Purpose*", ["eTop", "JPB", "Other"])
+                if remark_type == "Other":
+                    purpose = st.text_input("Type Other Purpose*")
+                else:
+                    purpose = remark_type
                 
             with col2:
-                pay_mode = st.selectbox("Payment Mode*", ["UPI / Online", "Bank Transfer", "Cash"])
-                sender_detail = st.text_input("Sender UPI ya Bank ke Aakhiri 4 Ank (eg. 9424)*", value=st.session_state.auto_sender)
+                # Always Online Fixed
+                st.info("💳 Payment Mode: UPI / Online (Fixed)")
+                pay_mode = "UPI / Online" 
+                
+                sender_detail = st.text_input("Sender Bank ke Aakhiri 4 Ank (eg. 9424)*", value=st.session_state.auto_sender)
+                utr_number = st.text_input("UTR Number / Transaction ID*", value=st.session_state.auto_utr)
                 
             if st.form_submit_button("🔍 Verify & Save Payment", type="primary", use_container_width=True):
                 if selected_retailer == "-- Select Retailer --" or amount <= 0:
                     st.error("❌ कृपया रिटेलर का नाम और सही अमाउंट डालें।")
-                elif pay_mode != "Cash" and (not sender_detail or not purpose):
-                    st.error("❌ ऑनलाइन पेमेंट के लिए UTR और Sender detail जरूरी है!")
+                elif not sender_detail or not utr_number:
+                    st.error("❌ ऑनलाइन पेमेंट के लिए UTR और Sender के 4 अंक जरूरी हैं!")
+                elif remark_type == "Other" and not purpose:
+                    st.error("❌ कृपया Other Purpose टाइप करें।")
                 else:
-                    status = "Verified"
-                    alert_msg_text = ""
-                    alert_type_val = ""
+                    auth_data = st.session_state.auth_retailers[st.session_state.auth_retailers[ret_col] == selected_retailer].iloc[0]
                     
-                    if pay_mode != "Cash":
-                        auth_data = st.session_state.auth_retailers[st.session_state.auth_retailers[ret_col] == selected_retailer].iloc[0]
-                        
-                        auth_upi = str(auth_data.get("Auth_UPI", "")).strip().lower()
-                        auth_mobile = str(auth_data.get("Mobile", "")).strip()
-                        entered_sender = str(sender_detail).strip().lower()
-                        
-                        if entered_sender == auth_upi or entered_sender == auth_mobile or entered_sender in auth_upi:
-                            status = "Verified (Safe)"
-                            alert_type_val = "success"
-                            alert_msg_text = f"✅ <b>SAFE PAYMENT:</b> यह पेमेंट {selected_retailer} के पक्के अकाउंट से आया है। (Data Saved!)"
-                        else:
-                            status = "UNVERIFIED (Danger)"
-                            alert_type_val = "danger"
-                            alert_msg_text = f"🚨 <b>RED ALERT:</b> सावधान! यह पेमेंट {selected_retailer} के पक्के नंबर से नहीं आया है! (Authorized: {auth_upi} | Received: {sender_detail}) (Record Saved in Ledger!)"
-                    else:
-                        status = "Cash (Safe)"
+                    auth_upi = str(auth_data.get("Auth_UPI", "")).strip().lower()
+                    auth_mobile = str(auth_data.get("Mobile", "")).strip()
+                    entered_sender = str(sender_detail).strip().lower()
+                    
+                    # Verification Logic
+                    if entered_sender == auth_upi or entered_sender == auth_mobile or entered_sender in auth_upi:
+                        status = "Verified (Safe)"
                         alert_type_val = "success"
-                        alert_msg_text = "✅ Cash Payment Recorded & Saved!"
+                        alert_msg_text = f"✅ <b>SAFE PAYMENT:</b> यह पेमेंट {selected_retailer} के पक्के अकाउंट से आया है। (Data Saved!)"
+                    else:
+                        status = "UNVERIFIED (Danger)"
+                        alert_type_val = "danger"
+                        alert_msg_text = f"🚨 <b>RED ALERT:</b> सावधान! यह पेमेंट {selected_retailer} के पक्के नंबर से नहीं आया है! (Authorized: {auth_upi} | Received: {sender_detail}) (Record Saved in Ledger!)"
+
+                    # Combine Purpose and UTR
+                    final_reference = f"{purpose} (UTR: {utr_number})"
 
                     new_payment = {
                         "sheet_name": "Payment_Ledger",
-                        "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
+                        "Date": entry_date,
                         "RetailerName": selected_retailer,
                         "Amount": amount,
                         "Mode": pay_mode,
-                        "SenderUPI_Mobile": sender_detail if pay_mode != "Cash" else "Hand Cash",
+                        "SenderUPI_Mobile": sender_detail,
                         "Status": status,
-                        "Reference": purpose
+                        "Reference": final_reference
                     }
                     
-                    # 🟢 INCREASED TIMEOUT FOR SAVING RED ALERTS TO GOOGLE SHEET
                     try:
                         requests.post(WEBHOOK_URL, json=new_payment, timeout=10)
                     except: pass
                     
-                    # Alert dikhane aur fields ko khali karne ka logic
                     st.session_state.alert_msg = alert_msg_text
                     st.session_state.alert_type = alert_type_val
                     st.session_state.auto_amt = 0.0
