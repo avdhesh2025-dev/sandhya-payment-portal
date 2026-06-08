@@ -32,31 +32,48 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🔴 GOOGLE SHEET CONFIG
+# 🔴 FIXED WEBHOOK AND SHEET ID CONFIG
 # ==========================================
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwq8_2sAhirNEqEBNYvIQ7qsUhaXELXblnXNbnIL1mpp71nxCB25NBC5WabA92da1jA9g/exec"
+SHEET_ID = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
 
-# Master Inventory Initialization
-if "products_db" not in st.session_state:
-    st.session_state.products_db = [
-        {
-            "id": "FK01", "name": "Premium Wireless Earbuds (Super Bass)", "price": 1499.0, "cat": "Electronics", "rating": "4.3★", "offer": "25% OFF",
-            "desc": "High-fidelity wireless sound with deep bass and up to 40 hours of total playback time.",
-            "specs": {"Brand": "Sandhya Digital", "Battery Life": "40 Hours"}
-        },
-        {
-            "id": "FK02", "name": "Smart Fitness Watch Pro AMOLED", "price": 2499.0, "cat": "Electronics", "rating": "4.5★", "offer": "10% OFF",
-            "desc": "1.78 inch AMOLED Always-on display smart watch with continuous heart rate monitoring.",
-            "specs": {"Display Type": "AMOLED", "Battery Backup": "Up to 7 Days"}
-        }
-    ]
+# 🟢 DYNAMIC DATABASE SYNC FROM GOOGLE SHEET
+@st.cache_data(ttl=1)
+def sync_products_from_sheet():
+    url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Product_List&cb={int(time.time())}"
+    try:
+        df = pd.read_csv(url).dropna(how="all").fillna("")
+        df.columns = [str(c).replace(" ", "").strip() for c in df.columns]
+        
+        products_list = []
+        for _, row in df.iterrows():
+            products_list.append({
+                "id": str(row.get("ProductID", "")),
+                "name": str(row.get("ProductName", "")),
+                "price": float(row.get("Price", 0.0)),
+                "cat": str(row.get("Category", "General")),
+                "rating": "4.4★",
+                "offer": str(row.get("OfferLabel", "Special Price")),
+                "desc": str(row.get("Description", "")),
+                "specs": {"Brand": str(row.get("Brand", "Original")), "Warranty": str(row.get("Warranty", "1 Year"))}
+            })
+        return products_list
+    except:
+        # Fallback inventory if sheet tab doesn't exist yet
+        return [
+            {"id": "FK01", "name": "Premium Wireless Earbuds (Super Bass)", "price": 1499.0, "cat": "Electronics", "rating": "4.3★", "offer": "25% OFF", "desc": "High-fidelity wireless sound.", "specs": {"Brand": "Sandhya Brand", "Warranty": "1 Year"}},
+            {"id": "FK02", "name": "Smart Fitness Watch Pro AMOLED", "price": 2499.0, "cat": "Electronics", "rating": "4.5★", "offer": "10% OFF", "desc": "AMOLED display smart watch.", "specs": {"Brand": "Sandhya Brand", "Warranty": "1 Year"}}
+        ]
 
-# Session State Keys Safety Check
+# Initialize Session States Safely
 if "cart" not in st.session_state: st.session_state.cart = {}
 if "user_login" not in st.session_state: st.session_state.user_login = False
 if "user_profile" not in st.session_state: st.session_state.user_profile = {"name": "", "phone": "", "address": ""}
 if "live_loc" not in st.session_state: st.session_state.live_loc = ""
 if "selected_product" not in st.session_state: st.session_state.selected_product = None
+
+# Load permanent products from sheet
+st.session_state.products_db = sync_products_from_sheet()
 
 def fetch_auto_location():
     with st.spinner("Tracking Live GPS via Network..."):
@@ -120,9 +137,9 @@ with st.sidebar:
 # Layout Tabs
 tab1, tab2, tab3 = st.tabs(["⚡ Flipkart Grid Store", "📦 Secure Checkout System", "➕ Add New Product (Admin)"])
 
-# TAB 1: PRODUCT LIST & BUG-FREE DETAIL PAGE
+# TAB 1: PRODUCT LIST & CRASH-PROOF DETAIL PAGE
 with tab1:
-    # Safe State Checker to avoid AttributeError
+    # 🌟 CRITICAL FIX: Safe check to completely stop AttributeError crash
     if st.session_state.selected_product is not None:
         p = st.session_state.selected_product
         if st.button("⬅️ Back to All Products", type="secondary"):
@@ -134,8 +151,10 @@ with tab1:
         with col1:
             st.markdown(f'<div style="background:#f8fafc; border:2px dashed #cbd5e1; height:300px; display:flex; align-items:center; justify-content:center; border-radius:12px;"><h3>📸 {p.get("name", "Product")} Image</h3></div>', unsafe_allow_html=True)
         with col2:
-            st.markdown(f'<span class="fk-tag">{p.get("rating", "4.0★")}</span> <span style="color:#388e3c; font-weight:bold;">{p.get("offer", "")}</span>', unsafe_allow_html=True)
-            st.h1(p.get("name", "Product Specification"))
+            st.markdown(f'<span class="fk-tag">{p.get("rating", "4.4★")}</span> <span style="color:#388e3c; font-weight:bold;">{p.get("offer", "")}</span>', unsafe_allow_html=True)
+            
+            # Crash Proof Header Implementation
+            st.markdown(f'## {p.get("name", "Product Specification")}')
             st.markdown(f'<div class="fk-price" style="font-size:32px;">Price: ₹{p.get("price", 0.0):,}</div>', unsafe_allow_html=True)
             st.write(f"**Description:** {p.get('desc', '')}")
             
@@ -160,7 +179,7 @@ with tab1:
             with col_grid[index % 2]:
                 st.markdown(f"""
                     <div class="fk-card">
-                        <span class="fk-tag">{p.get('rating', '4.0★')}</span>
+                        <span class="fk-tag">{p.get('rating', '4.4★')}</span>
                         <h3 style="color:#2874f0; margin:10px 0;">{p.get('name', 'Product')}</h3>
                         <div class="fk-price">₹{p.get('price', 0.0):,}</div>
                     </div>
@@ -225,10 +244,10 @@ with tab2:
                         st.session_state.selected_product = None
                     except Exception as e: st.error(f"Error connecting to spreadsheet: {e}")
 
-# TAB 3: ADMIN AREA (ADD PRODUCTS LOGIC)
+# TAB 3: ADMIN AREA (PERMANENT GOOGLE SHEET SYNC SYSTEM)
 with tab3:
-    st.subheader("➕ Sandhya Digital Mall - Inventory Control")
-    st.info("यहाँ से नया प्रोडक्ट भरें, वह तुरंत पहले टैब में बिकने के लिए आ जाएगा।")
+    st.subheader("➕ Sandhya Digital Mall - Add Permanent Product")
+    st.info("यहाँ से नया प्रोडक्ट भरें, वह सीधे आपकी Google Sheet में हमेशा के लिए सेव हो जाएगा और स्टोर पर लाइव दिखेगा।")
     
     with st.form("admin_add_product_form"):
         new_id = f"FK{len(st.session_state.products_db) + 1:02d}"
@@ -239,26 +258,31 @@ with tab3:
         new_desc = st.text_area("Detailed Description")
         
         st.markdown("##### Specifications Parameters")
-        spec_k1 = st.text_input("Param 1 (e.g., Brand)", value="Sandhya Brand")
-        spec_v1 = st.text_input("Value 1", value="Original")
-        spec_k2 = st.text_input("Param 2 (e.g., Warranty)", value="1 Year")
-        spec_v2 = st.text_input("Value 2")
+        spec_brand = st.text_input("Brand Name", value="Sandhya Brand")
+        spec_warranty = st.text_input("Warranty Period", value="1 Year")
         
-        if st.form_submit_button("➕ ADD PRODUCT TO LIVE STOREFRONT", use_container_width=True):
+        if st.form_submit_button("💾 SAVE PRODUCT PERMANENTLY TO GOOGLE SHEET", use_container_width=True):
             if not new_name:
                 st.error("Product title field cannot be left blank.")
             else:
-                new_item = {
-                    "id": new_id,
-                    "name": new_name,
-                    "price": float(new_price),
-                    "cat": new_cat,
-                    "rating": "4.4★",
-                    "offer": new_offer,
-                    "desc": new_desc,
-                    "specs": {spec_k1: spec_v1, spec_k2: spec_v2} if spec_v2 else {spec_k1: spec_v1}
+                # Payload designed to create a new row inside 'Product_List' tab in your Google Sheet
+                product_payload = {
+                    "sheet_name": "Product_List",
+                    "ProductID": new_id,
+                    "ProductName": new_name,
+                    "Price": float(new_price),
+                    "Category": new_cat,
+                    "OfferLabel": new_offer,
+                    "Description": new_desc,
+                    "Brand": spec_brand,
+                    "Warranty": spec_warranty
                 }
-                st.session_state.products_db.append(new_item)
-                st.success(f"🎉 Successful: '{new_name}' Live Store Front पर ऐड हो गया!")
-                time.sleep(0.5)
-                st.rerun()
+                
+                try:
+                    requests.post(WEBHOOK_URL, json=product_payload, timeout=10)
+                    st.success(f"🎉 Excellent! '{new_name}' आपकी एक्सेल शीट में हमेशा के लिए सेव हो गया है।")
+                    st.cache_data.clear() # Clear cache to load fresh list
+                    time.sleep(1)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to sync with Google Sheet: {e}")
