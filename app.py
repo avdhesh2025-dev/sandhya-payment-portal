@@ -5,34 +5,24 @@ import time
 import requests
 
 # 1. Premium Flipkart-Style Theme & 3D CSS Design
-st.set_page_config(page_title="Flipkart Style Store", page_icon="🛍️", layout="wide")
+st.set_page_config(page_title="Flipkart Style Store Pro", page_icon="🛍️", layout="wide")
 
 st.markdown("""
     <style>
-    /* Flipkart Header Colors */
     .fk-header {
         background-color: #2874f0; padding: 15px 30px; border-radius: 0px 0px 10px 10px;
         color: white; margin-bottom: 25px; box-shadow: 0px 4px 12px rgba(0,0,0,0.1);
     }
-    /* 3D Product Cards Like Flipkart Grid */
     .fk-card {
         background: #ffffff; padding: 20px; border-radius: 12px;
         box-shadow: 0px 4px 20px rgba(0,0,0,0.08); border: 1px solid #e2e8f0;
-        text-align: center; margin-bottom: 25px; cursor: pointer;
+        text-align: center; margin-bottom: 25px;
     }
     .fk-price { color: #212121; font-size: 24px; font-weight: bold; margin: 8px 0; }
     .fk-tag { background: #388e3c; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-    .fk-offer { color: #388e3c; font-weight:bold; font-size:14px; }
-    
-    /* Detailed View Styling */
-    .detail-box {
-        background: #ffffff; padding: 30px; border-radius: 12px;
-        box-shadow: 0px 10px 30px rgba(0,0,0,0.1); border: 1px solid #cbd5e1;
-    }
     .spec-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
     .spec-table td { padding: 10px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
     .spec-label { color: #878787; font-weight: bold; width: 30%; }
-    
     .3d-box {
         background: #ffffff; padding: 25px; border-radius: 12px;
         box-shadow: inset 2px 2px 5px rgba(0,0,0,0.05), 0px 4px 15px rgba(0,0,0,0.05);
@@ -45,33 +35,22 @@ st.markdown("""
 # 🔴 GOOGLE SHEET CONFIG
 # ==========================================
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwq8_2sAhirNEqEBNYvIQ7qsUhaXELXblnXNbnIL1mpp71nxCB25NBC5WabA92da1jA9g/exec"
-SHEET_ID = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
 
-# Live Product Catalog Database with Specifications
-PRODUCTS = [
-    {
-        "id": "FK01", "name": "Premium Wireless Earbuds (Super Bass)", "price": 1499.0, "cat": "Electronics", "rating": "4.3★", "offer": "25% OFF",
-        "desc": "High-fidelity wireless sound with deep bass and up to 40 hours of total playback time. Features environmental noise cancellation.",
-        "specs": {"Brand": "Sandhya Digital", "Battery Life": "40 Hours", "Bluetooth Version": "5.3", "Water Resistance": "IPX5 Certified"}
-    },
-    {
-        "id": "FK02", "name": "Smart Fitness Watch Pro AMOLED", "price": 2499.0, "cat": "Electronics", "rating": "4.5★", "offer": "10% OFF",
-        "desc": "1.78 inch AMOLED Always-on display smart watch with continuous heart rate monitoring, SpO2 tracking, and 100+ sports modes.",
-        "specs": {"Display Size": "1.78 Inch", "Display Type": "AMOLED", "Battery Backup": "Up to 7 Days", "Sensors": "Heart Rate, SpO2, Pedometer"}
-    },
-    {
-        "id": "FK03", "name": "Fast Charging Power Bank 20000mAh", "price": 1199.0, "cat": "Accessories", "rating": "4.1★", "offer": "15% OFF",
-        "desc": "22.5W ultra-fast charging power bank with triple output ports. Built-in multi-layer protection protocols for safe charging.",
-        "specs": {"Capacity": "20000 mAh", "Max Output": "22.5W Fast Charge", "Ports": "2 USB-A, 1 Type-C", "Warranty": "6 Months Domestic"}
-    },
-    {
-        "id": "FK04", "name": "Ergonomic Mechanical Wireless Mouse", "price": 699.0, "cat": "Accessories", "rating": "4.2★", "offer": "50% OFF",
-        "desc": "Silent-click multi-device wireless mechanical mouse with adjustable DPI up to 4000. Perfectly curved design for wrist comfort.",
-        "specs": {"Type": "Mechanical Wireless", "DPI Range": "800 - 4000 DPI", "Connection": "2.4GHz + Bluetooth", "Battery": "1 x AA (Included)"}
-    },
-]
+# Master Product List initialize in session state if not present
+if "products_db" not in st.session_state:
+    st.session_state.products_db = [
+        {
+            "id": "FK01", "name": "Premium Wireless Earbuds (Super Bass)", "price": 1499.0, "cat": "Electronics", "rating": "4.3★", "offer": "25% OFF",
+            "desc": "High-fidelity wireless sound with deep bass and up to 40 hours of total playback time.",
+            "specs": {"Brand": "Sandhya Digital", "Battery Life": "40 Hours"}
+        },
+        {
+            "id": "FK02", "name": "Smart Fitness Watch Pro AMOLED", "price": 2499.0, "cat": "Electronics", "rating": "4.5★", "offer": "10% OFF",
+            "desc": "1.78 inch AMOLED Always-on display smart watch with continuous heart rate monitoring.",
+            "specs": {"Display Type": "AMOLED", "Battery Backup": "Up to 7 Days"}
+        }
+    ]
 
-# Session States Management
 if "cart" not in st.session_state: st.session_state.cart = {}
 if "user_login" not in st.session_state: st.session_state.user_login = False
 if "user_profile" not in st.session_state: st.session_state.user_profile = {"name": "", "phone": "", "address": ""}
@@ -79,12 +58,12 @@ if "live_loc" not in st.session_state: st.session_state.live_loc = ""
 if "selected_product" not in st.session_state: st.session_state.selected_product = None
 
 def fetch_auto_location():
-    with st.spinner("Fetching GPS coordinates via Network..."):
+    with st.spinner("Tracking Live GPS via Network..."):
         time.sleep(1)
-        st.session_state.live_loc = "At Meghpatti, Post Bandhar, Samastipur, Bihar - 848117 (📍 Detected via GPS Live)"
-        st.toast("📌 Live Location tracked automatically!")
+        st.session_state.live_loc = "At Meghpatti, Post Bandhar, Samastipur, Bihar - 848117 (📍 GPS Auto-Detected)"
+        st.toast("📌 Location tracked successfully!")
 
-# --- 🛍️ FLIPKART PREMIUM HEADER ---
+# --- FLIPKART PREMIUM HEADER ---
 st.markdown("""
     <div class="fk-header">
         <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -92,26 +71,26 @@ st.markdown("""
                 <span style="font-size: 28px; font-weight: 800; letter-spacing: 1px;">flipkart</span>
                 <span style="font-size: 13px; font-style: italic; color: #ffe500; font-weight: bold; margin-left: 5px;">plus 🌟</span>
             </div>
-            <div style="font-size: 16px; font-weight: bold;">Sandhya Digital Mall</div>
+            <div style="font-size: 16px; font-weight: bold;">Sandhya Digital Mall Control Center</div>
         </div>
     </div>
 """, unsafe_allow_html=True)
 
-# Sidebar - Login & Profile Center
+# Sidebar Account Center
 with st.sidebar:
     st.markdown("### 👤 Customer Account Center")
     if not st.session_state.user_login:
         st.markdown("<div class='3d-box'>", unsafe_allow_html=True)
         login_phone = st.text_input("Enter Mobile Number", max_chars=10, placeholder="9934XXXXXX")
-        if st.button("📲 Send OTP & Login", use_container_width=True, type="primary"):
+        if st.button("📲 Login via OTP", use_container_width=True, type="primary"):
             if len(login_phone) == 10 and login_phone.isdigit():
                 st.session_state.user_login = True
                 st.session_state.user_profile["phone"] = login_phone
                 st.rerun()
-            else: st.error("Invalid 10-digit mobile number.")
+            else: st.error("Enter valid 10 digits.")
         st.markdown("</div>", unsafe_allow_html=True)
     else:
-        st.markdown(f"<div class='3d-box' style='background-color: #f0fdf4;'>🟢 **Active:** +91 {st.session_state.user_profile['phone']}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='3d-box' style='background-color: #f0fdf4;'>🟢 Active: +91 {st.session_state.user_profile['phone']}</div>", unsafe_allow_html=True)
         p_name = st.text_input("Your Full Name", value=st.session_state.user_profile["name"])
         if st.button("📍 Auto-Detect Live Location", use_container_width=True): fetch_auto_location()
         default_addr = st.session_state.live_loc if st.session_state.live_loc else st.session_state.user_profile["address"]
@@ -119,141 +98,167 @@ with st.sidebar:
         if st.button("💾 Save Profile Data", use_container_width=True):
             st.session_state.user_profile["name"] = p_name
             st.session_state.user_profile["address"] = p_addr
-            st.toast("Profile data locked!")
-        if st.button("🚪 Logout", use_container_width=True, type="secondary"):
+            st.toast("Profile details saved!")
+        if st.button("🚪 Logout", use_container_width=True):
             st.session_state.user_login = False
             st.session_state.cart = {}
             st.session_state.selected_product = None
             st.rerun()
 
     st.markdown("---")
-    st.markdown("### 🛒 My Cart Summary")
-    if not st.session_state.cart: st.caption("Your cart is empty.")
+    st.markdown("### 🛒 Live Cart Summary")
+    if not st.session_state.cart: st.caption("Cart is empty.")
     else:
         tot = 0.0
         for pid, item in list(st.session_state.cart.items()):
             sub = item['price'] * item['qty']
             tot += sub
             st.write(f"🛍️ **{item['name']}** (x{item['qty']}) — ₹{sub:,}")
-        st.markdown(f"**Grand Total: ₹{tot:,}**")
+        st.markdown(f"**Total Bill: ₹{tot:,}**")
 
-# Main Page Navigation Control
-tab1, tab2 = st.tabs(["⚡ Flipkart Grid Store", "📦 Secure Checkout System"])
+# Main Page Tabs (Grid, Checkout, aur aapke liye Admin Tab)
+tab1, tab2, tab3 = st.tabs(["⚡ Flipkart Grid Store", "📦 Secure Checkout System", "➕ Add New Product (Admin)"])
 
+# TAB 1: STORE FRONT
 with tab1:
-    # 🔴 IF PRODUCT IS CLICKED -> OPEN DETAIL VIEW (Like Flipkart)
     if st.session_state.selected_product is not None:
         p = st.session_state.selected_product
-        if st.button("⬅️ Back to All Products", type="secondary"):
+        if st.button("⬅️ Back to All Products"):
             st.session_state.selected_product = None
             st.rerun()
-            
-        st.markdown("---")
-        col_img, col_desc = st.columns([1, 1.2])
         
-        with col_img:
-            # Placeholder Box for Product Image Look
-            st.markdown(f"""
-                <div style="background: #f8fafc; border: 2px dashed #cbd5e1; height: 350px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
-                    <div style="text-align: center; color: #64748b;">
-                        <span style="font-size: 70px;">📸</span>
-                        <h4 style="margin: 10px 0 0 0;">{p['name']} Image Preview</h4>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+        st.markdown("---")
+        col1, col2 = st.columns([1, 1.2])
+        with col1:
+            st.markdown(f'<div style="background:#f8fafc; border:2px dashed #cbd5e1; height:300px; display:flex; align-items:center; justify-content:center; border-radius:12px;"><h3>📸 {p["name"]} Image</h3></div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown(f'<span class="fk-tag">{p["rating"]}</span> <span style="color:#388e3c; font-weight:bold;">{p["offer"]}</span>', unsafe_allow_html=True)
+            st.h1(p["name"])
+            st.markdown(f'<div class="fk-price" style="font-size:32px;">重量 ₹{p["price"]:,}</div>', unsafe_allow_html=True)
+            st.write(f"**Description:** {p['desc']}")
             
-        with col_desc:
-            st.markdown(f"""
-                <span class="fk-tag">{p['rating']}</span>
-                <h1 style="color:#212121; margin: 10px 0 5px 0; font-size: 28px;">{p['name']}</h1>
-                <span class="fk-offer" style="font-size: 18px;">Special Price: {p['offer']}</span>
-                <div class="fk-price" style="font-size: 36px; margin: 15px 0;">₹{p['price']:,}</div>
-                <p style="color: #212121; font-size: 16px; line-height: 1.6;"><b>Description:</b> {p['desc']}</p>
-                <hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 20px 0;">
-                <h3>Product Specifications</h3>
-            """, unsafe_allow_html=True)
-            
-            # Generate HTML Table for Specs
             spec_html = "<table class='spec-table'>"
-            for label, value in p['specs'].items():
-                spec_html += f"<tr><td class='spec-label'>{label}</td><td style='color:#212121;'>{value}</td></tr>"
+            for k, v in p['specs'].items():
+                spec_html += f"<tr><td class='spec-label'>{k}</td><td>{v}</td></tr>"
             spec_html += "</table>"
             st.markdown(spec_html, unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
             
-            # Purchase actions inside detailed view
-            qnty = st.number_input("Select Quantity", min_value=1, max_value=10, value=1)
+            qnty = st.number_input("Select Qty", min_value=1, max_value=5, value=1)
             if st.button("🛒 ADD TO CART NOW", type="primary", use_container_width=True):
-                if not st.session_state.user_login:
-                    st.error("⚠️ Please login with your phone number in the sidebar panel first!")
+                if not st.session_state.user_login: st.error("Please login first!")
                 else:
                     st.session_state.cart[p['id']] = {"name": p['name'], "price": p['price'], "qty": qnty}
-                    st.success(f"🎉 Successfully added {qnty} quantity of {p['name']} to cart!")
-                    time.sleep(1)
+                    st.success("Added to Cart!")
+                    time.sleep(0.5)
                     st.rerun()
-
-    # 🔴 ELSE -> SHOW STANDARD PRODUCT GRID LIST
     else:
-        st.markdown("#### Top Categories: `All Products` | `Electronics` | `Accessories`")
-        st.markdown("---")
-        
         col_grid = st.columns(2)
-        for index, p in enumerate(PRODUCTS):
+        for index, p in enumerate(st.session_state.products_db):
             with col_grid[index % 2]:
                 st.markdown(f"""
                     <div class="fk-card">
                         <span class="fk-tag">{p['rating']}</span>
-                        <span style="color: #388e3c; font-weight:bold; font-size:13px; float:right;">{p['offer']}</span>
-                        <h3 style="margin: 15px 0 5px 0; color: #2874f0; font-size:20px;">{p['name']}</h3>
+                        <h3 style="color:#2874f0; margin:10px 0;">{p['name']}</h3>
                         <div class="fk-price">₹{p['price']:,}</div>
-                        <p style="color: #878787; font-size: 12px; margin: 0;">Click 'View Details' below to check specifications.</p>
                     </div>
                 """, unsafe_allow_html=True)
-                
-                # View Details Button to switch view state
-                if st.button(f"🔍 View Full Details & Specs", key=f"det_{p['id']}", use_container_width=True):
+                if st.button(f"🔍 View Specs & Details", key=f"btn_{p['id']}", use_container_width=True):
                     st.session_state.selected_product = p
                     st.rerun()
 
-# TAB 2: SMART AUTO-FILLED CHECKOUT (Unchanged)
+# TAB 2: CHECKOUT & PAYMENT MODE SELECTION
 with tab2:
-    st.subheader("📦 Finalize Your Flipkart Style Order")
-    if not st.session_state.user_login:
-        st.warning("🔒 Account access required. Please register/login with your mobile number in the left sidebar panels.")
-    elif not st.session_state.cart:
-        st.info("Your shopping cart is currently empty. Add products from the grid store tab.")
+    st.subheader("📦 Select Payment Mode & Place Order")
+    if not st.session_state.user_login: st.warning("Please login from sidebar.")
+    elif not st.session_state.cart: st.info("Cart is empty.")
     else:
-        bill_records = []
-        bill_total = 0.0
-        for pid, item in st.session_state.cart.items():
-            sub_tot = item['price'] * item['qty']
-            bill_total += sub_tot
-            bill_records.append({"Item ID": pid, "Product Specification": item['name'], "Unit Price": f"₹{item['price']:,}", "Qty": item['qty'], "Subtotal Price": f"₹{sub_tot:,}"})
-        st.dataframe(pd.DataFrame(bill_records), use_container_width=True)
+        # Calculate Total
+        bill_total = sum(item['price'] * item['qty'] for item in st.session_state.cart.values())
+        st.markdown(f"<h3 style='color:#388e3c;'>Grand Total Amount: ₹{bill_total:,}</h3>", unsafe_allow_html=True)
         
-        st.markdown(f"<div style='text-align: right; background: #fff9e6; padding: 15px; border-radius: 8px; border: 1px solid #f2c94c; margin-bottom: 20px;'><span style='font-size: 16px; font-weight: bold; color: #7d5a00;'>Flipkart Deal Total Price:</span><span style='font-size: 26px; font-weight: bold; color: #212121; margin-left:15px;'>₹{bill_total:,}</span></div>", unsafe_allow_html=True)
-        
-        with st.form("fk_checkout_form"):
-            final_name = st.text_input("Customer Name (Auto-filled)", value=st.session_state.user_profile["name"])
-            final_phone = st.text_input("Contact Mobile Number (Auto-filled)", value=st.session_state.user_profile["phone"], disabled=True)
-            final_address = st.text_area("Shipping Destination Address (Auto-filled)", value=st.session_state.user_profile["address"])
+        with st.form("payment_checkout_form"):
+            final_name = st.text_input("Customer Name", value=st.session_state.user_profile["name"])
+            final_address = st.text_area("Delivery Address", value=st.session_state.user_profile["address"])
             
-            if st.form_submit_button("🚀 CONFIRM & PLACE ORDER VIA GOOGLE SHEET", use_container_width=True, type="primary"):
+            # 🔴 CHOOSE COD OR ONLINE PAYMENT
+            pay_mode = st.radio("Choose Payment Mode*", ["💵 Cash on Delivery (COD)", "💳 Online UPI Payment (Advance)"])
+            
+            utr_input = ""
+            if "Online" in pay_mode:
+                st.markdown("""
+                    <div style="background:#eff6ff; padding:15px; border-radius:8px; border:1px solid #bfdbfe; margin-top:10px;">
+                        <strong>✨ Online Payment Instructions:</strong><br>
+                        Please pay ₹{} via UPI to <strong>9934XXXXXX@jio</strong>.<br>
+                        Pay karne ke baad niche 12-digit ka UTR number zaroor enter karein.
+                    </div>
+                """.format(bill_total), unsafe_allow_html=True)
+                utr_input = st.text_input("Enter 12-Digit UPI Transaction UTR Number*")
+            
+            if st.form_submit_button("🚀 CONFIRM AND PLACE ORDER", use_container_width=True, type="primary"):
                 if not final_name or not final_address:
-                    st.error("Checkout Failed: Profile Name or Delivery Address cannot be empty.")
+                    st.error("Please fill Name and Address.")
+                elif "Online" in pay_mode and len(utr_input) < 12:
+                    st.error("Please enter a valid 12-digit UTR Number for Online Payment Verification.")
                 else:
-                    items_bought = [f"{v['name']} (Qty: {v['qty']})" for v in st.session_state.cart.values()]
-                    full_summary_log = f"Items Ordered: {', '.join(items_bought)} | Delivery Address: {final_address}"
+                    # Formulate Order Summary
+                    items_bought = [f"{v['name']} (x{v['qty']})" for v in st.session_state.cart.values()]
+                    full_log = f"Items: {', '.join(items_bought)} | Address: {final_address}"
                     
-                    order_payload = {
-                        "sheet_name": "Payment_Ledger", "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
-                        "RetailerName": final_name.upper(), "Amount": bill_total, "Mode": "Flipkart Style Online Store",
-                        "SenderUPI_Mobile": final_phone, "Status": "Order Dispatch Pending", "Reference": full_summary_log
+                    status_text = "COD - Order Placed" if "Cash" in pay_mode else f"Online - Verifying (UTR: {utr_input})"
+                    
+                    payload = {
+                        "sheet_name": "Payment_Ledger",
+                        "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
+                        "RetailerName": final_name.upper(),
+                        "Amount": bill_total,
+                        "Mode": "E-Store: " + pay_mode,
+                        "SenderUPI_Mobile": st.session_state.user_profile["phone"],
+                        "Status": status_text,
+                        "Reference": full_log
                     }
+                    
                     try:
-                        requests.post(WEBHOOK_URL, json=order_payload, timeout=10)
+                        requests.post(WEBHOOK_URL, json=payload, timeout=10)
                         st.balloons()
-                        st.success(f"🎉 Success! Order booked for {final_name}. Data uploaded to Google Sheet!")
+                        st.success(f"🎉 Order Confirmed via {pay_mode}! Check your Google Sheet for details.")
                         st.session_state.cart = {}
                         st.session_state.selected_product = None
-                    except Exception as e: st.error(f"Network error: {e}")
+                    except Exception as e: st.error(f"Error connecting to Google Sheet: {e}")
+
+# TAB 3: ADMIN AREA (TO ADD PRODUCTS)
+with tab3:
+    st.subheader("➕ Sandhya Digital Mall - Inventory Management")
+    st.info("Yahan se aap jo bhi product add karenge woh 'Flipkart Grid Store' tab mein live dekhne lagega.")
+    
+    with st.form("admin_add_product_form"):
+        new_id = f"FK{len(st.session_state.products_db) + 1:02d}"
+        new_name = st.text_input("Product Name*")
+        new_price = st.number_input("Product Price (Rs)*", min_value=1.0, value=499.0)
+        new_cat = st.selectbox("Category", ["Electronics", "Accessories", "Mobile", "Other"])
+        new_offer = st.text_input("Discount Offer (e.g., 20% OFF)", value="Special Price")
+        new_desc = st.text_area("Product Long Description")
+        
+        st.markdown("##### Specifications (Specs)")
+        spec_k1 = st.text_input("Spec Label 1 (e.g., Brand)", value="Sandhya Digital")
+        spec_v1 = st.text_input("Spec Value 1", value="Original")
+        spec_k2 = st.text_input("Spec Label 2 (e.g., Warranty)", value="6 Months")
+        spec_v2 = st.text_input("Spec Value 2")
+        
+        if st.form_submit_button("➕ ADD PRODUCT TO LIVE STORE", use_container_width=True):
+            if not new_name:
+                st.error("Product name is mandatory.")
+            else:
+                new_item = {
+                    "id": new_id,
+                    "name": new_name,
+                    "price": float(new_price),
+                    "cat": new_cat,
+                    "rating": "4.2★",
+                    "offer": new_offer,
+                    "desc": new_desc,
+                    "specs": {spec_k1: spec_v1, spec_k2: spec_v2} if spec_v2 else {spec_k1: spec_v1}
+                }
+                st.session_state.products_db.append(new_item)
+                st.success(f"🎉 Success: '{new_name}' ab aapke live store par bikkne ke liye ready hai!")
+                time.sleep(1)
+                st.rerun()
