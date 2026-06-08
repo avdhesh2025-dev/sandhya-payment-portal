@@ -3,155 +3,144 @@ import pandas as pd
 from datetime import datetime
 import time
 import requests
-import re
-from PIL import Image, ImageOps, ImageEnhance
 
-# 1. Page Style & 3D A4 Layout
-st.set_page_config(page_title="Cyber Safe Payment Portal", page_icon="🛡️", layout="wide")
+# 1. Page Configuration & Premium English UI
+st.set_page_config(page_title="Online Product Store", page_icon="🛍️", layout="wide")
 
 st.markdown("""
     <style>
     .main .block-container { 
-        background-color: #ffffff; padding: 2rem 3.5rem; border-radius: 15px; 
-        max-width: 850px; box-shadow: 0px 15px 50px rgba(0,0,0,0.2); margin: auto;
+        background-color: #ffffff; padding: 2rem 3rem; border-radius: 15px; 
+        max-width: 1100px; box-shadow: 0px 10px 40px rgba(0,0,0,0.1); margin: auto;
     }
-    .stTextInput input, .stSelectbox div[data-baseweb="select"], .stNumberInput input {
-        box-shadow: inset 3px 3px 6px rgba(0,0,0,0.1), 2px 2px 5px rgba(255,255,255,0.8) !important;
-        border-radius: 10px !important; background-color: #f1f5f9 !important;
-        border: 1px solid #cbd5e1 !important; font-weight: bold; font-size: 17px !important;
+    .product-card {
+        background: #ffffff; padding: 20px; border-radius: 12px;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;
+        text-align: center; margin-bottom: 20px; transition: 0.3s;
     }
-    .red-alert { background-color: #fff1f2; color: #be123c; padding: 18px; border-left: 8px solid #be123c; border-radius: 10px; font-weight: bold; margin-bottom: 20px; }
-    .green-alert { background-color: #f0fdf4; color: #15803d; padding: 18px; border-left: 8px solid #15803d; border-radius: 10px; font-weight: bold; margin-bottom: 20px; }
+    .product-card:hover { box-shadow: 0px 10px 25px rgba(0,0,0,0.15); }
+    .price-tag { color: #16a34a; font-size: 22px; font-weight: bold; margin: 10px 0; }
+    .cart-summary { background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #cbd5e1; }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🔴 API & GOOGLE SHEET CONFIG
+# 🔴 GOOGLE SHEET CONFIG (FOR ORDERS)
 # ==========================================
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwq8_2sAhirNEqEBNYvIQ7qsUhaXELXblnXNbnIL1mpp71nxCB25NBC5WabA92da1jA9g/exec"
 SHEET_ID = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
 
-try:
-    import pytesseract
-    HAS_OCR = True
-except ImportError:
-    HAS_OCR = False
+# 🟢 DUMMY PRODUCT DATABASE (You can later connect this to your Google Sheet)
+PRODUCTS = [
+    {"id": "P001", "name": "Premium Wireless Earbuds", "price": 1499.0, "category": "Electronics", "stock": "In Stock"},
+    {"id": "P002", "name": "Smart Fitness Band Pro", "price": 2499.0, "category": "Electronics", "stock": "In Stock"},
+    {"id": "P003", "name": "Fast Charging Power Bank 20k mAh", "price": 1199.0, "category": "Accessories", "stock": "In Stock"},
+    {"id": "P004", "name": "Ergonomic Wireless Mouse", "price": 699.0, "category": "Accessories", "stock": "Limited Stock"},
+]
 
-# 🟢 THE MAGIC SCANNER (10X & DEEP FILTER LOGIC)
-def master_ocr_scan(img):
-    if not HAS_OCR: return {}
-    
-    # Image Preparation
-    gray = ImageOps.grayscale(img)
-    inverted = ImageOps.invert(gray) # White text on black background for better scan
-    
-    # Double Scan for Accuracy
-    text_normal = pytesseract.image_to_string(gray, config='--psm 11')
-    text_inv = pytesseract.image_to_string(inverted, config='--psm 11')
-    full_text = text_normal + " " + text_inv
-    
-    res = {}
+if "cart" not in st.session_state:
+    st.session_state.cart = {}
 
-    # 1. DATE & TIME
-    dt = re.search(r'(\d{1,2}:\d{2}\s*[APM]+\s*on\s*\d{1,2}\s*[A-Za-z]+\s*\d{4})', full_text, re.IGNORECASE)
-    if dt: res['date'] = dt.group(1).replace("on", "").strip()
+# Header UI
+st.markdown("<div style='background: linear-gradient(90deg, #0f172a 0%, #2563eb 100%); padding: 30px; border-radius: 15px; text-align: center; color: white; margin-bottom: 30px;'><h1 style='margin:0; font-size: 36px;'>🛍️ DIGITAL PRODUCT STORE</h1><p style='margin:5px 0 0 0; font-size: 18px;'>Explore Products & Order Online Instantly</p></div>", unsafe_allow_html=True)
 
-    # 2. UTR (Strict 12 Digit)
-    utr = re.search(r'\b(\d{12})\b', full_text)
-    if utr: res['utr'] = utr.group(1)
-
-    # 3. AMOUNT (Strict Rule: Must be > 2027 to avoid 'Year' confusion)
-    amts = re.findall(r'[₹Rs]?\s*([0-9,]{2,10})', full_text)
-    if amts:
-        valid = [float(a.replace(',', '')) for a in amts if float(a.replace(',', '')) > 2027]
-        if valid: res['amount'] = valid[-1]
-
-    # 4. SENDER 4-DIGIT (The 10X Magic Logic)
-    # Step A: Find 10X pattern (XXXXXXXXXX1234)
-    sender_10x = re.search(r'[Xx\*]{6,15}\s*(\d{4})', full_text)
-    if sender_10x:
-        res['sender'] = sender_10x.group(1)
-    else:
-        # Step B: Filter Logic (Ignore Years, Receiver IDs, and Amounts)
-        blocked = re.findall(r'(\d{4})@', full_text) # Receiver ID filter
-        nums = re.findall(r'\b(\d{4})\b', full_text)
-        clean = [n for n in nums if n not in ['2024','2025','2026','2027'] and n not in blocked]
-        if 'amount' in res: clean = [n for n in clean if n != str(int(res['amount']))]
-        if clean: res['sender'] = clean[-1]
-
-    return res
-
-# 🟢 DATABASE CONNECTION
-@st.cache_data(ttl=1)
-def load_db(sheet_name):
-    url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={sheet_name}&cb={int(time.time())}"
-    try:
-        df = pd.read_csv(url).dropna(how="all").fillna("")
-        df.columns = [str(c).replace(" ", "").strip() for c in df.columns]
-        return df
-    except: return pd.DataFrame()
-
-# UI Initialization
-st.session_state.auth_retailers = load_db("Authorized_Retailers")
-st.session_state.payment_ledger = load_db("Payment_Ledger")
-
-st.markdown("<div style='background: linear-gradient(90deg, #b91c1c 0%, #ef4444 100%); padding: 30px; border-radius: 15px; text-align: center; color: white; margin-bottom: 30px;'><h1 style='margin:0; font-size: 34px;'>🛡️ CYBER-SAFE PAYMENT PORTAL</h1><p style='margin:5px 0 0 0; font-size: 17px;'>Sandhya Enterprises - Pro Business Control</p></div>", unsafe_allow_html=True)
-
-tab1, tab2, tab3 = st.tabs(["💰 Register Payment", "📋 Ledger", "🛡️ Master Retailers"])
+tab1, tab2 = st.tabs(["🛒 Browse Products", "📦 View Cart & Checkout"])
 
 with tab1:
-    if st.button("🔄 Sync Master Sheet"): st.rerun()
+    st.subheader("Our Product Catalog")
     
-    st.info("📸 **Magic Scan Mode:** यहाँ स्लिप अपलोड करें। ऐप अब 10X लॉजिक से डेटा निकालेगा।")
-    up_file = st.file_uploader("Upload PhonePe Slip", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
-    
-    if up_file:
-        with st.spinner("AI Deep Scanning..."):
-            extracted = master_ocr_scan(Image.open(up_file))
-            st.session_state.master_data = extracted
-            st.success("✅ स्कैनिंग पूरी हुई! डेटा चेक करें।")
-
-    with st.form("master_payment_form"):
-        d = st.session_state.get('master_data', {})
-        
-        f_date = st.text_input("📅 Date & Time*", value=d.get('date', datetime.now().strftime("%d-%m-%Y %I:%M %p")))
-        
-        c1, c2 = st.columns(2)
-        with c1:
-            ret_list = ["-- Select --"] + st.session_state.auth_retailers["RetailerName"].tolist() if not st.session_state.auth_retailers.empty else ["-- Select --"]
-            sel_ret = st.selectbox("👤 Select Retailer*", ret_list)
-            f_amt = st.number_input("Amount (Rs)*", value=float(d.get('amount', 0.0)))
-            f_rem = st.selectbox("📝 Remark*", ["eTop", "JPB", "Other"])
-        with c2:
-            st.write("💳 **Mode: UPI / Online**")
-            f_snd = st.text_input("Sender Bank 4-Ank*", value=d.get('sender', ''))
-            f_utr = st.text_input("UTR Number*", value=d.get('utr', ''))
+    # Grid layout for products
+    cols = st.columns(2)
+    for idx, p in enumerate(PRODUCTS):
+        with cols[idx % 2]:
+            st.markdown(f"""
+                <div class="product-card">
+                    <span style="background: #e2e8f0; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; color: #475569;">{p['category']}</span>
+                    <h3 style="margin: 15px 0 5px 0; color: #1e293b;">{p['name']}</h3>
+                    <p style="color: #64748b; font-size: 13px; margin: 0;">Product ID: {p['id']} | <span style="color: #2563eb;">{p['stock']}</span></p>
+                    <div class="price-tag">₹{p['price']:,}</div>
+                </div>
+            """, unsafe_allow_html=True)
             
-        if st.form_submit_button("🔍 VERIFY & SAVE PAYMENT", use_container_width=True, type="primary"):
-            if sel_ret == "-- Select --" or f_amt <= 0:
-                st.error("❌ कृपया नाम और अमाउंट भरें।")
-            else:
-                # Security Match
-                auth_row = st.session_state.auth_retailers[st.session_state.auth_retailers["RetailerName"] == sel_ret]
-                if not auth_row.empty:
-                    stored_acc = str(auth_row.iloc[0]["Auth_UPI"])
-                    stored_mob = str(auth_row.iloc[0]["Mobile"])
-                    is_safe = f_snd in stored_acc or f_snd in stored_mob
-                else: is_safe = False
-                
-                status = "Verified (Safe)" if is_safe else "UNVERIFIED (Danger)"
-                
-                # Payload to Sheet
-                payload = {"sheet_name": "Payment_Ledger", "Date": f_date, "RetailerName": sel_ret, "Amount": f_amt, "Mode": "UPI", "SenderUPI_Mobile": f_snd, "Status": status, "Reference": f"{f_rem} (UTR: {f_utr})"}
-                requests.post(WEBHOOK_URL, json=payload, timeout=10)
-                
-                if is_safe: st.markdown("<div class='green-alert'>✅ SAFE: डेटा एक्सेल में सेव हो गया है।</div>", unsafe_allow_html=True)
-                else: st.markdown(f"<div class='red-alert'>🚨 ALERT: यह सेंडर {f_snd} रजिस्टर्ड लिस्ट में नहीं मिला!</div>", unsafe_allow_html=True)
-                time.sleep(2)
+            # Add to Cart Button inside Streamlit
+            if st.button(f"➕ Add to Cart ({p['name']})", key=p['id']):
+                if p['id'] in st.session_state.cart:
+                    st.session_state.cart[p['id']]['qty'] += 1
+                else:
+                    st.session_state.cart[p['id']] = {"name": p['name'], "price": p['price'], "qty": 1}
+                st.toast(f"Added {p['name']} to cart!")
+                time.sleep(0.5)
                 st.rerun()
 
 with tab2:
-    st.dataframe(st.session_state.payment_ledger, use_container_width=True)
-
-with tab3:
-    st.dataframe(st.session_state.auth_retailers, use_container_width=True)
+    st.subheader("Your Shopping Cart")
+    
+    if not st.session_state.cart:
+        st.info("Your cart is empty. Go to 'Browse Products' tab to add items!")
+    else:
+        cart_data = []
+        total_amount = 0.0
+        
+        for pid, item in list(st.session_state.cart.items()):
+            subtotal = item['price'] * item['qty']
+            total_amount += subtotal
+            cart_data.append({
+                "Product ID": pid,
+                "Product Name": item['name'],
+                "Price": f"₹{item['price']:,}",
+                "Quantity": item['qty'],
+                "Subtotal": f"₹{subtotal:,}"
+            })
+            
+        # Display Cart Table
+        st.dataframe(pd.DataFrame(cart_data), use_container_width=True)
+        
+        st.markdown(f"""
+            <div class="cart-summary" style="text-align: right; margin-bottom: 25px;">
+                <span style="font-size: 18px; color: #64748b; font-weight: bold;">Grand Total:</span>
+                <span style="font-size: 28px; color: #1e293b; font-weight: bold; margin-left: 10px;">₹{total_amount:,}</span>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("🗑️ Clear Cart", type="secondary"):
+            st.session_state.cart = {}
+            st.rerun()
+            
+        # Checkout Form
+        st.markdown("<hr style='margin: 30px 0;'>", unsafe_allow_html=True)
+        st.subheader("📋 Customer Delivery Details")
+        
+        with st.form("checkout_form"):
+            cust_name = st.text_input("Full Name*")
+            cust_phone = st.text_input("Mobile Number*")
+            cust_address = st.text_area("Delivery Address*")
+            
+            if st.form_submit_button("🚀 PLACE ORDER & GENERATE INVOICE", use_container_width=True, type="primary"):
+                if not cust_name or not cust_phone or not cust_address:
+                    st.error("Please fill all the mandatory delivery fields.")
+                else:
+                    # Prepare Order Description for Google Sheet
+                    order_items = [f"{item['name']} (x{item['qty']})" for item in st.session_state.cart.values()]
+                    items_summary = ", ".join(order_items)
+                    order_date = datetime.now().strftime("%d-%m-%Y %I:%M %p")
+                    
+                    # Payload to match your Google Sheet structure
+                    payload = {
+                        "sheet_name": "Payment_Ledger",  # Using existing sheet tab for test or you can create a new tab 'Orders'
+                        "Date": order_date,
+                        "RetailerName": cust_name.upper(),
+                        "Amount": total_amount,
+                        "Mode": "Online Store Order",
+                        "SenderUPI_Mobile": cust_phone,
+                        "Status": "Order Placed",
+                        "Reference": f"Address: {cust_address} | Items: {items_summary}"
+                    }
+                    
+                    try:
+                        requests.post(WEBHOOK_URL, json=payload, timeout=10)
+                        st.balloons()
+                        st.success(f"🎉 Thank you {cust_name}! Your order worth ₹{total_amount:,} has been booked successfully!")
+                        # Clear Cart after successful order
+                        st.session_state.cart = {}
+                    except Exception as e:
+                        st.error(f"Error booking order to Google Sheet: {e}")
