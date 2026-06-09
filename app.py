@@ -33,9 +33,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🔴 GOOGLE SHEET WEBHOOK CONNECTION
+# 🔴 UPDATED GOOGLE SHEET WEBHOOK CONNECTION
 # ==========================================
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwq8_2sAhirNEqEBNYvIQ7qsUhaXELXblnXNbnIL1mpp71nxCB25NBC5WabA92da1jA9g/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyHCrzqnjgiwCZvcZy4evkZRToRtaziZJGch9F-ODVQXzVcTdAqJhJRvXxH48PKTfhrug/exec"
 ADMIN_PASSWORD = "Jio Distributor"
 
 if "selected_category" not in st.session_state: st.session_state.selected_category = "Telecom"
@@ -84,7 +84,7 @@ else:
     else:
         st.markdown("<hr>", unsafe_allow_html=True)
         
-        # --- 🛍️ BLINKIT STYLE GRID CATEGORIES (Exactly like your uploaded image) ---
+        # --- 🛍️ BLINKIT STYLE GRID CATEGORIES ---
         st.markdown("<div class='section-title'>Cooking Essentials & Jio Services</div>", unsafe_allow_html=True)
         
         grid_cols = st.columns(4)
