@@ -4,307 +4,230 @@ from datetime import datetime
 import time
 import requests
 
-# 1. Premium Flipkart Theme & Professional UI Injector
-st.set_page_config(page_title="Flipkart Super Store Pro", page_icon="🛍️", layout="wide")
+# 1. Premium Professional 3D A4 Layout Injector
+st.set_page_config(page_title="Sandhya Local Delivery Engine", page_icon="🛵", layout="wide")
 
 st.markdown("""
     <style>
-    /* Flipkart Core Identity Styling */
-    .fk-navbar {
-        background-color: #2874f0; padding: 15px 30px; color: white;
-        border-radius: 0px 0px 12px 12px; box-shadow: 0px 4px 15px rgba(0,0,0,0.1);
-        margin-bottom: 25px;
+    .main .block-container { 
+        background-color: #ffffff; padding: 2rem 3.5rem; border-radius: 15px; 
+        max-width: 850px; box-shadow: 0px 15px 50px rgba(0,0,0,0.15); margin: auto;
     }
-    .fk-card {
-        background: #ffffff; padding: 20px; border-radius: 12px;
-        box-shadow: 0px 4px 20px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;
-        text-align: center; margin-bottom: 20px;
+    .main-header {
+        background: linear-gradient(90deg, #1e3a8a 0%, #2563eb 100%); padding: 25px; 
+        border-radius: 12px; text-align: center; color: white; margin-bottom: 25px;
     }
-    .fk-price { color: #212121; font-size: 24px; font-weight: bold; margin: 5px 0; }
-    .fk-badge { background: #388e3c; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-    .plus-zone { background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); color: #ffe500; padding: 10px; border-radius: 8px; font-weight: bold; text-align: center;}
-    .spec-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    .spec-table td { padding: 10px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
-    .spec-label { color: #878787; font-weight: bold; width: 30%; }
+    .business-card {
+        background: #ffffff; padding: 20px; border-radius: 10px;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;
+        margin-bottom: 15px;
+    }
+    .price-text { color: #16a34a; font-size: 20px; font-weight: bold; }
     .3d-box {
-        background: #ffffff; padding: 25px; border-radius: 12px;
-        box-shadow: inset 2px 2px 5px rgba(0,0,0,0.05), 0px 4px 15px rgba(0,0,0,0.05);
-        border: 1px solid #cbd5e1; margin-bottom: 20px;
+        background: #ffffff; padding: 20px; border-radius: 10px;
+        box-shadow: inset 2px 2px 5px rgba(0,0,0,0.05), 0px 4px 12px rgba(0,0,0,0.05);
+        border: 1px solid #cbd5e1; margin-bottom: 15px;
     }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🔴 CLOUD DATABASE CONFIG (GOOGLE SHEET)
+# 🔴 CLOUD GATEWAY CONFIG (GOOGLE SHEET)
 # ==========================================
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwq8_2sAhirNEqEBNYvIQ7qsUhaXELXblnXNbnIL1mpp71nxCB25NBC5WabA92da1jA9g/exec"
-SHEET_ID = "17_TBUWgmXEdkRKUBX6Bg8w7kwfi_Tfol2lcmgonamgM"
-ADMIN_PASSWORD = "Jio Distributor" # 👈 आपका सुरक्षित एडमिन पासवर्ड
+ADMIN_PASSWORD = "Jio Distributor"
 
-# 🟢 ENGINE: DATABASE FETCH SYSTEM (PRODUCT CATALOG)
-@st.cache_data(ttl=1)
-def sync_products_from_sheet():
-    url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Product_List&cb={int(time.time())}"
-    try:
-        df = pd.read_csv(url).dropna(how="all").fillna("")
-        df.columns = [str(c).replace(" ", "").strip() for c in df.columns]
-        
-        products_list = []
-        for _, row in df.iterrows():
-            if str(row.get("ProductName", "")):
-                products_list.append({
-                    "id": str(row.get("ProductID", "")),
-                    "name": str(row.get("ProductName", "")),
-                    "price": float(row.get("Price", 0.0)),
-                    "cat": str(row.get("Category", "General")),
-                    "rating": "4.4★",
-                    "offer": str(row.get("OfferLabel", "Special Price")),
-                    "desc": str(row.get("Description", "")),
-                    "specs": {"Brand": str(row.get("Brand", "Original")), "Warranty": str(row.get("Warranty", "1 Year")), "Review": str(row.get("Review", "Highly Recommended"))}
-                })
-        return products_list if products_list else get_default_products()
-    except:
-        return get_default_products()
+# Core Local Services Directory
+LOCAL_SERVICES = [
+    {"id": "SRV-01", "name": "MNP (Mobile Number Portability)", "base_price": 0.0, "type": "Telecom", "desc": "Free door-step MNP service to Jio Network."},
+    {"id": "SRV-02", "name": "New Jio SIM Card Activation", "base_price": 0.0, "type": "Telecom", "desc": "Get a brand new Jio SIM card delivered and activated at home."},
+    {"id": "SRV-03", "name": "Jio Phone Bharat V4", "price": 1099.0, "type": "Telecom", "desc": "Latest Jio Bharat V4 4G phone with live UPI tracking app."},
+    {"id": "SRV-04", "name": "Local Store Item Order (Kirana/Aata/Other)", "base_price": 0.0, "type": "Kirana", "desc": "Order grocery items like 5Kg Aata from neighboring shops."}
+]
 
-def get_default_products():
-    return [
-        {"id": "FK-M01", "name": "JioPhone Bharat 4G Ultra", "price": 1999.0, "cat": "Electronics", "rating": "4.5★", "offer": "20% OFF", "desc": "Affordable 4G phone with JioApps.", "specs": {"Brand": "Jio", "Warranty": "1 Year", "Review": "Best performance in budget"}},
-        {"id": "FK-E02", "name": "Premium Bass Wireless Earbuds", "price": 1499.0, "cat": "Electronics", "rating": "4.3★", "offer": "30% OFF", "desc": "True wireless earbuds with touch control.", "specs": {"Brand": "Sandhya Brand", "Warranty": "1 Year", "Review": "Heavy Bass, excellent backup"}}
-    ]
+# State Variables Initialization
+if "cart_service" not in st.session_state: st.session_state.cart_service = None
+if "login_role" not in st.session_state: st.session_state.login_role = None
+if "customer_profile" not in st.session_state: st.session_state.customer_profile = {"name": "", "phone": "", "address": "", "distance": 1.0}
 
-# Initialize Application Session States
-if "cart" not in st.session_state: st.session_state.cart = {}
-if "login_type" not in st.session_state: st.session_state.login_type = None # 'Customer', 'Admin', or None
-if "user_profile" not in st.session_state: st.session_state.user_profile = {"name": "", "phone": "", "address": "", "coins": 50}
-if "selected_product" not in st.session_state: st.session_state.selected_product = None
-
-# Load Dynamic Catalog Data
-st.session_state.products_db = sync_products_from_sheet()
-
-# --- APP FRONTEND NAVBAR ---
+# --- MAIN DIGITAL MALL HEADER ---
 st.markdown("""
-    <div class="fk-navbar">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <span style="font-size: 32px; font-weight: 900; letter-spacing: 0.5px;">flipkart</span>
-                <span style="font-size: 14px; font-style: italic; color: #ffe500; font-weight: bold;">plus 🌟</span>
-            </div>
-            <div style="font-size: 16px; font-weight: bold; background: rgba(255,255,255,0.15); padding: 6px 15px; border-radius: 20px;">
-                🏪 Sandhya E-Commerce Infrastructure Engine
-            </div>
-        </div>
+    <div class="main-header">
+        <h1 style="margin:0; font-size: 32px; font-weight: 800;">🛵 SANDHYA LOCAL DELIVERY NETWORK</h1>
+        <p style="margin:5px 0 0 0; font-size: 16px;">Hyperlocal Jio Services & Kirana Delivery Within 5Kms</p>
     </div>
 """, unsafe_allow_html=True)
 
-# --- SECURITY & AUTHENTICATION CENTER (SIDEBAR) ---
+# --- DOUBLE GATE SECURITY AUTHENTICATION (SIDEBAR) ---
 with st.sidebar:
-    st.markdown("### 🔑 Gateway Authentication")
+    st.markdown("### 🔑 Secure Login Interface")
     
-    if st.session_state.login_type is None:
-        role = st.radio("Select Interface Mode:", ["👤 Customer Login (OTP)", "🛠️ Admin Control Desk"])
+    if st.session_state.login_role is None:
+        mode_select = st.radio("Access Category:", ["👤 Local Customer Gateway", "🛠️ Owner/Admin Control Panel"])
         
-        if role == "👤 Customer Login (OTP)":
-            login_phone = st.text_input("Enter Mobile Number", max_chars=10, placeholder="9934XXXXXX")
-            if st.button("📲 Access Customer Store", use_container_width=True, type="primary"):
-                if len(login_phone) == 10 and login_phone.isdigit():
-                    st.session_state.login_type = "Customer"
-                    st.session_state.user_profile["phone"] = login_phone
+        if mode_select == "👤 Local Customer Gateway":
+            c_phone = st.text_input("Enter Mobile Number", max_chars=10, placeholder="9934XXXXXX")
+            if st.button("📲 Open Customer App", use_container_width=True, type="primary"):
+                if len(c_phone) == 10 and c_phone.isdigit():
+                    st.session_state.login_role = "Customer"
+                    st.session_state.customer_profile["phone"] = c_phone
                     st.rerun()
-                else: st.error("Verification Error: Enter a valid 10-digit number.")
+                else: st.error("Authentication Failure: Provide a valid 10-digit number.")
                 
-        elif role == "🛠️ Admin Control Desk":
-            password_input = st.text_input("Enter Secret System Key*", type="password")
-            if st.button("🔓 Open Backend Dashboard", use_container_width=True, type="primary"):
-                if password_input == ADMIN_PASSWORD:
-                    st.session_state.login_type = "Admin"
-                    st.success("Access Granted: Welcome Avdhesh Kumar जी!")
-                    time.sleep(0.5)
+        elif mode_select == "🛠️ Owner/Admin Control Panel":
+            pass_input = st.text_input("Enter System Secret Key*", type="password")
+            if st.button("🔓 Open Admin Dashboard", use_container_width=True, type="primary"):
+                if pass_input == ADMIN_PASSWORD:
+                    st.session_state.login_role = "Admin"
                     st.rerun()
-                else: st.error("Access Denied: Invalid Security Key.")
+                else: st.error("Access Denied: Security Key mismatch.")
     else:
-        if st.session_state.login_type == "Admin":
-            st.markdown("<div class='plus-zone' style='background:#be123c; color:white;'>🛠️ CONTROL MODE: APP ADMIN</div>", unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
+        if st.session_state.login_role == "Admin":
+            st.markdown("<div class='3d-box' style='background-color:#ffe4e6; color:#991b1b; font-weight:bold; text-align:center;'>🛠️ SYSTEM RUNNING IN ADMIN MODE</div>", unsafe_allow_html=True)
         else:
-            st.markdown(f"<div class='plus-zone'>⭐ SANDHYA PLUS MEMBER<br>Rewards: {st.session_state.user_profile['coins']} Coins 🪙</div>", unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown(f"👤 **User Session:** +91 {st.session_state.user_profile['phone']}")
-            p_name = st.text_input("Your Full Name", value=st.session_state.user_profile["name"])
-            p_addr = st.text_area("Delivery Destination Address", value=st.session_state.user_profile["address"])
-            if st.button("💾 Lock Profile to Memory", use_container_width=True):
-                st.session_state.user_profile["name"] = p_name
-                st.session_state.user_profile["address"] = p_addr
-                st.toast("Profile environment synchronized!")
+            st.markdown("<div class='3d-box' style='background-color:#f0fdf4;'>🟢 CUSTOMER PROFILE SYNCED</div>", unsafe_allow_html=True)
+            cust_name = st.text_input("Your Full Name", value=st.session_state.customer_profile["name"])
+            cust_addr = st.text_area("Delivery Address (Samastipur Area)", value=st.session_state.customer_profile["address"])
+            
+            # 📍 5KM RADIUS RANGE LOCK
+            st.markdown("##### 📍 Distance from Meghpatti Head Office")
+            cust_dist = st.slider("Select Distance (KM)", min_value=0.5, max_value=10.0, value=st.session_state.customer_profile["distance"], step=0.5)
+            
+            if st.button("💾 Lock Delivery Address", use_container_width=True):
+                st.session_state.customer_profile["name"] = cust_name
+                st.session_state.customer_profile["address"] = cust_addr
+                st.session_state.customer_profile["distance"] = cust_dist
+                st.toast("Delivery parameters locked to local network map!")
                 
-        if st.button("🚪 Termination Session (Logout)", use_container_width=True):
-            st.session_state.login_type = None
-            st.session_state.cart = {}
-            st.session_state.selected_product = None
+        if st.button("🚪 Terminate Session (Logout)", use_container_width=True):
+            st.session_state.login_role = None
+            st.session_state.cart_service = None
             st.rerun()
 
-    # Customer Live Cart Preview Tracker
-    if st.session_state.login_type == "Customer" and st.session_state.cart:
-        st.markdown("---")
-        st.markdown("### 🛒 Basket Preview")
-        tot = sum(item['price'] * item['qty'] for item in st.session_state.cart.values())
-        for pid, item in st.session_state.cart.items():
-            st.caption(f"• {item['name']} (x{item['qty']})")
-        st.markdown(f"**Current Total: ₹{tot:,}**")
-
-# Dynamic Tab Allocator based on Login Role
-tabs_list = ["⚡ Flipkart Grid Store", "📦 Secure Checkout System"]
-if st.session_state.login_type == "Admin":
-    tabs_list.append("➕ Add New Product (Admin)")
+# Dynamic Navigation Panel View
+if st.session_state.login_role == "Admin":
+    st.subheader("🛠️ Central Business Control Panel (Admin view)")
+    st.info("स्वागत है अवधेश जी। नीचे आप अपने 5KM के दायरे में आए सभी ग्राहकों के ऑर्डर्स, कमीशन और डिलीवरी लड़कों का हिसाब सीधे अपनी गूगल शीट पर लाइव ट्रैक कर सकते हैं।")
     
-tabs = st.tabs(tabs_list)
+    # Fast Redirect Link to Google Sheet Ledger
+    st.markdown(f"""
+        <div class='3d-box' style='text-align:center; background-color:#eff6ff;'>
+            <h4>📊 Your Cloud Google Sheet is Live Connected</h4>
+            <p>All real-time customer data, commission figures, and partner merchant requests are stored directly into your Sheet.</p>
+            <a href='https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit' target='_blank'><button style='background-color:#2563eb; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; font-weight:bold;'>Open Live Excel Ledger</button></a>
+        </div>
+    """, unsafe_allow_html=True)
 
-# ==========================================
-# ⚡ TAB 1: FRONTEND PRODUCT SEARCH & SELECTION
-# ==========================================
-with tabs[0]:
-    if st.session_state.selected_product is not None:
-        p = st.session_state.selected_product
-        if st.button("⬅️ Back to Browse Grid", type="secondary"):
-            st.session_state.selected_product = None
-            st.rerun()
-            
-        st.markdown("---")
-        col_view1, col_view2 = st.columns([1, 1.2])
-        with col_view1:
-            st.markdown(f'<div style="background:#f8fafc; border:2px dashed #cbd5e1; height:280px; display:flex; align-items:center; justify-content:center; border-radius:12px;"><h3>📸 {p.get("name")} High-Res View</h3></div>', unsafe_allow_html=True)
-        with col_view2:
-            st.markdown(f'<span class="fk-badge">{p.get("rating")}</span> <span style="color:#388e3c; font-weight:bold; margin-left:10px;">{p.get("offer")}</span>', unsafe_allow_html=True)
-            st.h2(p.get("name"))
-            st.markdown(f'<div class="fk-price" style="font-size:34px; color:#2874f0;">Special Price: ₹{p.get("price", 0.0):,}</div>', unsafe_allow_html=True)
-            st.write(f"**Product Log Description:** {p.get('desc')}")
-            
-            st.markdown(f'<div style="background:#f8fafc; padding:12px; border-radius:8px; border-left:5px solid #2874f0; margin:15px 0;"><strong>💬 Top Customer Review:</strong><br>"{p.get("specs", {}).get("Review", "Verified Purchase Product")}"</div>', unsafe_allow_html=True)
-            
-            qty = st.number_input("Choose Quantity", min_value=1, max_value=5, value=1, key="det_qty")
-            if st.button("🛒 ADD TO CART PIPELINE", type="primary", use_container_width=True):
-                if st.session_state.login_type != "Customer": st.error("System Override: Please log in as a Customer to build a shopping basket!")
-                else:
-                    st.session_state.cart[p['id']] = {"name": p['name'], "price": p['price'], "qty": qty}
-                    st.success("Item packed into cart successfully!")
-                    time.sleep(0.5)
-                    st.rerun()
-    else:
-        search_query = st.text_input("🔍 Product Search Bar (Search for products, categories or brands)", placeholder="Type keyword here...")
-        st.markdown("---")
+else:
+    # CLIENT INTERFACE FRONTEND
+    tab_store, tab_checkout = st.tabs(["⚡ Browse Services & Kirana", "📦 Book Local Request"])
+    
+    with tab_store:
+        st.markdown("### Select a Service or Place a Request")
         
-        filtered = [p for p in st.session_state.products_db if search_query.lower() in p["name"].lower() or search_query.lower() in p["cat"].lower()]
-        
-        if not filtered:
-            st.info("No records matched your search query strings.")
-        else:
-            col_grid = st.columns(2)
-            for idx, p in enumerate(filtered):
-                with col_grid[idx % 2]:
-                    st.markdown(f"""
-                        <div class="fk-card">
-                            <span class="fk-badge">{p.get('rating')}</span>
-                            <span style="color:#388e3c; font-weight:bold; float:right;">{p.get('offer')}</span>
-                            <h3 style="color:#212121; margin:10px 0;">{p.get('name')}</h3>
-                            <div class="fk-price">₹{p.get('price', 0.0):,}</div>
-                            <p style="font-size:12px; color:#878787;">Category: {p.get('cat')} | Free Delivery</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    if st.button("🔍 Open Product Specification Sheet", key=f"v_{p['id']}", use_container_width=True):
-                        st.session_state.selected_product = p
+        grid = st.columns(2)
+        for idx, srv in enumerate(LOCAL_SERVICES):
+            with grid[idx % 2]:
+                st.markdown(f"""
+                    <div class="business-card">
+                        <span style="background:#dbeafe; color:#1e40af; padding:3px 8px; border-radius:15px; font-size:12px; font-weight:bold;">{srv['type']}</span>
+                        <h3 style="margin:10px 0 5px 0; color:#1e293b;">{srv['name']}</h3>
+                        <p style="color:#64748b; font-size:13px; margin-bottom:10px;">{srv['desc']}</p>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                if st.button(f"⚡ Select {srv['name']}", key=srv['id'], use_container_width=True):
+                    if not st.session_state.login_role:
+                        st.error("🔒 Security Block: Please login with your Mobile number in the sidebar panel first!")
+                    else:
+                        st.session_state.cart_service = srv
+                        st.success(f"Selected: {srv['name']}. Now go to 'Book Local Request' tab to complete your booking.")
+                        time.sleep(0.3)
                         st.rerun()
 
-# ==========================================
-# 📦 TAB 2: SECURE ORDER CHECKOUT ROUTING
-# ==========================================
-with tabs[1]:
-    if st.session_state.login_type == "Admin":
-        st.info("🛠️ System Notification: Admin session is active. Customer order entries bypass checkout and log directly to your Sheet Ledger database.")
-    elif st.session_state.login_type != "Customer":
-        st.warning("🔒 Transaction Gateway Locked: Please login with your Mobile number via the sidebar to access checkout operations.")
-    elif not st.session_state.cart:
-        st.info("Transaction Pipeline empty: Shopping basket has no products.")
-    else:
-        bill_records = []
-        order_total = 0.0
-        for pid, item in st.session_state.cart.items():
-            sub = item['price'] * item['qty']
-            order_total += sub
-            bill_records.append({"Specifications": item['name'], "Unit Price": f"₹{item['price']:,}", "Qty": item['qty'], "Subtotal": f"₹{sub:,}"})
-        st.dataframe(pd.DataFrame(bill_records), use_container_width=True)
-        st.markdown(f"<h3 style='color:#388e3c; text-align:right;'>Invoice Total: ₹{order_total:,}</h3>", unsafe_allow_html=True)
+    with tab_checkout:
+        st.subheader("📋 Finalize Your Local Order Placement")
         
-        with st.form("checkout_form_master"):
-            f_name = st.text_input("Customer/Consignee Name*", value=st.session_state.user_profile["name"])
-            f_address = st.text_area("Complete Shipping Destination Address*", value=st.session_state.user_profile["address"])
-            pay_mode = st.radio("Select Payment Framework*", ["💵 Cash on Delivery (COD)", "💳 Online UPI Advanced Wire Transfer"])
+        if not st.session_state.login_role:
+            st.warning("🔒 Session Gateway Closed: Login via your active cellular number in the sidebar environment.")
+        elif st.session_state.cart_service is None:
+            st.info("No service selected. Go back to 'Browse Services & Kirana' tab and select a package.")
+        else:
+            selected_srv = st.session_state.cart_service
             
-            utr_num = ""
-            if "Online" in pay_mode:
-                st.info(f"Payment Engine Active: Please process ₹{order_total:,} to secure node handle: avdheshkumar@axisbank")
-                utr_num = st.text_input("Enter 12-Digit Banking UTR Number*")
+            # 🛑 EXECUTE 5KM RANGE GUARD PROTECTION RULE
+            current_distance = st.session_state.customer_profile["distance"]
+            if current_distance > 5.0:
+                st.markdown(f"""
+                    <div style='background-color:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:20px; border-radius:8px; font-weight:bold; text-align:center;'>
+                        🚨 SERVICE BOUNDARY RESTRICTION<br>
+                        Your locked distance is {current_distance} Kms. Sandhya Network exclusively delivers within 5.0 Kms of Meghpatti Head Office to ensure fresh & fast delivery.
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                    <div class='3d-box' style='background-color:#f8fafc;'>
+                        <h4>Selected: <strong>{selected_srv['name']}</strong></h4>
+                        <p style='margin:0; color:#475569;'>Category: {selected_srv['type']}</p>
+                    </div>
+                """, unsafe_allow_html=True)
                 
-            if st.form_submit_button("🚀 CONFIRM PIPELINE & PLACE ORDER", use_container_width=True, type="primary"):
-                if not f_name or not f_address: st.error("Validation Failure: Name and Destination fields cannot be blank.")
-                elif "Online" in pay_mode and len(utr_num) < 12: st.error("Gateway Rejection: Provide a valid 12-digit UTR verification index.")
-                else:
-                    items_summary = [f"{v['name']} (x{v['qty']})" for v in st.session_state.cart.values()]
-                    status_text = "COD - Pending Shipment" if "Cash" in pay_mode else f"Online Paid (UTR: {utr_num})"
+                with st.form("hyperlocal_checkout_form"):
+                    c_name = st.text_input("Customer Full Name*", value=st.session_state.customer_profile["name"])
+                    c_address = st.text_area("Exact Delivery Destination*", value=st.session_state.customer_profile["address"])
                     
-                    # Prepare matching row data payload package for Google Sheet Tab: 'Payment_Ledger'
-                    payload = {
-                        "sheet_name": "Payment_Ledger", "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
-                        "RetailerName": f_name.upper(), "Amount": order_total, "Mode": "Store: " + pay_mode,
-                        "SenderUPI_Mobile": st.session_state.user_profile["phone"], "Status": status_text,
-                        "Reference": f"Items Ordered: {', '.join(items_bought if 'items_bought' in locals() else items_summary)} | Shipped to: {f_address}"
-                    }
-                    try:
-                        requests.post(WEBHOOK_URL, json=payload, timeout=10)
-                        st.session_state.user_profile["coins"] += 10 # Credit Plus coins
-                        st.balloons()
-                        st.success("🎉 Transaction Completed: Order pushed safely to cloud ledger sheet!")
-                        st.session_state.cart = {}
-                        st.session_state.selected_product = None
-                    except Exception as database_err: st.error(f"Sync Failure: {database_err}")
-
-# ==========================================
-# ➕ TAB 3: ADMIN INVENTORY MANAGEMENT (PERMANENT STORAGE)
-# ==========================================
-if st.session_state.login_type == "Admin":
-    with tabs[2]:
-        st.subheader("🛠️ Product Management Console (Write-to-Database)")
-        st.info("यहाँ नया प्रोडक्ट भरें। यह सीधे आपकी Google Sheet के Product_List टैब में हमेशा के लिए जुड़ जाएगा और स्टोर पर दिखने लगेगा।")
-        
-        with st.form("admin_add_form"):
-            new_id = f"FK-{int(time.time())}" # Auto unique ID generation string
-            new_name = st.text_input("Product Title Line*")
-            new_price = st.number_input("Set Price Parameter (Rs)*", min_value=1.0, value=499.0)
-            new_cat = st.selectbox("Assign Category Group", ["Electronics", "Fashion", "Home", "Other"])
-            new_offer = st.text_input("Offer Discount Text Label", value="Special Offer Deal")
-            new_desc = st.text_area("Product Specifications Summary")
-            spec_brand = st.text_input("Brand", value="Original")
-            spec_warranty = st.text_input("Warranty Terms", value="1 Year")
-            spec_review = st.text_input("Default Top Review", value="Excellent premium build quality product")
-            
-            if st.form_submit_button("💾 TRANSMIT AND WRITE TO CLOUD SHEET", use_container_width=True):
-                if not new_name: st.error("Constraint Violation: Title field is mandatory.")
-                else:
-                    # Payload matches exact headers of the Product_List spreadsheet tab
-                    product_payload = {
-                        "sheet_name": "Product_List",
-                        "ProductID": new_id,
-                        "ProductName": new_name,
-                        "Price": float(new_price),
-                        "Category": new_cat,
-                        "OfferLabel": new_offer,
-                        "Description": new_desc,
-                        "Brand": spec_brand,
-                        "Warranty": spec_warranty,
-                        "Review": spec_review
-                    }
-                    try:
-                        requests.post(WEBHOOK_URL, json=product_payload, timeout=10)
-                        st.success(f"🎉 Architecture Success: '{new_name}' permanently registered inside cloud Sheet storage!")
-                        st.cache_data.clear()
-                        time.sleep(1)
-                        st.rerun()
-                    except Exception as cloud_err: st.error(f"Write failure to Spreadsheet database: {cloud_err}")
+                    # Custom handling if it's a Kirana specific order item
+                    item_details_text = ""
+                    item_est_price = 0.0
+                    if selected_srv["type"] == "Kirana":
+                        st.markdown("##### 🛒 Specify Item Details:")
+                        item_details_text = st.text_input("Type item description (e.g., 5Kg Ashirvaad Aata)*", placeholder="Write exact brand name and quantity")
+                        item_est_price = st.number_input("Estimated Price from shop (Rs)*", min_value=10.0, max_value=5000.0, value=250.0, step=10.0)
+                    
+                    # Financial Business Model Split Matrix UI Calculation
+                    base_cost = item_est_price if selected_srv["type"] == "Kirana" else selected_srv.get("price", 0.0)
+                    delivery_charge = 15.0  # Fixed delivery boy tip charge parameter
+                    your_commission = round(base_cost * 0.05, 2) if base_cost > 0 else 0.0
+                    grand_total = base_cost + delivery_charge
+                    
+                    if base_cost > 0:
+                        st.markdown(f"""
+                            <div style='background-color:#fcfba9; padding:15px; border-radius:8px; border:1px solid #e1db43; font-size:14px; color:#4d4a0a;'>
+                                <strong>💰 Hyperlocal Bill Overview Summary:</strong><br>
+                                • Item Base Cost: ₹{base_cost:,}<br>
+                                • Fixed Delivery Boy Fee: ₹{delivery_charge:,}<br>
+                                <strong>• Pay to Rider Amount: ₹{grand_total:,} (Cash on Delivery)</strong><br>
+                                <span style='font-size:12px; color:#857f07;'>[Internal System Log: Your 5% Est Commission: ₹{your_commission}]</span>
+                            </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.info("Note: MNP and SIM activation base charges are absolutely Free. Standard operator FRC plans apply during doorstep verification.")
+                        grand_total = 0.0
+                    
+                    if st.form_submit_button("🚀 PLACE DOORSTEP REQUEST NOW", use_container_width=True, type="primary"):
+                        if not c_name or not c_address:
+                            st.error("Validation Error: Customer Name and Destination fields cannot be empty.")
+                        elif selected_srv["type"] == "Kirana" and not item_details_text:
+                            st.error("Validation Error: Please specify the item details (like 5kg Aata) you need.")
+                        else:
+                            # Dynamic log payload formulation package for Google Sheet Row insertion mapping
+                            final_summary = item_details_text if selected_srv["type"] == "Kirana" else selected_srv["desc"]
+                            full_reference_log = f"Service: {selected_srv['name']} | Spec: {final_summary} | Destination: {c_address} | Distance: {current_distance}KM | SysCommission: ₹{your_commission}"
+                            
+                            payload = {
+                                "sheet_name": "Payment_Ledger",
+                                "Date": datetime.now().strftime("%d-%m-%Y %I:%M %p"),
+                                "RetailerName": c_name.upper(),
+                                "Amount": grand_total,
+                                "Mode": f"Hyperlocal ({selected_srv['type']})",
+                                "SenderUPI_Mobile": st.session_state.customer_profile["phone"],
+                                "Status": "Rider Assignment Pending",
+                                "Reference": full_reference_log
+                            }
+                            
+                            try:
+                                requests.post(WEBHOOK_URL, json=payload, timeout=10)
+                                st.balloons()
+                                st.success(f"🎉 Success! Order successfully dispatched onto Sandhya Network node. Delivery boy will arrive at your address within 30 minutes.")
+                                st.session_state.cart_service = None
+                            except Exception as cloud_err: st.error(f"Cloud ledger sync connection error: {cloud_err}")
