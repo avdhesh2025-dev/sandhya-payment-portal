@@ -83,7 +83,7 @@ else:
     # 📢 LOCAL ADVERTISEMENT BANNER
     st.markdown("""
         <div class="ad-banner">
-            ✨ SPONSORED AD: लक्ष्मी किराना स्टोर (मेघपट्टी) - हमारे यहाँ शुद्ध सरसो तेल और उत्तम चावल मिलता है! 🛒
+            ✨ SPONSORED AD: SANDHYA MOBILE PARK-7479584179) - हमारे यहाँ शुद्ध सरसो तेल और उत्तम चावल मिलता है! 🛒
         </div>
     """, unsafe_allow_html=True)
 
