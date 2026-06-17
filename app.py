@@ -44,7 +44,7 @@ st.markdown("""
 # ==========================================
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyHCrzqnjgiwCZvcZy4evkZRToRtaziZJGch9F-ODVQXzVcTdAqJhJRvXxH48PKTfhrug/exec"
 ADMIN_PASSWORD = "Jio Distributor"
-OWNER_WHATSAPP_NUMBER = "919934000000" # 👈 यहाँ अपना असली 10 अंकों का व्हाट्सएप नंबर (बिना स्पेस के) डाल दें
+OWNER_WHATSAPP_NUMBER = "917479584179" # 👈 यहाँ अपना असली 10 अंकों का व्हाट्सएप नंबर (बिना स्पेस के) डाल दें
 
 if "selected_category" not in st.session_state: st.session_state.selected_category = "Telecom"
 if "admin_logged" not in st.session_state: st.session_state.admin_logged = False
