@@ -47,7 +47,7 @@ def render_dashboard():
             st.dataframe(pd.DataFrame(status_data), use_container_width=True)
 
 def render_add_member():
-    st.header("👤 मेंबर रजिस्ट्रेशन (Auto ID & Validation)")
+    st.header("👤 मेंबर रजिस्ट्रेशन (फोटो अपलोड के साथ)")
     with st.form("new_member_form", clear_on_submit=True):
         st.subheader("Personal & Contact Details")
         c1, c2, c3 = st.columns(3)
@@ -72,11 +72,15 @@ def render_add_member():
             ifsc = st.text_input("Bank IFSC Code")
             upi_id = st.text_input("UPI ID *")
 
+        # यहाँ फोटो अपलोड का ऑप्शन प्रमुखता से दिया गया है
+        st.subheader("📷 मेंबर की फोटो")
+        photo = st.file_uploader("मेंबर की पासपोट साइज फोटो अपलोड करें *", type=["jpg", "png", "jpeg"])
+
         submit = st.form_submit_button("डेटा सेव करें", use_container_width=True)
         
         if submit:
-            if not name or not mobile or not identity_num or not pan or not address or not upi_id:
-                st.error("⚠️ कृपया सभी अनिवार्य (*) फील्ड भरें!")
+            if not name or not mobile or not identity_num or not pan or not address or not upi_id or not photo:
+                st.error("⚠️ कृपया सभी अनिवार्य (*) फील्ड भरें और फोटो अपलोड करें!")
             else:
                 member_id = generate_member_id(len(st.session_state.members_db))
                 payload = {
@@ -89,7 +93,7 @@ def render_add_member():
                     "id": member_id, "name": name, "mobile": mobile, "dob": str(dob), 
                     "email": email, "occupation": occupation, "identity_num": "[ID Redacted]", 
                     "pan": pan, "address": address, "bank_ac": bank_ac, "ifsc": ifsc, "upi": upi_id, 
-                    "reference": reference, "status": "✅ Active"
+                    "reference": reference, "status": "✅ Active", "photo": photo
                 }
                 
                 st.session_state.members_db.append(new_member)
@@ -104,7 +108,7 @@ def render_add_member():
                 st.success(f"✅ {name} सफलतापूर्वक रजिस्टर्ड! Member ID: {member_id}")
 
 def render_ledger():
-    st.header("📒 स्मार्ट लेज़र, प्रोफाइल & कार्ड")
+    st.header("📒 व्यक्तिगत लेज़र & मेंबरशिप कार्ड")
     
     if len(st.session_state.members_db) > 0:
         member_names = [m['name'] for m in st.session_state.members_db]
@@ -112,46 +116,93 @@ def render_ledger():
         m_details = next((m for m in st.session_state.members_db if m['name'] == selected_name), None)
         
         if m_details:
-            st.markdown("---")
-            # --- Membership Card Visual ---
-            st.subheader("💳 डिजिटल मेंबरशिप कार्ड")
-            card_html = f"""
-            <div style="width: 350px; background: linear-gradient(135deg, #1f2937, #3b82f6); color: white; border-radius: 15px; padding: 20px; box-shadow: 0px 4px 10px rgba(0,0,0,0.3); font-family: sans-serif; margin-bottom: 20px;">
-                <h3 style="margin: 0; text-align: center; color: #fbbf24;">Sandhya Enterprises</h3>
-                <p style="text-align: center; font-size: 12px; margin-top: 5px; color: #e5e7eb;">Digital Committee Membership</p>
-                <hr style="border-color: #4b5563;">
-                <div style="margin-top: 15px;">
-                    <p style="margin: 5px 0;"><b>Name:</b> {m_details['name']}</p>
-                    <p style="margin: 5px 0;"><b>Member ID:</b> {m_details['id']}</p>
-                    <p style="margin: 5px 0;"><b>Mobile:</b> {m_details['mobile']}</p>
-                    <p style="margin: 5px 0;"><b>UPI:</b> {m_details['upi']}</p>
-                    <p style="margin: 5px 0; font-size: 11px; color: #d1d5db;">Address: {m_details['address']}</p>
-                </div>
-                <div style="margin-top: 15px; text-align: right;">
-                    <p style="margin: 0; font-size: 12px; font-weight: bold; color: #10b981;">{m_details['status']}</p>
-                </div>
-            </div>
-            """
-            st.markdown(card_html, unsafe_allow_html=True)
-            st.info("👆 आप इस कार्ड का स्क्रीनशॉट लेकर मेंबर को भेज सकते हैं।")
+            # 2 अलग-अलग टैब बनाए गए हैं (एक प्रोफाइल/लेज़र के लिए, दूसरा कार्ड के लिए)
+            tab1, tab2 = st.tabs(["📝 क्लासिक प्रोफाइल & लेज़र", "🪪 मेंबरशिप कार्ड (शेयर करें)"])
             
-            # Action Buttons
-            wh_link = get_whatsapp_link(m_details['mobile'], f"Hello {m_details['name']}, your Sandhya Enterprises membership is active.")
-            st.markdown(f'<a href="{wh_link}" target="_blank"><button style="padding:10px; background-color:#25D366; color:white; border:none; border-radius:5px;">💬 WhatsApp Message</button></a>', unsafe_allow_html=True)
-            
-            member_txns = [t for t in st.session_state.ledger_transactions if t['name'] == selected_name]
-            st.subheader("💳 विस्तृत ट्रांज़ैक्शन हिस्ट्री")
-            if len(member_txns) > 0:
-                df_txn = pd.DataFrame(member_txns)
-                st.dataframe(df_txn, use_container_width=True)
-            else:
-                st.info("कोई ट्रांज़ैक्शन नहीं है।")
+            with tab1:
+                st.markdown("---")
+                p_col1, p_col2, p_col3 = st.columns([1, 2, 2])
+                with p_col1:
+                    if m_details.get('photo') is not None:
+                        st.image(m_details['photo'], width=120)
+                    else:
+                        st.image("https://cdn-icons-png.flaticon.com/512/149/149071.png", width=120)
+                    st.success(m_details['status'])
+                    
+                with p_col2:
+                    st.write(f"👤 **नाम:** {m_details['name']}")
+                    st.write(f"📱 **मोबाइल:** {m_details['mobile']}")
+                    st.write(f"📍 **पता:** {m_details['address']}")
+                    st.write(f"💼 **व्यवसाय:** {m_details.get('occupation', 'N/A')}")
+                    
+                with p_col3:
+                    st.write(f"🆔 **Member ID:** {m_details['id']}")
+                    st.write(f"💳 **PAN:** {m_details['pan']}")
+                    st.write(f"🏦 **UPI:** {m_details['upi']}")
+                    st.write(f"👥 **नॉमिनी:** {m_details.get('reference', 'N/A')}")
+                
+                st.markdown("---")
+                member_txns = [t for t in st.session_state.ledger_transactions if t['name'] == selected_name]
+                total_credit = sum([t.get('credit',0) for t in member_txns])
+                total_debit = sum([t.get('debit',0) for t in member_txns])
+                total_loan = sum([t.get('loan',0) for t in member_txns])
+                total_comm = sum([t.get('commission',0) for t in member_txns])
+                net_balance = total_credit - total_debit
+                
+                f_col1, f_col2, f_col3, f_col4 = st.columns(4)
+                f_col1.metric("कुल जमा (Credit)", f"₹ {total_credit:,.2f}")
+                f_col2.metric("कुल लोन लिया", f"₹ {total_loan:,.2f}")
+                f_col3.metric("कुल प्रॉफिट / कमीशन", f"₹ {total_comm:,.2f}")
+                f_col4.metric("Net रनिंग बैलेंस", f"₹ {net_balance:,.2f}")
+                
+                # WhatsApp Loan Reminder Button
+                outstanding = total_loan - sum([t.get('loan_repaid',0) for t in member_txns])
+                if outstanding > 0:
+                    loan_msg = f"Sandhya Enterprises: नमस्कार {m_details['name']}, आपका बकाया लोन/कमिटी अमाउंट ₹{outstanding} है। कृपया समय पर भुगतान करें।"
+                    loan_link = get_whatsapp_link(m_details['mobile'], loan_msg)
+                    st.markdown(f'<a href="{loan_link}" target="_blank"><button style="margin-top:10px; padding:8px; background-color:#ef4444; color:white; border:none; border-radius:5px;">⚠️ Send Loan Reminder (WhatsApp)</button></a>', unsafe_allow_html=True)
+
+                st.subheader("💳 विस्तृत ट्रांज़ैक्शन हिस्ट्री")
+                if len(member_txns) > 0:
+                    df_txn = pd.DataFrame(member_txns)
+                    st.dataframe(df_txn, use_container_width=True)
+                else:
+                    st.info("कोई ट्रांज़ैक्शन नहीं है।")
+                    
+            with tab2:
+                # अलग फोल्डर (Tab) सिर्फ मेंबरशिप कार्ड के लिए
+                st.subheader("💳 डिजिटल मेंबरशिप कार्ड")
+                card_html = f"""
+                <div style="width: 350px; background: linear-gradient(135deg, #1f2937, #3b82f6); color: white; border-radius: 15px; padding: 20px; box-shadow: 0px 4px 10px rgba(0,0,0,0.3); font-family: sans-serif; margin-bottom: 20px;">
+                    <h3 style="margin: 0; text-align: center; color: #fbbf24;">Sandhya Enterprises</h3>
+                    <p style="text-align: center; font-size: 12px; margin-top: 5px; color: #e5e7eb;">Digital Committee Membership</p>
+                    <hr style="border-color: #4b5563;">
+                    <div style="margin-top: 15px;">
+                        <p style="margin: 5px 0;"><b>Name:</b> {m_details['name']}</p>
+                        <p style="margin: 5px 0;"><b>Member ID:</b> {m_details['id']}</p>
+                        <p style="margin: 5px 0;"><b>Mobile:</b> {m_details['mobile']}</p>
+                        <p style="margin: 5px 0;"><b>UPI:</b> {m_details['upi']}</p>
+                        <p style="margin: 5px 0; font-size: 11px; color: #d1d5db;">Address: {m_details['address']}</p>
+                    </div>
+                    <div style="margin-top: 15px; text-align: right;">
+                        <p style="margin: 0; font-size: 12px; font-weight: bold; color: #10b981;">{m_details['status']}</p>
+                    </div>
+                </div>
+                """
+                st.markdown(card_html, unsafe_allow_html=True)
+                st.info("👆 आप इस कार्ड का स्क्रीनशॉट लेकर रख सकते हैं।")
+                
+                # Share Card on WhatsApp
+                card_msg = f"नमस्कार {m_details['name']}, आपका Sandhya Enterprises का मेंबरशिप कार्ड जनरेट हो गया है। Member ID: {m_details['id']}."
+                card_link = get_whatsapp_link(m_details['mobile'], card_msg)
+                st.markdown(f'<a href="{card_link}" target="_blank"><button style="padding:10px; background-color:#25D366; color:white; border:none; border-radius:5px;">💬 Share Card on WhatsApp</button></a>', unsafe_allow_html=True)
+
     else:
         st.warning("⚠️ लेज़र देखने के लिए पहले मेंबर रजिस्टर करें।")
 
 def render_collection():
-    st.header("💰 मंथली कमिटी बिडिंग & लोन ट्रांसफर")
-    st.info("यहाँ से आप मंथली कलेक्शन का पैसा (पॉट) किसी एक मेंबर को दे सकते हैं।")
+    st.header("💰 मंथली कमिटी बिडिंग & कमीशन")
+    st.info("ब्याज (2%), बिडिंग अमाउंट, और फाइन का टोटल पैसा सभी मेंबर्स में प्रॉफिट (कमीशन) के रूप में बाँटा जाएगा।")
     
     if len(st.session_state.members_db) == 0:
         st.warning("⚠️ पहले मेंबर रजिस्टर करें!")
@@ -161,8 +212,14 @@ def render_collection():
     loan_taker = st.selectbox("इस महीने कमिटी का पैसा किसको मिलेगा?", member_names)
     m_details = next(m for m in st.session_state.members_db if m['name'] == loan_taker)
     
-    total_pot = st.number_input("टोटल कलेक्शन / पॉट अमाउंट (₹)", value=20000)
-    bid_amount = st.number_input("बिडिंग डिस्काउंट / कमीशन (₹) (उदा: 500)", value=500.0)
+    c1, c2 = st.columns(2)
+    with c1:
+        total_pot = st.number_input("टोटल कलेक्शन / पॉट अमाउंट (₹)", value=20000.0)
+        interest_rate = st.number_input("ब्याज दर / फिक्स कमीशन (%)", value=2.0)
+    with c2:
+        bid_amount = st.number_input("बिडिंग डिस्काउंट (₹)", value=500.0)
+        base_interest = (total_pot * interest_rate) / 100
+        st.info(f"2% के हिसाब से फिक्स ब्याज: ₹{base_interest}")
     
     # Calculate outstanding loan
     member_txns = [t for t in st.session_state.ledger_transactions if t['name'] == loan_taker]
@@ -183,18 +240,20 @@ def render_collection():
             fine_amount = 999
             previous_deduction = outstanding
         else:
-            st.stop() # Stops execution here so QR isn't generated
+            st.stop()
             
-    # Calculations
-    total_deduction = bid_amount + previous_deduction + fine_amount
+    # Calculations (Commission kisi bhi roop me aaye, total member me batega)
+    total_deduction = base_interest + bid_amount + previous_deduction + fine_amount
     final_payout = total_pot - total_deduction
-    total_profit_pool = bid_amount + fine_amount
+    
+    # Total Profit Pool (Interest + Bid + Fine)
+    total_profit_pool = base_interest + bid_amount + fine_amount
     per_member_profit = total_profit_pool / len(member_names)
     
     st.markdown("---")
     st.subheader("📊 कैलकुलेशन समरी")
     c1, c2, c3 = st.columns(3)
-    c1.metric("कुल कटौती", f"₹{total_deduction}")
+    c1.metric("कुल कटौती (कट कर)", f"₹{total_deduction}")
     c2.metric("फाइनल पेमेंट (QR)", f"₹{final_payout}")
     c3.metric("हर मेंबर का प्रॉफिट", f"₹{per_member_profit:.2f}")
     
@@ -209,7 +268,7 @@ def render_collection():
     if st.button("✅ ट्रांज़ैक्शन कन्फर्म करें और लेज़र में सेव करें", use_container_width=True):
         txn_id = f"TXN{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
         
-        # Record payout to receiver
+        # 1. Record payout to receiver (Debit)
         st.session_state.ledger_transactions.append({
             "txn_id": txn_id, "name": loan_taker, "date": str(datetime.date.today()),
             "विवरण": "कमिटी पॉट प्राप्त (Force Closed)" if force_close else "कमिटी पॉट प्राप्त",
@@ -218,25 +277,33 @@ def render_collection():
             "commission": 0, "fine": fine_amount, "balance": -total_pot
         })
         
-        # Record profit for ALL members
+        # 2. Record profit for ALL members in their ledger (Credit/Commission)
         for m in member_names:
             st.session_state.ledger_transactions.append({
                 "txn_id": txn_id+"_P", "name": m, "date": str(datetime.date.today()),
-                "विवरण": f"कमिटी प्रॉफिट (Bid+Fine)",
+                "विवरण": f"कमिटी प्रॉफिट / कमीशन",
                 "credit": per_member_profit, "debit": 0, "loan": 0, "loan_repaid": 0,
                 "commission": per_member_profit, "fine": 0, "balance": per_member_profit
             })
             
-        st.success(f"✅ {loan_taker} को ₹{final_payout} का पेमेंट दर्ज हो गया और सभी मेंबर्स में ₹{per_member_profit} प्रॉफिट बँट गया!")
+        st.success(f"✅ {loan_taker} को ₹{final_payout} का पेमेंट दर्ज हो गया और सभी मेंबर्स में ₹{per_member_profit} प्रॉफिट (लेज़र में) बँट गया!")
+        
+        # WhatsApp Payout Notification Link
+        payout_msg = f"Sandhya Enterprises: बधाई हो {loan_taker}, आपको कमिटी की तरफ से ₹{final_payout} का पेमेंट (कटौती के बाद) भेज दिया गया है।"
+        payout_link = get_whatsapp_link(m_details['mobile'], payout_msg)
+        st.markdown(f'<a href="{payout_link}" target="_blank"><button style="padding:10px; background-color:#25D366; color:white; border:none; border-radius:5px;">💬 Payout Notification on WhatsApp</button></a>', unsafe_allow_html=True)
 
 def render_penalty():
     st.header("⚠️ लेट फाइन & पेनाल्टी मैनेजर")
-    st.info("फोर्स क्लोज का फाइन अब सीधे 'कलेक्शन & बिडिंग' पेज से कट जाता है। अगर कोई अलग से फाइन जमा करता है तो आप उसे 'लेज़र' में मैन्युअली जोड़ सकते हैं।")
+    st.info("फोर्स क्लोज का फाइन अब सीधे 'कलेक्शन & बिडिंग' पेज से कट जाता है और सभी मेंबर्स में प्रॉफिट के रूप में बँट जाता है।")
 
 def render_reports():
     st.header("📥 ग्लोबल रिपोर्टिंग & ऑटो बैकअप")
     if len(st.session_state.members_db) > 0:
         df_members = pd.DataFrame(st.session_state.members_db)
+        # Drop photo object for Excel export
+        if 'photo' in df_members.columns:
+            df_members = df_members.drop(columns=['photo'])
         mem_excel = export_to_excel(df_members, "Members")
         st.download_button("📥 ऑल मेंबर्स डेटा (Excel)", data=mem_excel, file_name=f"Sandhya_Members.xlsx")
         
