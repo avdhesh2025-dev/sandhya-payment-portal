@@ -1,81 +1,156 @@
 import streamlit as st
-from utils import hash_password, ADMIN_HASH
+from utils import hash_password, ADMIN_HASH, load_data_from_sheet
 import views
 
-# 1. Page Config
+# 1. Page Config (A4 Size / Responsive Layout)
 st.set_page_config(page_title="Sandhya ERP - Digital Committee", layout="centered", page_icon="🏢")
 
-# 2. Custom CSS 
+# 2. Custom CSS
 st.markdown("""
     <style>
     div.stButton > button {
-        background-color: #ffffff; color: #1f2937; border: 2px solid #e5e7eb;
-        border-radius: 12px; border-bottom: 6px solid #d1d5db;
-        box-shadow: 0px 4px 6px rgba(0,0,0,0.1); font-weight: bold;
-        font-size: 15px; height: 60px; transition: all 0.1s ease-in-out;
+        background-color: #ffffff;
+        color: #1f2937;
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        border-bottom: 6px solid #d1d5db;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        font-weight: bold;
+        font-size: 15px;
+        height: 60px;
+        transition: all 0.1s ease-in-out;
     }
-    div.stButton > button:active { border-bottom: 2px solid #d1d5db; transform: translateY(4px); }
+    div.stButton > button:active {
+        border-bottom: 2px solid #d1d5db;
+        transform: translateY(4px);
+    }
+    .main {
+        max-width: 900px;
+        margin: auto;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# 3. Session State Initialization
+# 3. Session State Initialization (यहाँ डेटा लोडिंग फिक्स कर दी गई है)
 if 'auth_status' not in st.session_state:
     st.session_state.auth_status = False
+    st.session_state.role = None
+    st.session_state.user_name = None
+
 if 'page' not in st.session_state:
     st.session_state.page = "Dashboard"
+
 if 'members_db' not in st.session_state:
+    raw_data = load_data_from_sheet() # गूगल शीट से सारा डेटा रीड किया जा रहा है
     st.session_state.members_db = []
+    for row in raw_data:
+        m_name = row.get('Name') or row.get('name')
+        if m_name:
+            st.session_state.members_db.append({
+                "id": str(row.get('Member ID') or row.get('member_id', 'M01')),
+                "name": m_name,
+                "mobile": str(row.get('Mobile') or row.get('mobile', '')),
+                "identity_num": "[ID Redacted]",
+                "pan": str(row.get('PAN') or row.get('pan', '')),
+                "upi": str(row.get('UPI') or row.get('upi', '')),
+                "address": str(row.get('Address') or row.get('address', '')),
+                "reference": str(row.get('Reference') or row.get('reference', '')),
+                "status": "✅ Active",
+                "loan_status": "Clear",
+                "photo": None
+            })
+
 if 'payment_status' not in st.session_state:
     st.session_state.payment_status = {}
+    for m in st.session_state.members_db:
+        st.session_state.payment_status[m['name']] = "❌ Pending"
+
 if 'ledger_transactions' not in st.session_state:
     st.session_state.ledger_transactions = []
 
+if 'current_receiver' not in st.session_state:
+    st.session_state.current_receiver = "कोई नहीं (नया)"
+
 # ========================================
-# SECURE LOGIN SYSTEM
+# SECURE LOGIN SYSTEM (Role Based)
 # ========================================
 if not st.session_state.auth_status:
     st.title("🏢 Sandhya Enterprises ERP")
+    st.subheader("Secure Access Portal")
+    
     with st.form("login_form"):
-        role_select = st.selectbox("लॉगिन रोल:", ["Admin", "Staff", "Member"])
+        role_select = st.selectbox("लॉगिन रोल (Role):", ["Admin", "Staff", "Member"])
         username = st.text_input("यूज़रनेम (Admin के लिए: admin)")
         password = st.text_input("पासवर्ड (Admin के लिए: 9557)", type="password")
-        if st.form_submit_button("लॉगिन करें", use_container_width=True):
+        login_btn = st.form_submit_button("लॉगिन करें", use_container_width=True)
+        
+        if login_btn:
             if role_select == "Admin" and username == "admin" and hash_password(password) == ADMIN_HASH:
                 st.session_state.auth_status = True
                 st.session_state.role = "Admin"
-                st.success("✅ लॉगिन सफल!")
+                st.session_state.user_name = "Avdhesh Kumar"
+                st.success("✅ एडमिन लॉगिन सफल! ऐप लोड हो रहा है...")
+                st.rerun()
+            elif role_select == "Staff" and password == "staff123":
+                st.session_state.auth_status = True
+                st.session_state.role = "Staff"
+                st.session_state.user_name = username
+                st.success("✅ स्टाफ लॉगिन सफल!")
                 st.rerun()
             else:
-                st.error("❌ गलत यूज़रनेम या पासवर्ड!")
-    st.stop() 
+                st.error("❌ गलत यूज़रनेम या पासवर्ड! कृपया दोबारा प्रयास करें।")
+    st.stop()
 
 # ========================================
-# MAIN ERP APP
+# MAIN ERP APP (Post-Login)
 # ========================================
 st.sidebar.title("🏢 Sandhya Enterprises")
+st.sidebar.success(f"👤 Logged in: {st.session_state.user_name} ({st.session_state.role})")
+
 if st.sidebar.button("🔄 सिस्टम रिफ्रेश करें", use_container_width=True):
+    st.cache_data.clear() # कैश साफ करके फ्रेश डेटा लाएगा
     st.rerun()
+
 if st.sidebar.button("🚪 सुरक्षित लॉग आउट", use_container_width=True):
     st.session_state.auth_status = False
+    st.session_state.role = None
     st.rerun()
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("📌 कमिटी सेटिंग्स")
+active_com = st.sidebar.selectbox("एक्टिव कमिटी:", ["₹2,000 (10 Months)", "₹5,000 (10 Months)", "₹10,000 (10 Months)"])
+st.sidebar.info(f"📍 Location: Meghpatti, Samastipur\n📞 Support: Admin")
 
 st.title("💸 Digital Committee & ERP Manager")
 
 c1, c2, c3 = st.columns(3)
 if c1.button("📊 डैशबोर्ड & चार्ट्स", use_container_width=True): st.session_state.page = "Dashboard"
 if c2.button("👤 मेंबर मैनेजमेंट", use_container_width=True): st.session_state.page = "Add_Member"
-if c3.button("📒 लेज़र & कार्ड", use_container_width=True): st.session_state.page = "Ledger"
+if c3.button("📒 स्मार्ट लेज़र", use_container_width=True): st.session_state.page = "Ledger"
 
 c4, c5, c6 = st.columns(3)
-if c4.button("💰 कलेक्शन & बिडिंग", use_container_width=True): st.session_state.page = "Collection"
+if c4.button("💰 कलेक्शन & लोन", use_container_width=True): st.session_state.page = "Collection"
 if c5.button("⚠️ फाइन & पेनल्टी", use_container_width=True): st.session_state.page = "Penalty"
 if c6.button("📥 रिपोर्ट्स & बैकअप", use_container_width=True): st.session_state.page = "Report"
 
 st.divider()
 
-if st.session_state.page == "Dashboard": views.render_dashboard()
-elif st.session_state.page == "Add_Member": views.render_add_member()
-elif st.session_state.page == "Ledger": views.render_ledger()
-elif st.session_state.page == "Collection": views.render_collection()
-elif st.session_state.page == "Penalty": views.render_penalty()
-elif st.session_state.page == "Report": views.render_reports()
+# --- DYNAMIC PAGE ROUTING ---
+if st.session_state.page == "Dashboard":
+    views.render_dashboard()
+elif st.session_state.page == "Add_Member":
+    if st.session_state.role in ["Admin", "Staff"]:
+        views.render_add_member()
+    else:
+        st.error("🚫 Access Denied: केवल Admin और Staff ही नए मेंबर जोड़ सकते हैं।")
+elif st.session_state.page == "Ledger":
+    views.render_ledger()
+elif st.session_state.page == "Collection":
+    views.render_collection()
+elif st.session_state.page == "Penalty":
+    views.render_penalty()
+elif st.session_state.page == "Report":
+    if st.session_state.role == "Admin":
+        views.render_reports()
+    else:
+        st.error("🚫 Access Denied: रिपोर्ट्स डाउनलोड करने का अधिकार केवल Admin के पास है।")
