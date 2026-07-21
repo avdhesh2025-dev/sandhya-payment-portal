@@ -14,3 +14,9 @@ pandas
 requests
 Pillow
 pytesseract
+qrcode
+pillow
+pandas
+streamlit
+gspread
+oauth2client
