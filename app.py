@@ -42,11 +42,10 @@ def generate_qr(upi_id, name, amount):
     img.save(buf, format="PNG")
     return buf
 
-# 3. Session State for Navigation & Payment Tracking
+# 3. Session State for Navigation & Tracking
 if 'page' not in st.session_state:
     st.session_state.page = "Dashboard"
 
-# पेमेंट स्टेटस ट्रैक करने के लिए स्टेट (डिफ़ॉल्ट रूप से सभी का Pending)
 if 'payment_status' not in st.session_state:
     st.session_state.payment_status = {
         "Member 1": "❌ Pending",
@@ -60,6 +59,10 @@ if 'payment_status' not in st.session_state:
         "Member 9": "❌ Pending",
         "Member 10": "❌ Pending"
     }
+
+# इस महीने किसको पैसा मिला है उसका रिकॉर्ड (डिफ़ॉल्ट Member 1)
+if 'current_receiver' not in st.session_state:
+    st.session_state.current_receiver = "Member 1"
 
 st.title("💸 डिजिटल कमिटी मैनेजर")
 
@@ -77,7 +80,7 @@ if c6.button("📥 मंथली रिपोर्ट", use_container_width=T
 st.divider()
 
 # ----------------------------------------
-# PAGE 1: DASHBOARD (WITH LIVE PAYMENT TRACKER)
+# PAGE 1: DASHBOARD (WITH 'PAID TO' COLUMN)
 # ----------------------------------------
 if st.session_state.page == "Dashboard":
     st.header("📊 कमिटी समरी & पेमेंट ट्रैकर")
@@ -86,13 +89,13 @@ if st.session_state.page == "Dashboard":
     m1.metric("टोटल मेंबर्स", "10 / 10")
     m2.metric("कमिटी बैलेंस", "₹ 0")
     m3.metric("रनिंग बैलेंस", "₹ 20,000")
-    m4.metric("लोन धारक", "Member 1 (Jul)")
+    m4.metric("इस महीने का रिसीवर", st.session_state.current_receiver)
     
     st.markdown("---")
     st.subheader("🟢 इस महीने किसका पेमेंट आया / किसका बाकी है?")
-    st.info("एडमिन यहाँ से चेक करके किसी भी मेंबर का स्टेटस 'Complete' कर सकता है जब उसका पैसा आ जाए।")
+    st.info("टेबल में आपको यह भी दिखेगा कि इस महीने किस मेंबर को भुगतान (पैसे मिलने वाले हैं) होना है।")
     
-    # पेमेंट स्टेटस अपडेट करने का ऑप्शन
+    # स्टेटस अपडेट करने का ऑप्शन
     update_member = st.selectbox("स्टेटस बदलने के लिए मेंबर चुनें:", list(st.session_state.payment_status.keys()))
     new_status = st.radio("नया स्टेटस चुनें:", ["✅ Complete", "❌ Pending"], horizontal=True)
     
@@ -102,8 +105,18 @@ if st.session_state.page == "Dashboard":
         
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # टेबल फॉर्मेट में सभी का स्टेटस दिखाना
-    status_df = pd.DataFrame(list(st.session_state.payment_status.items()), columns=["मेंबर का नाम", "भुगतान स्टेटस (Payment Status)"])
+    # डेटा तैयार करना जिसमें 'भुगतान किसको हुआ' कॉलम भी शामिल है
+    table_data = []
+    for member, status in st.session_state.payment_status.items():
+        # अगर यह वही मेंबर है जिसे इस महीने पैसा मिलना है, तो उसके आगे उसका नाम दिखेगा
+        receiver_info = st.session_state.current_receiver if member == st.session_state.current_receiver else "-"
+        table_data.append({
+            "मेंबर का नाम": member,
+            "भुगतान स्टेटस": status,
+            "इस महीने भुगतान किसको मिलना है (Receiver)": receiver_info
+        })
+        
+    status_df = pd.DataFrame(table_data)
     st.dataframe(status_df, use_container_width=True)
 
 # ----------------------------------------
@@ -214,7 +227,9 @@ elif st.session_state.page == "Collection":
             st.image(qr_img, width=200, caption="स्कैन करके पेमेंट करें")
             
     if st.button("✅ कंप्लीट ट्रांसफर दर्ज करें", use_container_width=True):
-        st.success(f"{loan_taker} को ₹ {final_amount_to_give} ट्रांसफर हो गया!")
+        # सेव कर लें कि इस महीने किसे पैसा मिला है
+        st.session_state.current_receiver = loan_taker
+        st.success(f"✅ {loan_taker} को इस महीने का मुख्य रिसीवर सेट कर दिया गया है और ₹ {final_amount_to_give} ट्रांसफर की एंट्री हो गई है!")
 
 # ----------------------------------------
 # PAGE 5: LATE FINE (PENALTY) WITH QR
@@ -258,17 +273,17 @@ elif st.session_state.page == "Report":
     
     report_month = st.selectbox("महीना चुनें", ["July 2026", "August 2026"])
     total_collection = 20000
-    loan_receiver = "Member 1"
+    loan_receiver = st.session_state.current_receiver
     total_profit_pool = 1000
     per_member_profit = 100.0
     
     st.markdown(f"### 📋 {report_month} का फाइनल हिसाब")
     st.write(f"🔹 **कुल कलेक्शन:** ₹ {total_collection}")
-    st.write(f"🔹 **पैसा किसको मिला:** {loan_receiver}")
+    st.write(f"🔹 **भुगतान किसको हुआ (Receiver):** {loan_receiver}")
     st.success(f"💸 **हर मेंबर का प्रॉफिट:** ₹ {per_member_profit}")
     
     report_data = {
-        "विवरण": ["महीना", "टोटल कलेक्शन", "पैसा किसको मिला", "हर मेंबर का प्रॉफिट"],
+        "विवरण": ["महीना", "टोटल कलेक्शन", "भुगतान किसको हुआ (Receiver)", "हर मेंबर का प्रॉफिट"],
         "डेटा": [report_month, f"₹ {total_collection}", loan_receiver, f"₹ {per_member_profit}"]
     }
     df_report = pd.DataFrame(report_data)
