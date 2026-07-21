@@ -233,7 +233,7 @@ elif st.session_state.page == "Add_Member":
                 st.session_state.ledger_transactions.append({
                     "name": name,
                     "date": str(datetime.date.today()),
-                    desc_text := "खाता खुला / रजिस्ट्रेशन जमा": desc_text,
+                    "विवरण": "खाता खुला / रजिस्ट्रेशन जमा",
                     "credit": 2000,
                     "debit": 0,
                     "loan": 0,
@@ -248,7 +248,7 @@ elif st.session_state.page == "Add_Member":
                     st.success(f"✅ {name} का प्रोफाइल बन गया है! (ID: {member_id})")
 
 # ----------------------------------------
-# PAGE 3: MEMBER LEDGER (FULL TRANSACTION COLUMNS)
+# PAGE 3: MEMBER LEDGER
 # ----------------------------------------
 elif st.session_state.page == "Ledger":
     st.header("📒 व्यक्तिगत मेंबर लेज़र, लोन, कमीशन & ट्रांज़ैक्शन")
@@ -279,7 +279,6 @@ elif st.session_state.page == "Ledger":
                 
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # इस मेंबर के कुल ट्रांज़ैक्शन फिल्टर करना
             member_txns = [t for t in st.session_state.ledger_transactions if t['name'] == selected_member]
             
             total_credit = sum([t['credit'] for t in member_txns])
@@ -297,7 +296,6 @@ elif st.session_state.page == "Ledger":
                 
             st.divider()
             
-            # --- नया ट्रांज़ैक्शन जोड़ने का फॉर्म ---
             with st.expander("➕ इस मेंबर के लिए नया अमाउंट / लेज़र एंट्री जोड़ें"):
                 with st.form(f"txn_form_{selected_member}"):
                     t_date = st.date_input("तारीख", datetime.date.today())
@@ -333,7 +331,6 @@ elif st.session_state.page == "Ledger":
             st.subheader("💳 विस्तृत ट्रांज़ैक्शन हिस्ट्री")
             if len(member_txns) > 0:
                 df_txn = pd.DataFrame(member_txns)
-                # कॉलम नाम साफ़ करना
                 df_txn = df_txn[['date', 'विवरण', 'credit', 'debit', 'loan', 'commission', 'fine', 'balance']]
                 df_txn.columns = ['तारीख', 'विवरण', 'क्रेडिट (₹)', 'डेबिट (₹)', 'लोन (₹)', 'कमीशन (₹)', 'फाइन (₹)', 'बैलेंस (₹)']
                 st.dataframe(df_txn, use_container_width=True)
@@ -396,7 +393,6 @@ elif st.session_state.page == "Collection":
                     if m['name'] == loan_taker:
                         m['loan_status'] = "Active Loan"
                 
-                # लेज़र में आटोमैटिक लोन और कमीशन की एंट्री जोड़ना
                 st.session_state.ledger_transactions.append({
                     "name": loan_taker,
                     "date": str(datetime.date.today()),
