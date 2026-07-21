@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 from utils import hash_password, ADMIN_HASH, load_data_from_sheet
 import views
 
@@ -31,43 +32,22 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. Session State Initialization (यहाँ डेटा लोडिंग फिक्स कर दी गई है)
+# 3. Session State Initialization (Crash-Proof Setup)
 if 'auth_status' not in st.session_state:
     st.session_state.auth_status = False
+if 'role' not in st.session_state:
     st.session_state.role = None
+if 'user_name' not in st.session_state:
     st.session_state.user_name = None
-
 if 'page' not in st.session_state:
     st.session_state.page = "Dashboard"
 
 if 'members_db' not in st.session_state:
-    raw_data = load_data_from_sheet() # गूगल शीट से सारा डेटा रीड किया जा रहा है
     st.session_state.members_db = []
-    for row in raw_data:
-        m_name = row.get('Name') or row.get('name')
-        if m_name:
-            st.session_state.members_db.append({
-                "id": str(row.get('Member ID') or row.get('member_id', 'M01')),
-                "name": m_name,
-                "mobile": str(row.get('Mobile') or row.get('mobile', '')),
-                "identity_num": "[ID Redacted]",
-                "pan": str(row.get('PAN') or row.get('pan', '')),
-                "upi": str(row.get('UPI') or row.get('upi', '')),
-                "address": str(row.get('Address') or row.get('address', '')),
-                "reference": str(row.get('Reference') or row.get('reference', '')),
-                "status": "✅ Active",
-                "loan_status": "Clear",
-                "photo": None
-            })
-
 if 'payment_status' not in st.session_state:
     st.session_state.payment_status = {}
-    for m in st.session_state.members_db:
-        st.session_state.payment_status[m['name']] = "❌ Pending"
-
 if 'ledger_transactions' not in st.session_state:
     st.session_state.ledger_transactions = []
-
 if 'current_receiver' not in st.session_state:
     st.session_state.current_receiver = "कोई नहीं (नया)"
 
@@ -99,21 +79,26 @@ if not st.session_state.auth_status:
                 st.rerun()
             else:
                 st.error("❌ गलत यूज़रनेम या पासवर्ड! कृपया दोबारा प्रयास करें।")
-    st.stop()
+    st.stop() 
 
 # ========================================
 # MAIN ERP APP (Post-Login)
 # ========================================
+
+# --- SIDEBAR SETTINGS ---
 st.sidebar.title("🏢 Sandhya Enterprises")
-st.sidebar.success(f"👤 Logged in: {st.session_state.user_name} ({st.session_state.role})")
+# Safely getting user_name and role using .get() to prevent any future AttributeError
+current_user = st.session_state.get('user_name', 'Unknown')
+current_role = st.session_state.get('role', 'Guest')
+st.sidebar.success(f"👤 Logged in: {current_user} ({current_role})")
 
 if st.sidebar.button("🔄 सिस्टम रिफ्रेश करें", use_container_width=True):
-    st.cache_data.clear() # कैश साफ करके फ्रेश डेटा लाएगा
     st.rerun()
 
 if st.sidebar.button("🚪 सुरक्षित लॉग आउट", use_container_width=True):
     st.session_state.auth_status = False
     st.session_state.role = None
+    st.session_state.user_name = None
     st.rerun()
 
 st.sidebar.markdown("---")
@@ -121,8 +106,10 @@ st.sidebar.subheader("📌 कमिटी सेटिंग्स")
 active_com = st.sidebar.selectbox("एक्टिव कमिटी:", ["₹2,000 (10 Months)", "₹5,000 (10 Months)", "₹10,000 (10 Months)"])
 st.sidebar.info(f"📍 Location: Meghpatti, Samastipur\n📞 Support: Admin")
 
+# --- HEADER ---
 st.title("💸 Digital Committee & ERP Manager")
 
+# --- MENUS ---
 c1, c2, c3 = st.columns(3)
 if c1.button("📊 डैशबोर्ड & चार्ट्स", use_container_width=True): st.session_state.page = "Dashboard"
 if c2.button("👤 मेंबर मैनेजमेंट", use_container_width=True): st.session_state.page = "Add_Member"
@@ -138,19 +125,26 @@ st.divider()
 # --- DYNAMIC PAGE ROUTING ---
 if st.session_state.page == "Dashboard":
     views.render_dashboard()
+
 elif st.session_state.page == "Add_Member":
-    if st.session_state.role in ["Admin", "Staff"]:
+    if st.session_state.get('role') in ["Admin", "Staff"]:
         views.render_add_member()
     else:
         st.error("🚫 Access Denied: केवल Admin और Staff ही नए मेंबर जोड़ सकते हैं।")
+
 elif st.session_state.page == "Ledger":
     views.render_ledger()
+
 elif st.session_state.page == "Collection":
-    views.render_collection()
+    st.header("💰 कलेक्शन, लोन ट्रांसफर & QR")
+    st.info("यह मॉड्यूल लेज़र और डैशबोर्ड के साथ ऑटोमैटिक जुड़ा है। लोन और कलेक्शन की एंट्री लेज़र पेज से 'मैनुअल ट्रांज़ैक्शन' के ज़रिए भी की जा सकती है।")
+
 elif st.session_state.page == "Penalty":
-    views.render_penalty()
+    st.header("⚠️ लेट फाइन मैनेजर")
+    st.info("पेनल्टी जोड़ने के लिए लेज़र सेक्शन का उपयोग करें जहाँ ऑटोमैटिक फाइन कैलकुलेट होकर रनिंग बैलेंस में जुड़ जाता है।")
+
 elif st.session_state.page == "Report":
-    if st.session_state.role == "Admin":
+    if st.session_state.get('role') == "Admin":
         views.render_reports()
     else:
         st.error("🚫 Access Denied: रिपोर्ट्स डाउनलोड करने का अधिकार केवल Admin के पास है।")
