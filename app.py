@@ -3,6 +3,8 @@ import pandas as pd
 import qrcode
 from io import BytesIO
 import datetime
+import gspread
+from google.oauth2.service_account import Credentials
 
 # 1. Page Config (A4 Size / Centered Layout)
 st.set_page_config(page_title="डिजिटल कमिटी - Sandhya Enterprises", layout="centered")
@@ -10,7 +12,6 @@ st.set_page_config(page_title="डिजिटल कमिटी - Sandhya Ente
 # 2. Custom CSS for 3D Buttons & Layout
 st.markdown("""
     <style>
-    /* 3D Button Style */
     div.stButton > button {
         background-color: #ffffff;
         color: #1f2937;
@@ -30,6 +31,20 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# --- Google Sheets Connection Setup ---
+@st.cache_resource
+def init_google_sheet():
+    try:
+        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
+        client = gspread.authorize(creds)
+        sheet = client.open("Sandhya ERP Database").sheet1
+        return sheet
+    except Exception as e:
+        return None
+
+sheet = init_google_sheet()
+
 # --- QR Code Generator Function ---
 def generate_qr(upi_id, name, amount):
     upi_url = f"upi://pay?pa={upi_id}&pn={name}&am={amount}&cu=INR"
@@ -41,66 +56,39 @@ def generate_qr(upi_id, name, amount):
     img.save(buf, format="PNG")
     return buf
 
-# 3. Session State Initialization & Database Simulation
+# 3. Session State Initialization
 if 'page' not in st.session_state:
     st.session_state.page = "Dashboard"
 
-# Login System State
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.user_role = "Guest"
-
-# Multiple Committees State
-if 'active_committee' not in st.session_state:
-    st.session_state.active_committee = "₹2,000 कमिटी"
-
-# Members Master Database (Simulating Live Google Sheets Backend)
 if 'members_db' not in st.session_state:
-    st.session_state.members_db = [
-        {"id": "M001", "name": "Member 1", "mobile": "9876543210", "aadhar": "[Aadhaar Redacted]", "pan": "ABCDE1234F", "upi": "7479584179@ybl", "reference": "Admin", "status": "✅ Complete"},
-        {"id": "M002", "name": "Member 2", "mobile": "9876543211", "aadhar": "[Aadhaar Redacted]", "pan": "FGHIJ5678K", "upi": "member2@ybl", "reference": "Member 1", "status": "❌ Pending"},
-    ]
+    st.session_state.members_db = []
 
 if 'payment_status' not in st.session_state:
     st.session_state.payment_status = {
-        "Member 1": "❌ Pending",
-        "Member 2": "❌ Pending",
-        "Member 3": "❌ Pending",
-        "Member 4": "❌ Pending",
-        "Member 5": "❌ Pending",
-        "Member 6": "❌ Pending",
-        "Member 7": "❌ Pending",
-        "Member 8": "❌ Pending",
-        "Member 9": "❌ Pending",
-        "Member 10": "❌ Pending"
+        "Member 1": "❌ Pending", "Member 2": "❌ Pending", "Member 3": "❌ Pending",
+        "Member 4": "❌ Pending", "Member 5": "❌ Pending", "Member 6": "❌ Pending",
+        "Member 7": "❌ Pending", "Member 8": "❌ Pending", "Member 9": "❌ Pending", "Member 10": "❌ Pending"
     }
 
 if 'current_receiver' not in st.session_state:
     st.session_state.current_receiver = "Member 1"
 
-# --- SIDEBAR: LOGIN & COMMITTEE SELECTION ---
-st.sidebar.title("🔐 सिस्टम लॉगिन & सेटिंग्स")
+# --- SIDEBAR: LOGIN & SETTINGS ---
+st.sidebar.title("🔐 सिस्टम सेटिंग्स")
 role_choice = st.sidebar.selectbox("यूज़र रोल चुनें:", ["Admin (संचालक)", "Staff (कर्मचारी)", "Member (सदस्य)"])
-pass_key = st.sidebar.text_input("पासवर्ड दर्ज करें:", type="password")
+pass_key = st.sidebar.text_input("पासवर्ड (Admin: admin123):", type="password")
 
 if st.sidebar.button("लॉगिन करें"):
     if pass_key == "admin123" or role_choice == "Member (सदस्य)":
-        st.session_state.logged_in = True
-        st.session_state.user_role = role_choice
-        st.sidebar.success(f"सफलतापूर्वक लॉगिन हुए: {role_choice}")
+        st.sidebar.success(f"लॉगिन सफल: {role_choice}")
     else:
         st.sidebar.error("गलत पासवर्ड!")
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("📌 कमिटी टियर चुनें")
-st.session_state.active_committee = st.sidebar.selectbox(
-    "चल रही कमेटियाँ:", 
-    ["₹2,000 कमिटी (10 लोग)", "₹5,000 कमिटी (10 लोग)", "₹10,000 कमिटी (10 लोग)"]
-)
+st.sidebar.subheader("📌 कमिटी टियर")
+active_com = st.sidebar.selectbox("कमिटी चुनें:", ["₹2,000 कमिटी (10 लोग)", "₹5,000 कमिटी (10 लोग)", "₹10,000 कमिटी (10 लोग)"])
 
-# Header Title with Company Branding
 st.title("💸 Sandhya Enterprises - डिजिटल कमिटी मैनेजर")
-st.caption(f"सक्रिय कमिटी: **{st.session_state.active_committee}** | भूमिका: **{st.session_state.user_role}**")
 
 # 4. Main Menu Display (6 3D Boxes in 2 Rows)
 c1, c2, c3 = st.columns(3)
@@ -116,7 +104,7 @@ if c6.button("📥 मंथली रिपोर्ट", use_container_width=T
 st.divider()
 
 # ----------------------------------------
-# PAGE 1: DASHBOARD (WITH 'PAID TO' & LIVE TRACKER)
+# PAGE 1: DASHBOARD
 # ----------------------------------------
 if st.session_state.page == "Dashboard":
     st.header("📊 कमिटी समरी & पेमेंट ट्रैकर")
@@ -130,14 +118,13 @@ if st.session_state.page == "Dashboard":
     st.markdown("---")
     st.subheader("🟢 इस महीने किसका पेमेंट आया / किसका बाकी है?")
     
-    if st.session_state.user_role != "Member (सदस्य)":
-        update_member = st.selectbox("स्टेटस बदलने के लिए मेंबर चुनें:", list(st.session_state.payment_status.keys()))
-        new_status = st.radio("नया स्टेटस चुनें:", ["✅ Complete", "❌ Pending"], horizontal=True)
-        
-        if st.button("स्टेटस अपडेट करें"):
-            st.session_state.payment_status[update_member] = new_status
-            st.success(f"✅ {update_member} का स्टेटस अपडेट होकर '{new_status}' हो गया है!")
+    update_member = st.selectbox("स्टेटस बदलने के लिए मेंबर चुनें:", list(st.session_state.payment_status.keys()))
+    new_status = st.radio("नया स्टेटस चुनें:", ["✅ Complete", "❌ Pending"], horizontal=True)
     
+    if st.button("स्टेटस अपडेट करें"):
+        st.session_state.payment_status[update_member] = new_status
+        st.success(f"✅ {update_member} का स्टेटस अपडेट होकर '{new_status}' हो गया है!")
+        
     st.markdown("<br>", unsafe_allow_html=True)
     
     table_data = []
@@ -146,111 +133,71 @@ if st.session_state.page == "Dashboard":
         table_data.append({
             "मेंबर का नाम": member,
             "भुगतान स्टेटस": status,
-            "इस महीने भुगतान किसको मिलना है (Receiver)": receiver_info
+            "इस महीने भुगतान किसको मिलना है": receiver_info
         })
         
     status_df = pd.DataFrame(table_data)
     st.dataframe(status_df, use_container_width=True)
 
 # ----------------------------------------
-# PAGE 2: ADD NEW MEMBER (AUTO ID & DUPLICATE CHECK)
+# PAGE 2: ADD NEW MEMBER (GOOGLE SHEET LIVE SYNC)
 # ----------------------------------------
 elif st.session_state.page == "Add_Member":
-    st.header("👤 नया मेंबर रजिस्ट्रेशन (Auto ID & Validation)")
+    st.header("👤 नया मेंबर रजिस्ट्रेशन (Google Sheet Live Sync)")
     
-    # Auto Generate Member ID
-    next_member_id = f"M0{len(st.session_state.members_db) + 1}"
-    st.info(f"सिस्टम द्वारा जनरेट की गई नई मेंबर ID: **{next_member_id}**")
-    
-    with st.form("new_member_form"):
+    with st.form("new_member_form", clear_on_submit=True):
         colA, colB = st.columns(2)
         with colA:
             name = st.text_input("मेंबर का पूरा नाम *")
             mobile = st.text_input("मोबाइल / WhatsApp नंबर *")
-            aadhar = st.text_input("Aadhar Number * (12 Digits)")
-            upi_id = st.text_input("UPI ID (पैसे रिसीव करने के लिए) *")
+            pan = st.text_input("PAN Card Number *")
             
         with colB:
-            pan = st.text_input("PAN Card Number *")
-            address = st.text_input("पूरा पता *")
+            upi_id = st.text_input("UPI ID (पैसे रिसीव करने के लिए) *")
             reference = st.selectbox("रेफरेंस / गारंटर *", ["-- चुनें --", "Admin", "Member 1", "Member 2"])
             
         photo = st.file_uploader("मेंबर की फोटो अपलोड करें *", type=["jpg", "png", "jpeg"])
         
-        # Photo Preview Feature
         if photo is not None:
             st.image(photo, width=120, caption="फोटो प्रिव्यू")
             
-        submit = st.form_submit_button("डेटा सेव करें", use_container_width=True)
+        submit = st.form_submit_button("डेटा सेव करें और गूगल शीट में भेजें", use_container_width=True)
         
         if submit:
-            # Check Duplicates (Aadhaar & PAN Validation)
-            existing_aadhars = [m['aadhar'] for m in st.session_state.members_db]
-            existing_pans = [m['pan'] for m in st.session_state.members_db]
-            
-            if not name or not mobile or not aadhar or not pan or not address or not upi_id or reference == "-- चुनें --" or not photo:
+            if not name or not mobile or not pan or not upi_id or reference == "-- चुनें --" or not photo:
                 st.error("⚠️ कृपया सभी अनिवार्य (*) फील्ड भरें और फोटो अपलोड करें!")
-            elif aadhar in existing_aadhars:
-                st.error("❌ त्रुटि: यह Aadhaar नंबर पहले से रजिस्टर्ड है (Member Already Exists)!")
-            elif pan in existing_pans:
-                st.error("❌ त्रुटि: यह PAN नंबर पहले से मौजूद है!")
             else:
+                member_id = f"M0{len(st.session_state.members_db) + 1}"
+                
+                # Google Sheet Sync
+                saved_to_sheet = False
+                if sheet is not None:
+                    try:
+                        sheet.append_row([member_id, name, mobile, pan, upi_id, reference])
+                        saved_to_sheet = True
+                    except Exception as e:
+                        st.error(f"Google Sheet एरर: {e}")
+                
                 new_member = {
-                    "id": next_member_id,
-                    "name": name,
-                    "mobile": mobile,
-                    "aadhar": "[Aadhaar Redacted]",
-                    "pan": pan,
-                    "upi": upi_id,
-                    "reference": reference,
-                    "status": "✅ Active"
+                    "id": member_id, "name": name, "mobile": mobile, 
+                    "pan": pan, "upi": upi_id, "reference": reference, "status": "✅ Active"
                 }
                 st.session_state.members_db.append(new_member)
-                st.success(f"✅ {name} का प्रोफाइल सफलतापूर्वक बन गया है! मेंबर ID: {next_member_id}")
+                st.session_state.payment_status[name] = "❌ Pending"
+                
+                if saved_to_sheet:
+                    st.success(f"✅ {name} का डेटा आपकी **Google Sheet** और ऐप दोनों में सेव हो गया! ID: {member_id}")
+                else:
+                    st.warning(f"⚠️ डेटा ऐप में सेव हो गया (ID: {member_id}), लेकिन गूगल शीट कनेक्टेड नहीं है।")
 
 # ----------------------------------------
 # PAGE 3: MEMBER LEDGER
 # ----------------------------------------
 elif st.session_state.page == "Ledger":
     st.header("📒 व्यक्तिगत मेंबर लेज़र")
-    
-    member_names = [m['name'] for m in st.session_state.members_db]
-    selected_member = st.selectbox("हिसाब देखने के लिए मेंबर चुनें:", member_names)
-    
+    selected_member = st.selectbox("हिसाब देखने के लिए मेंबर चुनें:", list(st.session_state.payment_status.keys()))
     if selected_member:
-        st.markdown("---")
-        p_col1, p_col2, p_col3 = st.columns([1, 2, 2])
-        
-        with p_col1:
-            st.image("https://cdn-icons-png.flaticon.com/512/149/149071.png", width=120)
-            st.success("🟢 Active")
-            
-        with p_col2:
-            st.write(f"👤 **नाम:** {selected_member}")
-            st.write("📱 **मोबाइल:** 9876543210")
-            st.write("📍 **पता:** Samastipur, Bihar")
-            
-        with p_col3:
-            st.write("🏛️ **Aadhar:** [Redacted]")
-            st.write("💳 **PAN:** ABCDE1234F")
-            st.write("📅 **जॉइनिंग:** 01-Jul-2026")
-            
-        st.markdown("<br>", unsafe_allow_html=True)
-        f_col1, f_col2, f_col3 = st.columns(3)
-        f_col1.metric("कुल जमा", "₹ 2,000")
-        f_col2.metric("कुल प्रॉफिट", "₹ 90")
-        f_col3.metric("बैलेंस", "₹ 2,090")
-            
-        st.divider()
-        st.subheader("💳 ट्रांज़ैक्शन हिस्ट्री")
-        ledger_data = pd.DataFrame({
-            "तारीख": ["01-Jul", "05-Jul"],
-            "विवरण": ["मंथली जमा", "प्रॉफिट मिला"],
-            "क्रेडिट": ["₹ 2000", "₹ 40"],
-            "डेबिट": ["-", "-"],
-            "बैलेंस": ["₹ 2000", "₹ 2040"]
-        })
-        st.dataframe(ledger_data, use_container_width=True)
+        st.write(f"**नाम:** {selected_member} | **कुल जमा:** ₹2,000 | **बैलेंस:** ₹2,090")
 
 # ----------------------------------------
 # PAGE 4: COLLECTION & TRANSFER WITH QR
@@ -261,7 +208,7 @@ elif st.session_state.page == "Collection":
     colA, colB = st.columns(2)
     with colA:
         loan_taker = st.selectbox("इस महीने पैसा किसको मिला?", list(st.session_state.payment_status.keys()))
-        receiver_upi = st.text_input("मेंबर की UPI ID", value="7479584179@ybl")
+        receiver_upi = st.text_input("UPI ID", value="7479584179@ybl")
     with colB:
         total_amount = st.number_input("टोटल अमाउंट (₹)", value=20000)
     
@@ -288,7 +235,7 @@ elif st.session_state.page == "Collection":
             
     if st.button("✅ कंप्लीट ट्रांसफर दर्ज करें", use_container_width=True):
         st.session_state.current_receiver = loan_taker
-        st.success(f"✅ {loan_taker} को इस महीने का मुख्य रिसीवर सेट कर दिया गया है और ₹ {final_amount_to_give} ट्रांसफर की एंट्री हो गई है!")
+        st.success(f"✅ {loan_taker} को ₹ {final_amount_to_give} ट्रांसफर की एंट्री हो गई है!")
 
 # ----------------------------------------
 # PAGE 5: LATE FINE (PENALTY) WITH QR
