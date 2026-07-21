@@ -128,20 +128,22 @@ if st.session_state.page == "Dashboard":
     st.dataframe(status_df, use_container_width=True)
 
 # ----------------------------------------
-# PAGE 2: ADD NEW MEMBER (GOOGLE SHEET WEB APP SYNC)
+# PAGE 2: ADD NEW MEMBER (AADHAR, ADDRESS & DUPLICATE VALIDATION)
 # ----------------------------------------
 elif st.session_state.page == "Add_Member":
-    st.header("👤 नया मेंबर रजिस्ट्रेशन (Google Sheet Live Sync)")
+    st.header("👤 नया मेंबर रजिस्ट्रेशन (Duplicate & Validation Check)")
     
     with st.form("new_member_form", clear_on_submit=True):
         colA, colB = st.columns(2)
         with colA:
             name = st.text_input("मेंबर का पूरा नाम *")
             mobile = st.text_input("मोबाइल / WhatsApp नंबर *")
+            aadhar = st.text_input("Aadhar Number * (12 Digits)")
             pan = st.text_input("PAN Card Number *")
             
         with colB:
             upi_id = st.text_input("UPI ID (पैसे रिसीव करने के लिए) *")
+            address = st.text_area("पूरा पता (Village, Post, Dist, PIN) *")
             reference = st.selectbox("रेफरेंस / गारंटर *", ["-- चुनें --", "Admin", "Member 1", "Member 2"])
             
         photo = st.file_uploader("मेंबर की फोटो अपलोड करें *", type=["jpg", "png", "jpeg"])
@@ -152,8 +154,23 @@ elif st.session_state.page == "Add_Member":
         submit = st.form_submit_button("डेटा सेव करें और गूगल शीट में भेजें", use_container_width=True)
         
         if submit:
-            if not name or not mobile or not pan or not upi_id or reference == "-- चुनें --" or not photo:
+            # Duplicate and Validation Check
+            existing_mobiles = [m['mobile'] for m in st.session_state.members_db]
+            existing_aadhars = [m['aadhar'] for m in st.session_state.members_db]
+            existing_pans = [m['pan'] for m in st.session_state.members_db]
+            
+            if not name or not mobile or not aadhar or not pan or not address or not upi_id or reference == "-- चुनें --" or not photo:
                 st.error("⚠️ कृपया सभी अनिवार्य (*) फील्ड भरें और फोटो अपलोड करें!")
+            elif len(aadhar) != 12 or not aadhar.isdigit():
+                st.error("❌ त्रुटि: Aadhar नंबर ठीक 12 अंकों का होना चाहिए!")
+            elif len(pan) != 10:
+                st.error("❌ त्रुटि: PAN कार्ड नंबर ठीक 10 अक्षरों का होना चाहिए!")
+            elif mobile in existing_mobiles:
+                st.error("❌ त्रुटि: यह मोबाइल नंबर पहले से रजिस्टर्ड है!")
+            elif aadhar in existing_aadhars:
+                st.error("❌ त्रुटि: यह Aadhar नंबर पहले से मौजूद है!")
+            elif pan in existing_pans:
+                st.error("❌ त्रुटि: यह PAN नंबर पहले से मौजूद है!")
             else:
                 member_id = f"M0{len(st.session_state.members_db) + 1}"
                 
@@ -164,8 +181,10 @@ elif st.session_state.page == "Add_Member":
                         "member_id": member_id,
                         "name": name,
                         "mobile": mobile,
+                        "aadhar": "[Redacted]",
                         "pan": pan,
                         "upi": upi_id,
+                        "address": address,
                         "reference": reference
                     }
                     response = requests.post(APPS_SCRIPT_URL, json=payload)
@@ -176,30 +195,68 @@ elif st.session_state.page == "Add_Member":
                 
                 new_member = {
                     "id": member_id, "name": name, "mobile": mobile, 
-                    "pan": pan, "upi": upi_id, "reference": reference, "status": "✅ Active"
+                    "aadhar": aadhar, "pan": pan, "upi": upi_id, 
+                    "address": address, "reference": reference, "status": "✅ Active",
+                    "loan_status": "Clear" # Loan tracking status
                 }
                 st.session_state.members_db.append(new_member)
                 st.session_state.payment_status[name] = "❌ Pending"
                 
                 if saved_to_sheet:
-                    st.success(f"✅ {name} का डेटा सीधे आपकी **Google Sheet** में सेव हो गया! ID: {member_id}")
+                    st.success(f"✅ {name} का डेटा सीधे आपकी **Google Sheet** और ऐप में सेव हो गया! ID: {member_id}")
                 else:
                     st.success(f"✅ {name} का प्रोफाइल बन गया है! (ID: {member_id})")
 
 # ----------------------------------------
-# PAGE 3: MEMBER LEDGER
+# PAGE 3: MEMBER LEDGER (WITH PROFILE & DETAILS)
 # ----------------------------------------
 elif st.session_state.page == "Ledger":
-    st.header("📒 व्यक्तिगत मेंबर लेज़र")
-    selected_member = st.selectbox("हिसाब देखने के लिए मेंबर चुनें:", list(st.session_state.payment_status.keys()))
+    st.header("📒 व्यक्तिगत मेंबर लेज़र & प्रोफाइल")
+    
+    # Check if any members exist
+    member_names = [m['name'] for m in st.session_state.members_db] if st.session_state.members_db else list(st.session_state.payment_status.keys())
+    selected_member = st.selectbox("हिसाब देखने के लिए मेंबर चुनें:", member_names)
+    
     if selected_member:
-        st.write(f"**नाम:** {selected_member} | **कुल जमा:** ₹2,000 | **बैलेंस:** ₹2,090")
+        st.markdown("---")
+        p_col1, p_col2, p_col3 = st.columns([1, 2, 2])
+        
+        with p_col1:
+            st.image("https://cdn-icons-png.flaticon.com/512/149/149071.png", width=110)
+            st.success("🟢 Active")
+            
+        with p_col2:
+            st.write(f"👤 **नाम:** {selected_member}")
+            st.write("📱 **मोबाइल:** 9876543210")
+            st.write("📍 **पता:** Meghpatti, Samastipur, Bihar")
+            
+        with p_col3:
+            st.write("🏛️ **Aadhar:** XXXX-XXXX-1234")
+            st.write("💳 **PAN:** ABCDE1234F")
+            st.write("🏦 **UPI:** user@ybl")
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        f_col1, f_col2, f_col3 = st.columns(3)
+        f_col1.metric("कुल जमा", "₹ 2,000")
+        f_col2.metric("कुल प्रॉफिट", "₹ 90")
+        f_col3.metric("बैलेंस", "₹ 2,090")
+            
+        st.divider()
+        st.subheader("💳 ट्रांज़ैक्शन हिस्ट्री")
+        ledger_data = pd.DataFrame({
+            "तारीख": ["01-Jul", "05-Jul"],
+            "विवरण": ["मंथली जमा", "प्रॉफिट मिला"],
+            "क्रेडिट": ["₹ 2000", "₹ 40"],
+            "डेबिट": ["-", "-"],
+            "बैलेंस": ["₹ 2000", "₹ 2040"]
+        })
+        st.dataframe(ledger_data, use_container_width=True)
 
 # ----------------------------------------
-# PAGE 4: COLLECTION & TRANSFER WITH QR
+# PAGE 4: COLLECTION & TRANSFER WITH QR & LOAN LOCK
 # ----------------------------------------
 elif st.session_state.page == "Collection":
-    st.header("💰 मंथली कलेक्शन और ट्रांसफर")
+    st.header("💰 मंथली कलेक्शन और लोन ट्रांसफर")
     
     colA, colB = st.columns(2)
     with colA:
@@ -229,9 +286,26 @@ elif st.session_state.page == "Collection":
             qr_img = generate_qr(receiver_upi, loan_taker, final_amount_to_give)
             st.image(qr_img, width=200, caption="स्कैन करके पेमेंट करें")
             
-    if st.button("✅ कंप्लीट ट्रांसफर दर्ज करें", use_container_width=True):
-        st.session_state.current_receiver = loan_taker
-        st.success(f"✅ {loan_taker} को ₹ {final_amount_to_give} ट्रांसफर की एंट्री हो गई है!")
+    # Loan Lock Validation Rule: Check if already has active loan
+    has_active_loan = False
+    for m in st.session_state.members_db:
+        if m['name'] == loan_taker and m.get('loan_status') == "Active Loan":
+            has_active_loan = True
+            
+    if has_active_loan:
+        st.error(f"❌ {loan_taker} को पहले ही लोन मिल चुका है और वह अभी चल रहा है! जब तक पिछला लोन क्लियर नहीं होता, इन्हें दोबारा पैसा नहीं मिल सकता।")
+        if st.button("⚡ फोर्स क्लोज करें (₹500 पेनल्टी जमा करके)", use_container_width=True):
+            for m in st.session_state.members_db:
+                if m['name'] == loan_taker:
+                    m['loan_status'] = "Clear"
+            st.success(f"✅ ₹500 पेनल्टी जमा हो गई और {loan_taker} का पिछला लोन फोर्स क्लोज कर दिया गया है अब नया पैसा मिल सकता है!")
+    else:
+        if st.button("✅ कंप्लीट ट्रांसफर दर्ज करें", use_container_width=True):
+            st.session_state.current_receiver = loan_taker
+            for m in st.session_state.members_db:
+                if m['name'] == loan_taker:
+                    m['loan_status'] = "Active Loan"
+            st.success(f"✅ {loan_taker} को ₹ {final_amount_to_give} ट्रांसफर की एंट्री हो गई है और इनका लोन स्टेटस 'Active' हो गया है!")
 
 # ----------------------------------------
 # PAGE 5: LATE FINE (PENALTY) WITH QR
