@@ -13,7 +13,7 @@ def hash_password(password):
 ADMIN_HASH = hash_password("9557") 
 
 # --- Database Integration (Google Apps Script) ---
-APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw1cjdszgSRrSb8PlvupUVQTlea4e7dkvcCdDKJ-o8TssXJLmLRMBTJqBfhGhqcRjU-wg/exec"
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx49edEU75cyvsKNXfyQLpBXLHFFQE6NqlVbfgAUtPKMMynsK8Nte-WtVSoTS9g91aBhw/exec"
 
 def load_data_from_sheet():
     try:
