@@ -31,8 +31,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Google Apps Script Web App URL ---
-# आपकी दी गई Apps Script वेब ऐप लिंक
-APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbypT2LxQMUib4R90IYZCELADOdw2OPk5h1ZdHJlHB0top9lbipkow4gaBqgWvSvlpZAHA/exec"
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrsJYjhwSkdQzXjb2yUL67vwRtC2K5sJU21n70tDEbm1uGMEhbz3JBZmUXAhSN28sGA/exec"
 
 # --- QR Code Generator Function ---
 def generate_qr(upi_id, name, amount):
