@@ -30,8 +30,19 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- Google Apps Script Web App URL (Updated) ---
+# --- Google Apps Script Web App URL ---
 APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw1cjdszgSRrSb8PlvupUVQTlea4e7dkvcCdDKJ-o8TssXJLmLRMBTJqBfhGhqcRjU-wg/exec"
+
+# --- Google Sheet से पुराना डेटा लोड करने का फंक्शन ---
+@st.cache_data(ttl=2)
+def load_data_from_sheet():
+    try:
+        response = requests.get(APPS_SCRIPT_URL)
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        pass
+    return []
 
 # --- QR Code Generator Function ---
 def generate_qr(upi_id, name, amount):
@@ -44,15 +55,33 @@ def generate_qr(upi_id, name, amount):
     img.save(buf, format="PNG")
     return buf
 
-# 3. Session State Initialization
+# 3. Session State Initialization & Sheet Sync
 if 'page' not in st.session_state:
     st.session_state.page = "Dashboard"
 
 if 'members_db' not in st.session_state:
+    raw_data = load_data_from_sheet()
     st.session_state.members_db = []
+    for row in raw_data:
+        m_name = row.get('Name') or row.get('name')
+        if m_name:
+            st.session_state.members_db.append({
+                "id": row.get('Member ID') or row.get('member_id', 'M01'),
+                "name": m_name,
+                "mobile": str(row.get('Mobile') or row.get('mobile', '')),
+                "identity_num": "[Aadhaar Redacted]",
+                "pan": str(row.get('PAN') or row.get('pan', '')),
+                "upi": str(row.get('UPI') or row.get('upi', '')),
+                "address": str(row.get('Address') or row.get('address', '')),
+                "reference": str(row.get('Reference') or row.get('reference', '')),
+                "status": "✅ Active",
+                "loan_status": "Clear"
+            })
 
 if 'payment_status' not in st.session_state:
     st.session_state.payment_status = {}
+    for m in st.session_state.members_db:
+        st.session_state.payment_status[m['name']] = "❌ Pending"
 
 if 'current_receiver' not in st.session_state:
     st.session_state.current_receiver = "कोई नहीं (नया)"
@@ -154,7 +183,6 @@ elif st.session_state.page == "Add_Member":
         
         if submit:
             existing_mobiles = [m['mobile'] for m in st.session_state.members_db]
-            existing_ids = [m['identity_num'] for m in st.session_state.members_db]
             existing_pans = [m['pan'] for m in st.session_state.members_db]
             
             if not name or not mobile or not identity_num or not pan or not address or not upi_id or reference == "-- चुनें --" or not photo:
@@ -165,21 +193,18 @@ elif st.session_state.page == "Add_Member":
                 st.error("❌ त्रुटि: PAN कार्ड नंबर ठीक 10 अक्षरों का होना चाहिए!")
             elif mobile in existing_mobiles:
                 st.error("❌ त्रुटि: यह मोबाइल नंबर पहले से रजिस्टर्ड है!")
-            elif identity_num in existing_ids:
-                st.error("❌ त्रुटि: यह नंबर पहले से मौजूद है!")
             elif pan in existing_pans:
                 st.error("❌ त्रुटि: यह PAN नंबर पहले से मौजूद है!")
             else:
                 member_id = f"M0{len(st.session_state.members_db) + 1}"
                 
-                # Google Sheet Sync via new Web App URL
                 saved_to_sheet = False
                 try:
                     payload = {
                         "member_id": member_id,
                         "name": name,
                         "mobile": mobile,
-                        "identity": "[Redacted]",
+                        "identity": "[Aadhaar Redacted]",
                         "pan": pan,
                         "upi": upi_id,
                         "address": address,
@@ -193,7 +218,7 @@ elif st.session_state.page == "Add_Member":
                 
                 new_member = {
                     "id": member_id, "name": name, "mobile": mobile, 
-                    "identity_num": identity_num, "pan": pan, "upi": upi_id, 
+                    "identity_num": "[Aadhaar Redacted]", "pan": pan, "upi": upi_id, 
                     "address": address, "reference": reference, "status": "✅ Active",
                     "loan_status": "Clear"
                 }
@@ -231,7 +256,7 @@ elif st.session_state.page == "Ledger":
                 st.write(f"📍 **पता:** {m_details['address']}")
                 
             with p_col3:
-                st.write(f"🏛️ **ID/Number:** [Redacted]")
+                st.write(f"🏛️ **ID/Number:** [Aadhaar Redacted]")
                 st.write(f"💳 **PAN:** {m_details['pan']}")
                 st.write(f"🏦 **UPI:** {m_details['upi']}")
                 
