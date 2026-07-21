@@ -30,8 +30,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- Google Apps Script Web App URL ---
-APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbybAWFNtp9o8PiptHiVakz5NFWLOSqDVNlv3C81E1PX1nUbG6JnH8-oSeB83_-mcfGKAg/exec"
+# --- Google Apps Script Web App URL (Updated) ---
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw1cjdszgSRrSb8PlvupUVQTlea4e7dkvcCdDKJ-o8TssXJLmLRMBTJqBfhGhqcRjU-wg/exec"
 
 # --- QR Code Generator Function ---
 def generate_qr(upi_id, name, amount):
@@ -44,7 +44,7 @@ def generate_qr(upi_id, name, amount):
     img.save(buf, format="PNG")
     return buf
 
-# 3. Session State Initialization (All Dummy Data Cleared)
+# 3. Session State Initialization
 if 'page' not in st.session_state:
     st.session_state.page = "Dashboard"
 
@@ -52,7 +52,7 @@ if 'members_db' not in st.session_state:
     st.session_state.members_db = []
 
 if 'payment_status' not in st.session_state:
-    st.session_state.payment_status = {}  # बिलकुल खाली रखा गया है
+    st.session_state.payment_status = {}
 
 if 'current_receiver' not in st.session_state:
     st.session_state.current_receiver = "कोई नहीं (नया)"
@@ -124,20 +124,20 @@ if st.session_state.page == "Dashboard":
         status_df = pd.DataFrame(table_data)
         st.dataframe(status_df, use_container_width=True)
     else:
-        st.info("⚠️ अभी कोई भी मेंबर रजिस्टर्ड नहीं है। कृपया 'नया मेंबर' वाले पेज पर जाकर पहले मेंबर जोड़ें।")
+        st.info("⚠️ अभी कोई भी मेंबर रजिस्टर्ड नहीं है। कृपया 'नया मेंबर' वाले पेज पर जाएं।")
 
 # ----------------------------------------
 # PAGE 2: ADD NEW MEMBER
 # ----------------------------------------
 elif st.session_state.page == "Add_Member":
-    st.header("👤 नया मेंबर रजिस्ट्रेशन (Blank Form)")
+    st.header("👤 नया मेंबर रजिस्ट्रेशन (Duplicate & Validation Check)")
     
     with st.form("new_member_form", clear_on_submit=True):
         colA, colB = st.columns(2)
         with colA:
             name = st.text_input("मेंबर का पूरा नाम *")
             mobile = st.text_input("मोबाइल / WhatsApp नंबर *")
-            aadhar = st.text_input("Aadhar Number * (12 Digits)")
+            identity_num = st.text_input("ID / Aadhar Number * (12 Digits)")
             pan = st.text_input("PAN Card Number *")
             
         with colB:
@@ -154,32 +154,32 @@ elif st.session_state.page == "Add_Member":
         
         if submit:
             existing_mobiles = [m['mobile'] for m in st.session_state.members_db]
-            existing_aadhars = [m['aadhar'] for m in st.session_state.members_db]
+            existing_ids = [m['identity_num'] for m in st.session_state.members_db]
             existing_pans = [m['pan'] for m in st.session_state.members_db]
             
-            if not name or not mobile or not aadhar or not pan or not address or not upi_id or reference == "-- चुनें --" or not photo:
+            if not name or not mobile or not identity_num or not pan or not address or not upi_id or reference == "-- चुनें --" or not photo:
                 st.error("⚠️ कृपया सभी अनिवार्य (*) फील्ड भरें और फोटो अपलोड करें!")
-            elif len(aadhar) != 12 or not aadhar.isdigit():
-                st.error("❌ त्रुटि: Aadhar नंबर ठीक 12 अंकों का होना चाहिए!")
+            elif len(identity_num) != 12 or not identity_num.isdigit():
+                st.error("❌ त्रुटि: नंबर ठीक 12 अंकों का होना चाहिए!")
             elif len(pan) != 10:
                 st.error("❌ त्रुटि: PAN कार्ड नंबर ठीक 10 अक्षरों का होना चाहिए!")
             elif mobile in existing_mobiles:
                 st.error("❌ त्रुटि: यह मोबाइल नंबर पहले से रजिस्टर्ड है!")
-            elif aadhar in existing_aadhars:
-                st.error("❌ त्रुटि: यह Aadhar नंबर पहले से मौजूद है!")
+            elif identity_num in existing_ids:
+                st.error("❌ त्रुटि: यह नंबर पहले से मौजूद है!")
             elif pan in existing_pans:
                 st.error("❌ त्रुटि: यह PAN नंबर पहले से मौजूद है!")
             else:
                 member_id = f"M0{len(st.session_state.members_db) + 1}"
                 
-                # Google Sheet Sync
+                # Google Sheet Sync via new Web App URL
                 saved_to_sheet = False
                 try:
                     payload = {
                         "member_id": member_id,
                         "name": name,
                         "mobile": mobile,
-                        "aadhar": "[Redacted]",
+                        "identity": "[Redacted]",
                         "pan": pan,
                         "upi": upi_id,
                         "address": address,
@@ -193,7 +193,7 @@ elif st.session_state.page == "Add_Member":
                 
                 new_member = {
                     "id": member_id, "name": name, "mobile": mobile, 
-                    "aadhar": aadhar, "pan": pan, "upi": upi_id, 
+                    "identity_num": identity_num, "pan": pan, "upi": upi_id, 
                     "address": address, "reference": reference, "status": "✅ Active",
                     "loan_status": "Clear"
                 }
@@ -215,7 +215,6 @@ elif st.session_state.page == "Ledger":
         member_names = [m['name'] for m in st.session_state.members_db]
         selected_member = st.selectbox("हिसाब देखने के लिए मेंबर चुनें:", member_names)
         
-        # Find selected member details
         m_details = next((m for m in st.session_state.members_db if m['name'] == selected_member), None)
         
         if m_details:
@@ -232,7 +231,7 @@ elif st.session_state.page == "Ledger":
                 st.write(f"📍 **पता:** {m_details['address']}")
                 
             with p_col3:
-                st.write(f"🏛️ **Aadhar:** [Redacted]")
+                st.write(f"🏛️ **ID/Number:** [Redacted]")
                 st.write(f"💳 **PAN:** {m_details['pan']}")
                 st.write(f"🏦 **UPI:** {m_details['upi']}")
                 
