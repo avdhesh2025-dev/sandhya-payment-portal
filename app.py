@@ -42,9 +42,24 @@ def generate_qr(upi_id, name, amount):
     img.save(buf, format="PNG")
     return buf
 
-# 3. Session State for Navigation
+# 3. Session State for Navigation & Payment Tracking
 if 'page' not in st.session_state:
     st.session_state.page = "Dashboard"
+
+# पेमेंट स्टेटस ट्रैक करने के लिए स्टेट (डिफ़ॉल्ट रूप से सभी का Pending)
+if 'payment_status' not in st.session_state:
+    st.session_state.payment_status = {
+        "Member 1": "❌ Pending",
+        "Member 2": "❌ Pending",
+        "Member 3": "❌ Pending",
+        "Member 4": "❌ Pending",
+        "Member 5": "❌ Pending",
+        "Member 6": "❌ Pending",
+        "Member 7": "❌ Pending",
+        "Member 8": "❌ Pending",
+        "Member 9": "❌ Pending",
+        "Member 10": "❌ Pending"
+    }
 
 st.title("💸 डिजिटल कमिटी मैनेजर")
 
@@ -62,24 +77,34 @@ if c6.button("📥 मंथली रिपोर्ट", use_container_width=T
 st.divider()
 
 # ----------------------------------------
-# PAGE 1: DASHBOARD
+# PAGE 1: DASHBOARD (WITH LIVE PAYMENT TRACKER)
 # ----------------------------------------
 if st.session_state.page == "Dashboard":
-    st.header("📊 कमिटी समरी (Dashboard)")
+    st.header("📊 कमिटी समरी & पेमेंट ट्रैकर")
     
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("टोटल मेंबर्स", "10 / 10")
-    m2.metric("कमिटी के पास बैलेंस", "₹ 0")
-    m3.metric("टोटल रनिंग बैलेंस", "₹ 20,000")
-    m4.metric("वर्तमान लोन धारक", "अवधेश (Jul)")
+    m2.metric("कमिटी बैलेंस", "₹ 0")
+    m3.metric("रनिंग बैलेंस", "₹ 20,000")
+    m4.metric("लोन धारक", "Member 1 (Jul)")
     
-    st.subheader("इस महीने का पेमेंट स्टेटस")
-    status_data = pd.DataFrame({
-        "मेंबर का नाम": ["Member 1", "Member 2", "Member 3", "Member 4"],
-        "जमा राशि": ["₹2000", "₹2000", "₹0", "₹0"],
-        "स्टेटस": ["✅ Complete", "✅ Complete", "❌ Pending", "❌ Pending"]
-    })
-    st.dataframe(status_data, use_container_width=True)
+    st.markdown("---")
+    st.subheader("🟢 इस महीने किसका पेमेंट आया / किसका बाकी है?")
+    st.info("एडमिन यहाँ से चेक करके किसी भी मेंबर का स्टेटस 'Complete' कर सकता है जब उसका पैसा आ जाए।")
+    
+    # पेमेंट स्टेटस अपडेट करने का ऑप्शन
+    update_member = st.selectbox("स्टेटस बदलने के लिए मेंबर चुनें:", list(st.session_state.payment_status.keys()))
+    new_status = st.radio("नया स्टेटस चुनें:", ["✅ Complete", "❌ Pending"], horizontal=True)
+    
+    if st.button("स्टेटस अपडेट करें"):
+        st.session_state.payment_status[update_member] = new_status
+        st.success(f"✅ {update_member} का स्टेटस अपडेट होकर '{new_status}' हो गया है!")
+        
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # टेबल फॉर्मेट में सभी का स्टेटस दिखाना
+    status_df = pd.DataFrame(list(st.session_state.payment_status.items()), columns=["मेंबर का नाम", "भुगतान स्टेटस (Payment Status)"])
+    st.dataframe(status_df, use_container_width=True)
 
 # ----------------------------------------
 # PAGE 2: ADD NEW MEMBER
@@ -99,7 +124,7 @@ elif st.session_state.page == "Add_Member":
         with colB:
             pan = st.text_input("PAN Card Number *")
             address = st.text_input("पूरा पता *")
-            reference = st.selectbox("रेफरेंस / गारंटर (किसके थ्रू आए हैं) *", ["-- चुनें --", "Member 1", "Member 2", "Admin"])
+            reference = st.selectbox("रेफरेंस / गारंटर *", ["-- चुनें --", "Member 1", "Member 2", "Admin"])
             
         photo = st.file_uploader("मेंबर की फोटो अपलोड करें *", type=["jpg", "png", "jpeg"])
         
@@ -112,12 +137,12 @@ elif st.session_state.page == "Add_Member":
                 st.success(f"✅ {name} का प्रोफाइल सफलतापूर्वक बन गया है!")
 
 # ----------------------------------------
-# PAGE 3: MEMBER LEDGER (PROFESSIONAL PROFILE)
+# PAGE 3: MEMBER LEDGER
 # ----------------------------------------
 elif st.session_state.page == "Ledger":
     st.header("📒 व्यक्तिगत मेंबर लेज़र")
     
-    selected_member = st.selectbox("हिसाब देखने के लिए मेंबर चुनें:", ["Member 1", "Member 2", "Member 3"])
+    selected_member = st.selectbox("हिसाब देखने के लिए मेंबर चुनें:", list(st.session_state.payment_status.keys()))
     
     if selected_member:
         st.markdown("---")
@@ -125,36 +150,32 @@ elif st.session_state.page == "Ledger":
         
         with p_col1:
             st.image("https://cdn-icons-png.flaticon.com/512/149/149071.png", width=120)
-            st.success("🟢 Active Member")
+            st.success("🟢 Active")
             
         with p_col2:
             st.write(f"👤 **नाम:** {selected_member}")
             st.write("📱 **मोबाइल:** 9876543210")
-            st.write("📍 **पता:** Meghpatti, Samastipur, Bihar")
+            st.write("📍 **पता:** Samastipur, Bihar")
             
         with p_col3:
-            st.write("🏛️ **Aadhar:** XXXX-XXXX-XXXX")
+            st.write("🏛️ **Aadhar:** XXXX-XXXX")
             st.write("💳 **PAN:** ABCDE1234F")
-            st.write("📅 **जॉइनिंग Date:** 01-Jul-2026")
-            st.write("🤝 **गारंटर:** Admin")
+            st.write("📅 **जॉइनिंग:** 01-Jul-2026")
             
         st.markdown("<br>", unsafe_allow_html=True)
-        
-        st.markdown("##### 📊 वित्तीय सारांश (Financial Summary)")
         f_col1, f_col2, f_col3 = st.columns(3)
-        f_col1.metric("कुल जमा (Total Deposit)", "₹ 2,000")
-        f_col2.metric("कुल प्रॉफिट (Profit Earned)", "₹ 90")
-        f_col3.metric("वर्तमान बैलेंस (Current Balance)", "₹ 2,090")
+        f_col1.metric("कुल जमा", "₹ 2,000")
+        f_col2.metric("कुल प्रॉफिट", "₹ 90")
+        f_col3.metric("बैलेंस", "₹ 2,090")
             
         st.divider()
-        
         st.subheader("💳 ट्रांज़ैक्शन हिस्ट्री")
         ledger_data = pd.DataFrame({
-            "तारीख": ["01-Jul", "05-Jul", "05-Jul"],
-            "विवरण": ["मंथली जमा", "लोन लिया", "प्रॉफिट मिला"],
-            "क्रेडिट (आया)": ["₹ 2000", "₹ 20000", "₹ 40"],
-            "डेबिट (गया)": ["-", "-", "-"],
-            "बैलेंस": ["₹ 2000", "₹ -18000", "₹ -17960"]
+            "तारीख": ["01-Jul", "05-Jul"],
+            "विवरण": ["मंथली जमा", "प्रॉफिट मिला"],
+            "क्रेडिट": ["₹ 2000", "₹ 40"],
+            "डेबिट": ["-", "-"],
+            "बैलेंस": ["₹ 2000", "₹ 2040"]
         })
         st.dataframe(ledger_data, use_container_width=True)
 
@@ -166,7 +187,7 @@ elif st.session_state.page == "Collection":
     
     colA, colB = st.columns(2)
     with colA:
-        loan_taker = st.selectbox("इस महीने पैसा किसको मिला?", ["Member 1", "Member 2", "Member 3"])
+        loan_taker = st.selectbox("इस महीने पैसा किसको मिला?", list(st.session_state.payment_status.keys()))
         receiver_upi = st.text_input("मेंबर की UPI ID", value="7479584179@ybl")
     with colB:
         total_amount = st.number_input("टोटल अमाउंट (₹)", value=20000)
@@ -177,9 +198,7 @@ elif st.session_state.page == "Collection":
     
     total_deduction = base_interest + bid_amount
     final_amount_to_give = total_amount - total_deduction
-    
-    total_members = 10 
-    per_member_profit = total_deduction / total_members
+    per_member_profit = total_deduction / 10
     
     st.markdown("---")
     qr_col, detail_col = st.columns([1, 2])
@@ -203,7 +222,7 @@ elif st.session_state.page == "Collection":
 elif st.session_state.page == "Penalty":
     st.header("⚠️ लेट फाइन (Penalty) कैलकुलेटर")
     
-    late_member = st.selectbox("लेट पेमेंट करने वाला मेंबर चुनें:", ["Member 1", "Member 2", "Member 3"])
+    late_member = st.selectbox("लेट पेमेंट करने वाला मेंबर चुनें:", list(st.session_state.payment_status.keys()))
     monthly_due = st.number_input("मंथली जमा राशि (₹)", value=2000)
     days_late = st.number_input("कितने दिन लेट किया?", min_value=1, value=1)
     admin_upi = st.text_input("एडमिन की UPI ID", value="admin@ybl")
@@ -229,64 +248,34 @@ elif st.session_state.page == "Penalty":
             st.image(qr_img, width=200, caption="एडमिन को फाइन भेजें")
             
     if st.button("✅ फाइन जमा करें", use_container_width=True):
-        st.success(f"फाइन जमा हो गया!")
+        st.success("फाइन जमा हो गया!")
 
 # ----------------------------------------
 # PAGE 6: MONTHLY REPORT & EXCEL EXPORT
 # ----------------------------------------
 elif st.session_state.page == "Report":
     st.header("📥 मंथली रिपोर्ट जनरेटर")
-    st.info("महीने भर का पूरा हिसाब यहाँ देखें और WhatsApp ग्रुप के लिए Excel में डाउनलोड करें।")
     
-    # रिपोर्ट के लिए डमी डेटा (बाद में यह आपके डेटाबेस से आएगा)
-    report_month = st.selectbox("महीना चुनें", ["July 2026", "August 2026", "September 2026"])
-    
-    # समरी डेटा
+    report_month = st.selectbox("महीना चुनें", ["July 2026", "August 2026"])
     total_collection = 20000
     loan_receiver = "Member 1"
-    total_interest_bidding = 900
-    total_late_fine = 100
-    total_profit_pool = total_interest_bidding + total_late_fine
-    per_member_profit = total_profit_pool / 10
+    total_profit_pool = 1000
+    per_member_profit = 100.0
     
-    # स्क्रीन पर दिखाने के लिए
     st.markdown(f"### 📋 {report_month} का फाइनल हिसाब")
-    st.write(f"🔹 **महीने का कुल कलेक्शन:** ₹ {total_collection}")
-    st.write(f"🔹 **इस महीने पैसा किसको मिला:** {loan_receiver}")
-    st.write(f"🔹 **ब्याज और बोली से कुल आय:** ₹ {total_interest_bidding}")
-    st.write(f"🔹 **कमिटी में कुल लेट फाइन आया:** ₹ {total_late_fine}")
-    st.write(f"🔹 **कुल प्रॉफिट (बांटने के लिए):** ₹ {total_profit_pool}")
-    st.success(f"💸 **हर मेंबर के खाते में जुड़ा प्रॉफिट:** ₹ {per_member_profit}")
+    st.write(f"🔹 **कुल कलेक्शन:** ₹ {total_collection}")
+    st.write(f"🔹 **पैसा किसको मिला:** {loan_receiver}")
+    st.success(f"💸 **हर मेंबर का प्रॉफिट:** ₹ {per_member_profit}")
     
-    # Excel बनाने के लिए DataFrame तैयार करना
     report_data = {
-        "विवरण (Description)": [
-            "महीना (Month)", 
-            "टोटल कलेक्शन (Total Collection)", 
-            "पैसा किसको मिला (Receiver)", 
-            "ब्याज + बोली (Interest & Bid)", 
-            "लेट फाइन (Late Fine)", 
-            "टोटल प्रॉफिट (Total Profit)", 
-            "हर मेंबर का प्रॉफिट (Per Member Profit)"
-        ],
-        "अमाउंट / नाम (Amount/Details)": [
-            report_month, 
-            f"₹ {total_collection}", 
-            loan_receiver, 
-            f"₹ {total_interest_bidding}", 
-            f"₹ {total_late_fine}", 
-            f"₹ {total_profit_pool}", 
-            f"₹ {per_member_profit}"
-        ]
+        "विवरण": ["महीना", "टोटल कलेक्शन", "पैसा किसको मिला", "हर मेंबर का प्रॉफिट"],
+        "डेटा": [report_month, f"₹ {total_collection}", loan_receiver, f"₹ {per_member_profit}"]
     }
-    
     df_report = pd.DataFrame(report_data)
-    st.table(df_report)
     
-    # Excel फाइल जनरेट और डाउनलोड बटन
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-        df_report.to_excel(writer, sheet_name=report_month, index=False)
+        df_report.to_excel(writer, sheet_name="Report", index=False)
     
     st.download_button(
         label="📥 एक्सेल फाइल (Excel) डाउनलोड करें",
@@ -295,7 +284,3 @@ elif st.session_state.page == "Report":
         mime="application/vnd.ms-excel",
         use_container_width=True
     )
-    
-    # WhatsApp Share Text
-    whatsapp_text = f"*डिजिटल कमिटी - {report_month} की रिपोर्ट*%0A------------------------------%0A*कुल जमा:* ₹{total_collection}%0A*पैसा मिला:* {loan_receiver}%0A*ब्याज+बोली:* ₹{total_interest_bidding}%0A*लेट फाइन:* ₹{total_late_fine}%0A*टोटल प्रॉफिट:* ₹{total_profit_pool}%0A*हर मेंबर का प्रॉफिट:* ₹{per_member_profit}%0A------------------------------"
-    st.markdown(f"[📲 WhatsApp ग्रुप में यह मेसेज भेजने के लिए यहाँ क्लिक करें](https://wa.me/?text={whatsapp_text})", unsafe_allow_html=True)
