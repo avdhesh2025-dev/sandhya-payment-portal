@@ -113,6 +113,9 @@ elif st.session_state.page == "Ledger":
         with p_col2:
             st.write(f"**नाम:** {selected_member}")
             st.write("**मोबाइल:** 9876543210")
+            st.write("**Aadhar Number:** XXXX-XXXX-XXXX") 
+            st.write("**PAN Card:** ABCDE1234F")
+            st.write("**Joining Date:** 01-Jul-2026")
             st.write("**गारंटर:** Admin")
             st.write("**पता:** Meghpatti, Samastipur, Bihar")
             
