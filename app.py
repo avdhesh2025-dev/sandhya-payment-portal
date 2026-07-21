@@ -1,107 +1,150 @@
 import streamlit as st
 import pandas as pd
-import qrcode
-from PIL import Image
-from io import BytesIO
-import datetime
 
-st.set_page_config(page_title="Group Committee Tracker", layout="wide")
+# 1. Page Config (A4 Size / Centered Layout)
+st.set_page_config(page_title="डिजिटल कमिटी", layout="centered")
+
+# 2. Custom CSS for 3D Buttons & Layout
+st.markdown("""
+    <style>
+    /* 3D Button Style */
+    div.stButton > button {
+        background-color: #ffffff;
+        color: #1f2937;
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        border-bottom: 6px solid #d1d5db;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        font-weight: bold;
+        font-size: 16px;
+        height: 70px;
+        transition: all 0.1s ease-in-out;
+    }
+    div.stButton > button:active {
+        border-bottom: 2px solid #d1d5db;
+        transform: translateY(4px);
+    }
+    /* Hide Sidebar completely if needed */
+    [data-testid="collapsedControl"] { display: none; }
+    </style>
+""", unsafe_allow_html=True)
+
+# 3. Session State for Navigation (मेन स्क्रीन पर मेनू चलाने के लिए)
+if 'page' not in st.session_state:
+    st.session_state.page = "Dashboard"
 
 st.title("💸 डिजिटल कमिटी मैनेजर")
 
-# Sidebar Navigation
-menu = ["डैशबोर्ड (Dashboard)", "नया मेंबर जोड़ें (₹200)", "मंथली कलेक्शन व QR", "पेमेंट स्लिप (WhatsApp)"]
-choice = st.sidebar.selectbox("मेनू चुनें", menu)
+# 4. Main Menu Display (3D Boxes)
+col1, col2, col3, col4 = st.columns(4)
+if col1.button("📊 डैशबोर्ड", use_container_width=True): st.session_state.page = "Dashboard"
+if col2.button("👤 नया मेंबर", use_container_width=True): st.session_state.page = "Add_Member"
+if col3.button("📒 मेंबर लेज़र", use_container_width=True): st.session_state.page = "Ledger"
+if col4.button("💰 कलेक्शन", use_container_width=True): st.session_state.page = "Collection"
 
-# --- 1. Dashboard ---
-if choice == "डैशबोर्ड (Dashboard)":
-    st.header("📊 कमिटी समरी")
-    
-    # यह डेटा Google Sheet से आएगा (यहाँ टेस्टिंग के लिए डमी डेटा है)
-    dummy_data = {
-        "Member Name": ["Member 1", "Member 2", "Member 3"],
-        "Total Deposited (₹)": [4000, 4000, 4000],
-        "Loan Taken (₹)": [20000, 0, 0],
-        "Interest Paid (₹)": [400, 0, 0],
-        "Profit Earned (₹)": [40, 40, 40]
-    }
-    df = pd.DataFrame(dummy_data)
-    
-    col1, col2, col3 = st.columns(3)
-    col1.metric("टोटल मेंबर्स", "10")
-    col2.metric("इस महीने का कलेक्शन", "₹ 20,000")
-    col3.metric("कुल प्रॉफिट (बांटने के लिए)", "₹ 400")
-    
-    st.dataframe(df, use_container_width=True)
+st.divider()
 
-# --- 2. Add New Member ---
-elif choice == "नया मेंबर जोड़ें (₹200)":
+# ----------------------------------------
+# PAGE 1: DASHBOARD
+# ----------------------------------------
+if st.session_state.page == "Dashboard":
+    st.header("📊 कमिटी समरी (Dashboard)")
+    
+    # Dashboard Metrics
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("टोटल मेंबर्स", "10 / 10")
+    m2.metric("कमिटी के पास बैलेंस", "₹ 0")
+    m3.metric("टोटल रनिंग बैलेंस", "₹ 20,000")
+    m4.metric("वर्तमान लोन धारक", "अवधेश (Jul)")
+    
+    st.subheader("इस महीने का पेमेंट स्टेटस")
+    # डमी डेटा
+    status_data = pd.DataFrame({
+        "मेंबर का नाम": ["Member 1", "Member 2", "Member 3", "Member 4"],
+        "जमा राशि": ["₹2000", "₹2000", "₹0", "₹0"],
+        "स्टेटस": ["✅ Complete", "✅ Complete", "❌ Pending", "❌ Pending"]
+    })
+    st.dataframe(status_data, use_container_width=True)
+
+# ----------------------------------------
+# PAGE 2: ADD NEW MEMBER
+# ----------------------------------------
+elif st.session_state.page == "Add_Member":
     st.header("👤 नया मेंबर रजिस्ट्रेशन")
-    with st.form("add_member_form"):
-        name = st.text_input("मेंबर का नाम")
-        phone = st.text_input("WhatsApp नंबर")
-        upi_id = st.text_input("UPI ID (पैसे रिसीव करने के लिए)")
-        joining_fee = st.checkbox("₹200 जॉइनिंग फीस प्राप्त हुई?")
+    st.info("नोट: नीचे दिए गए सभी फील्ड भरना अनिवार्य (Mandatory) है।")
+    
+    with st.form("new_member_form"):
+        colA, colB = st.columns(2)
+        with colA:
+            name = st.text_input("मेंबर का पूरा नाम *")
+            mobile = st.text_input("मोबाइल / WhatsApp नंबर *")
+            aadhar = st.text_input("Aadhar Number *")
+            
+        with colB:
+            pan = st.text_input("PAN Card Number *")
+            address = st.text_input("पूरा पता *")
+            reference = st.selectbox("रेफरेंस / गारंटर (किसके थ्रू आए हैं) *", ["-- चुनें --", "Member 1", "Member 2", "Admin"])
+            
+        photo = st.file_uploader("मेंबर की फोटो अपलोड करें *", type=["jpg", "png", "jpeg"])
         
-        submit = st.form_submit_button("सेव करें")
+        submit = st.form_submit_button("डेटा सेव करें", use_container_width=True)
         
         if submit:
-            if joining_fee:
-                # यहाँ Google Sheet में डेटा सेव करने का कोड आएगा
-                st.success(f"{name} को सफलतापूर्वक जोड़ लिया गया है! डेटा Google Sheet में सेव हो गया।")
+            # Mandatory Field Check (Validation)
+            if not name or not mobile or not aadhar or not pan or not address or reference == "-- चुनें --" or not photo:
+                st.error("⚠️ कृपया सभी अनिवार्य (*) फील्ड भरें और फोटो अपलोड करें!")
             else:
-                st.error("कृपया जॉइनिंग फीस कन्फर्म करें।")
+                st.success(f"✅ {name} का प्रोफाइल सफलतापूर्वक बन गया है!")
 
-# --- 3. Monthly Collection & QR ---
-elif choice == "मंथली कलेक्शन व QR":
-    st.header("📱 इस महीने का QR जनरेटर")
-    st.info("जिस मेंबर को इस महीने का पैसा (पूल) मिलेगा, उसका QR जनरेट करें। बाकी सभी लोग इसी पर पेमेंट करेंगे।")
+# ----------------------------------------
+# PAGE 3: MEMBER LEDGER (PROFILE & HISTORY)
+# ----------------------------------------
+elif st.session_state.page == "Ledger":
+    st.header("📒 व्यक्तिगत मेंबर लेज़र")
     
-    receiver_name = st.text_input("पैसे लेने वाले मेंबर का नाम")
-    receiver_upi = st.text_input("मेंबर की UPI ID")
-    amount = st.number_input("हर मेंबर को कितना भेजना है? (उदा: 500 से 2000)", min_value=500, max_value=2000, step=500)
+    selected_member = st.selectbox("हिसाब देखने के लिए मेंबर चुनें:", ["Member 1", "Member 2", "Member 3"])
     
-    if st.button("QR Code जनरेट करें"):
-        if receiver_upi and receiver_name:
-            # UPI Link Format: upi://pay?pa=UPI_ID&pn=NAME&am=AMOUNT
-            upi_url = f"upi://pay?pa={receiver_upi}&pn={receiver_name}&am={amount}&cu=INR"
+    if selected_member:
+        st.subheader("👤 प्रोफाइल डिटेल्स")
+        p_col1, p_col2 = st.columns([1, 3])
+        with p_col1:
+            # डमी फोटो आइकॉन
+            st.image("https://cdn-icons-png.flaticon.com/512/149/149071.png", width=120)
+        with p_col2:
+            st.write(f"**नाम:** {selected_member}")
+            st.write("**मोबाइल:** 9876543210")
+            st.write("**गारंटर:** Admin")
+            st.write("**पता:** Meghpatti, Samastipur, Bihar")
             
-            qr = qrcode.QRCode(box_size=10, border=4)
-            qr.add_data(upi_url)
-            qr.make(fit=True)
-            img = qr.make_image(fill="black", back_color="white")
-            
-            buf = BytesIO()
-            img.save(buf, format="PNG")
-            
-            st.image(buf, caption=f"{receiver_name} को पेमेंट करने के लिए स्कैन करें", width=300)
-            st.success("QR Code तैयार है! सभी मेंबर्स को शेयर करें।")
-        else:
-            st.error("कृपया मेंबर का नाम और UPI ID दर्ज करें।")
+        st.divider()
+        st.subheader("💳 ट्रांज़ैक्शन हिस्ट्री (Credit / Debit)")
+        
+        # लेज़र का डमी डेटा
+        ledger_data = pd.DataFrame({
+            "तारीख": ["01-Jul", "05-Jul", "05-Jul", "05-Jul"],
+            "विवरण": ["मंथली जमा", "लोन लिया", "ब्याज कटा", "प्रॉफिट मिला"],
+            "क्रेडिट (आया)": ["₹ 2000", "₹ 20000", "-", "₹ 40"],
+            "डेबिट (गया)": ["-", "-", "₹ 400", "-"],
+            "बैलेंस": ["₹ 2000", "₹ -18000", "₹ -18400", "₹ -18360"]
+        })
+        st.dataframe(ledger_data, use_container_width=True)
 
-# --- 4. Payment Slip & WhatsApp ---
-elif choice == "पेमेंट स्लिप (WhatsApp)":
-    st.header("🧾 पेमेंट स्लिप डाउनलोड और शेयर")
+# ----------------------------------------
+# PAGE 4: COLLECTION & TRANSFER
+# ----------------------------------------
+elif st.session_state.page == "Collection":
+    st.header("💰 मंथली कलेक्शन और ट्रांसफर")
+    st.info("जिस मेंबर ने बोली लगाकर या अपनी बारी पर पैसा लिया है, उसकी एंट्री यहाँ करें।")
     
-    member_name = st.selectbox("मेंबर चुनें", ["Member 1", "Member 2", "Member 3"])
-    paid_amount = st.number_input("जमा की गई राशि", value=2000)
-    date = datetime.date.today()
+    loan_taker = st.selectbox("इस महीने पैसा किसको मिला?", ["Member 1", "Member 2", "Member 3"])
+    total_amount = st.number_input("टोटल अमाउंट (₹)", value=20000)
+    interest_rate = st.number_input("ब्याज / डिस्काउंट (%)", value=2.0)
     
-    receipt_text = f"""
-    *कमिटी पेमेंट स्लिप*
-    -------------------
-    *नाम:* {member_name}
-    *तारीख:* {date}
-    *जमा राशि:* ₹{paid_amount}
-    *स्टेटस:* सफल (Google Sheet में दर्ज)
-    -------------------
-    धन्यवाद!
-    """
+    calculated_interest = (total_amount * interest_rate) / 100
+    per_member_profit = calculated_interest / 10
     
-    st.text_area("स्लिप का प्रीव्यू", receipt_text, height=200)
+    st.write(f"**कटा हुआ ब्याज:** ₹ {calculated_interest}")
+    st.write(f"**हर मेंबर को प्रॉफिट बँटेगा:** ₹ {per_member_profit}")
     
-    # WhatsApp Share Link
-    phone_number = "919876543210" # डेटाबेस से मेंबर का नंबर लें
-    whatsapp_url = f"https://wa.me/{phone_number}?text={receipt_text}"
-    
-    st.markdown(f"[📲 WhatsApp पर स्लिप भेजने के लिए यहाँ क्लिक करें]({whatsapp_url})", unsafe_allow_html=True)
+    if st.button("कंप्लीट ट्रांसफर दर्ज करें", use_container_width=True):
+        st.success(f"✅ {loan_taker} के लेज़र में ₹ {total_amount} डेबिट और ब्याज की एंट्री कर दी गई है!")
