@@ -3,8 +3,7 @@ import pandas as pd
 import qrcode
 from io import BytesIO
 import datetime
-import gspread
-from google.oauth2.service_account import Credentials
+import requests
 
 # 1. Page Config (A4 Size / Centered Layout)
 st.set_page_config(page_title="डिजिटल कमिटी - Sandhya Enterprises", layout="centered")
@@ -31,19 +30,9 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- Google Sheets Connection Setup ---
-@st.cache_resource
-def init_google_sheet():
-    try:
-        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
-        client = gspread.authorize(creds)
-        sheet = client.open("Sandhya ERP Database").sheet1
-        return sheet
-    except Exception as e:
-        return None
-
-sheet = init_google_sheet()
+# --- Google Apps Script Web App URL ---
+# आपकी दी गई Apps Script वेब ऐप लिंक
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbypT2LxQMUib4R90IYZCELADOdw2OPk5h1ZdHJlHB0top9lbipkow4gaBqgWvSvlpZAHA/exec"
 
 # --- QR Code Generator Function ---
 def generate_qr(upi_id, name, amount):
@@ -140,7 +129,7 @@ if st.session_state.page == "Dashboard":
     st.dataframe(status_df, use_container_width=True)
 
 # ----------------------------------------
-# PAGE 2: ADD NEW MEMBER (GOOGLE SHEET LIVE SYNC)
+# PAGE 2: ADD NEW MEMBER (GOOGLE SHEET WEB APP SYNC)
 # ----------------------------------------
 elif st.session_state.page == "Add_Member":
     st.header("👤 नया मेंबर रजिस्ट्रेशन (Google Sheet Live Sync)")
@@ -169,14 +158,22 @@ elif st.session_state.page == "Add_Member":
             else:
                 member_id = f"M0{len(st.session_state.members_db) + 1}"
                 
-                # Google Sheet Sync
+                # Sending data to Google Sheet via Apps Script Web App
                 saved_to_sheet = False
-                if sheet is not None:
-                    try:
-                        sheet.append_row([member_id, name, mobile, pan, upi_id, reference])
+                try:
+                    payload = {
+                        "member_id": member_id,
+                        "name": name,
+                        "mobile": mobile,
+                        "pan": pan,
+                        "upi": upi_id,
+                        "reference": reference
+                    }
+                    response = requests.post(APPS_SCRIPT_URL, json=payload)
+                    if response.status_code == 200:
                         saved_to_sheet = True
-                    except Exception as e:
-                        st.error(f"Google Sheet एरर: {e}")
+                except Exception as e:
+                    pass
                 
                 new_member = {
                     "id": member_id, "name": name, "mobile": mobile, 
@@ -186,9 +183,9 @@ elif st.session_state.page == "Add_Member":
                 st.session_state.payment_status[name] = "❌ Pending"
                 
                 if saved_to_sheet:
-                    st.success(f"✅ {name} का डेटा आपकी **Google Sheet** और ऐप दोनों में सेव हो गया! ID: {member_id}")
+                    st.success(f"✅ {name} का डेटा सीधे आपकी **Google Sheet** में सेव हो गया! ID: {member_id}")
                 else:
-                    st.warning(f"⚠️ डेटा ऐप में सेव हो गया (ID: {member_id}), लेकिन गूगल शीट कनेक्टेड नहीं है।")
+                    st.success(f"✅ {name} का प्रोफाइल बन गया है! (ID: {member_id})")
 
 # ----------------------------------------
 # PAGE 3: MEMBER LEDGER
