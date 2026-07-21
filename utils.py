@@ -10,7 +10,6 @@ import urllib.parse
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
-# Default Admin Password: '9557'
 ADMIN_HASH = hash_password("9557") 
 
 # --- Database Integration (Google Apps Script) ---
@@ -21,14 +20,16 @@ def load_data_from_sheet():
         response = requests.get(APPS_SCRIPT_URL, timeout=10)
         if response.status_code == 200:
             return response.json()
-    except Exception as e:
+    except:
         pass
     return []
 
 def send_data_to_sheet(payload):
     try:
-        response = requests.post(APPS_SCRIPT_URL, json=payload, timeout=10)
-        return response.status_code == 200
+        # Added headers and allow_redirects to fix the Google Sheet Saving Issue
+        headers = {'Content-Type': 'application/json'}
+        response = requests.post(APPS_SCRIPT_URL, json=payload, headers=headers, allow_redirects=True, timeout=10)
+        return response.status_code in [200, 302]
     except:
         return False
 
@@ -48,7 +49,6 @@ def generate_qr(upi_id, name, amount, note="Sandhya Enterprises"):
 
 def get_whatsapp_link(mobile, message):
     encoded_msg = urllib.parse.quote(message)
-    # Ensure mobile has country code
     if not str(mobile).startswith("91"):
         mobile = f"91{mobile}"
     return f"https://wa.me/{mobile}?text={encoded_msg}"
