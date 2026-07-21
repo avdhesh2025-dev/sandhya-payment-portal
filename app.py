@@ -16,8 +16,8 @@ st.sidebar.info("Application Interface operates in English.")
 # SECTION 1: MAIN DASHBOARD
 # ----------------------------------------
 if menu == "Main Dashboard":
-    st.header("📊 Business Income & Profit Dashboard")
-    st.markdown("Enter your monthly figures below to calculate total gross income and net profit.")
+    st.header("📊 Business Income Dashboard")
+    st.markdown("Enter your monthly figures below to calculate total gross income.")
     
     st.subheader("Monthly Inputs")
     col1, col2 = st.columns(2)
@@ -25,7 +25,6 @@ if menu == "Main Dashboard":
     with col1:
         recharge_sent = st.number_input("Total Recharge Sent (₹)", value=1000000.0, step=50000.0)
         sim_sold = st.number_input("Total SIM Sold (MNP + New)", value=200, step=10)
-        fse_salary = st.number_input("Fixed FSE Salary (₹)", value=15700.0, step=100.0)
         
     with col2:
         last_mnp = st.number_input("Last Month MNP Total", value=100, step=5)
@@ -59,117 +58,108 @@ if menu == "Main Dashboard":
     m3.metric(label=f"MNP Growth ({growth_pct:.1f}%)", value=f"₹{total_growth_income:,.2f}")
     
     st.markdown("---")
-    
-    # Final Profit Display
-    st.subheader("Net Monthly Analysis")
-    col_g, col_n = st.columns(2)
-    col_g.info(f"**TOTAL GROSS INCOME:** ₹{gross_income:,.2f}")
-    
-    # For a full profit calculation, you can later subtract other team payouts. 
-    # Currently subtracting fixed FSE salary.
-    net_profit = gross_income - fse_salary
-    col_n.success(f"**NET PROFIT (After FSE Salary):** ₹{net_profit:,.2f}")
-
+    st.success(f"**TOTAL GROSS INCOME:** ₹{gross_income:,.2f}")
 
 # ----------------------------------------
-# SECTION 2: ACTIVITY BOYS
+# SECTION 2: ACTIVITY BOYS (Excel Style Table)
 # ----------------------------------------
 elif menu == "Activity Boys":
-    st.header("🏃‍♂️ Activity Boys Daily Calculator")
+    st.header("🏃‍♂️ Activity Boys Daily Tracker")
+    st.markdown("Enter the daily work for your 10 activity boys. Payouts and deposits will calculate automatically.")
     
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        mnp = st.number_input("MNP Count", min_value=0, value=0, step=1)
-    with col2:
-        frc349 = st.number_input("FRC-349 Count (New SIM)", min_value=0, value=0, step=1)
-    with col3:
-        frc123 = st.number_input("FRC-123 Count (New SIM)", min_value=0, value=0, step=1)
-        
-    # Calculations
-    mnp_payout = mnp * 50
-    dep_349 = frc349 * 220
-    dep_123 = frc123 * 110
-    total_deposit = dep_349 + dep_123
-    net_collect = total_deposit - mnp_payout
-    
-    st.markdown("### Calculation Result")
-    st.write(f"- **Boy's MNP Payout:** ₹{mnp_payout}")
-    st.write(f"- **SIM Deposit Value (349 & 123):** ₹{total_deposit}")
-    
-    if net_collect > 0:
-        st.error(f"**Net Cash to Collect from Boy:** ₹{net_collect}")
-    elif net_collect < 0:
-        st.success(f"**Net Cash to Pay to Boy:** ₹{abs(net_collect)}")
-    else:
-        st.info("**Accounts Settled (₹0 Balance)**")
+    # Initialize 10 rows for Activity Boys
+    if 'boys_df' not in st.session_state:
+        st.session_state.boys_df = pd.DataFrame({
+            "Boy Name": [f"Boy {i+1}" for i in range(10)],
+            "MNP Count": [0] * 10,
+            "FRC-349": [0] * 10,
+            "FRC-123": [0] * 10
+        })
 
+    # Editable Table
+    edited_df = st.data_editor(st.session_state.boys_df, num_rows="dynamic", use_container_width=True)
+    st.session_state.boys_df = edited_df
+
+    # Automatic Calculations
+    result_df = edited_df.copy()
+    result_df["MNP Payout (₹50)"] = result_df["MNP Count"] * 50
+    result_df["Deposit 349 (₹220)"] = result_df["FRC-349"] * 220
+    result_df["Deposit 123 (₹110)"] = result_df["FRC-123"] * 110
+    result_df["Net Cash to Collect"] = (result_df["Deposit 349 (₹220)"] + result_df["Deposit 123 (₹110)"]) - result_df["MNP Payout (₹50)"]
+
+    st.subheader("Automated Calculation Result")
+    st.dataframe(result_df, use_container_width=True)
 
 # ----------------------------------------
-# SECTION 3: AIRFIBER TEAM
+# SECTION 3: AIRFIBER TEAM (Sunil & Manoj)
 # ----------------------------------------
 elif menu == "Airfiber Team":
-    st.header("📡 Airfiber Team Weekly Payout")
+    st.header("📡 Airfiber Team Payout (Sunil & Manoj)")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        installs = st.number_input("Total Installations", min_value=0, value=0)
-        sr = st.number_input("Total SR (Complaints) Resolved", min_value=0, value=0)
-    with col2:
-        odu = st.number_input("ODU Recovered", min_value=0, value=0)
-        idu = st.number_input("IDU Recovered", min_value=0, value=0)
-        
-    # Calculations
-    install_pay = installs * 250
-    sr_pay = sr * 50
-    
-    # ODU Slabs
-    odu_rate = 200 if odu >= 25 else (150 if odu >= 10 else (100 if odu >= 1 else 0))
-    odu_pay = odu * odu_rate
-    
-    # IDU Slabs
-    idu_rate = 150 if idu >= 25 else (100 if idu >= 10 else (50 if idu >= 1 else 0))
-    idu_pay = idu * idu_rate
-    
-    total = install_pay + sr_pay + odu_pay + idu_pay
-    
-    st.markdown("### Payout Breakdown")
-    st.write(f"- Install Payout: ₹{install_pay}")
-    st.write(f"- SR Payout: ₹{sr_pay}")
-    st.write(f"- ODU Payout (Rate: ₹{odu_rate}/unit): ₹{odu_pay}")
-    st.write(f"- IDU Payout (Rate: ₹{idu_rate}/unit): ₹{idu_pay}")
-    
-    st.success(f"**Total Weekly Payout:** ₹{total}")
+    if 'af_df' not in st.session_state:
+        st.session_state.af_df = pd.DataFrame({
+            "Name": ["Sunil Kumar", "Manoj Kumar"],
+            "Installs": [0, 0],
+            "SR (Complaints)": [0, 0],
+            "ODU Recovered": [0, 0],
+            "IDU Recovered": [0, 0]
+        })
 
+    # Editable Table
+    edited_af = st.data_editor(st.session_state.af_df, use_container_width=True)
+    st.session_state.af_df = edited_af
+
+    # Custom Payout Functions based on Targets
+    def calc_odu(odu):
+        if odu >= 25: return odu * 200
+        if odu >= 10: return odu * 150
+        if odu >= 1: return odu * 100
+        return 0
+
+    def calc_idu(idu):
+        if idu >= 25: return idu * 150
+        if idu >= 10: return idu * 100
+        if idu >= 1: return idu * 50
+        return 0
+
+    # Automatic Calculations
+    res_af = edited_af.copy()
+    res_af["Install Pay"] = res_af["Installs"] * 250
+    res_af["SR Pay"] = res_af["SR (Complaints)"] * 50
+    res_af["ODU Pay"] = res_af["ODU Recovered"].apply(calc_odu)
+    res_af["IDU Pay"] = res_af["IDU Recovered"].apply(calc_idu)
+    res_af["Total Weekly Payout"] = res_af["Install Pay"] + res_af["SR Pay"] + res_af["ODU Pay"] + res_af["IDU Pay"]
+
+    st.subheader("Weekly Payout Calculations")
+    st.dataframe(res_af, use_container_width=True)
 
 # ----------------------------------------
 # SECTION 4: RETAILER MNP DRIVE
 # ----------------------------------------
 elif menu == "Retailer MNP Drive":
     st.header("🏬 Retailer MNP Drive Scheme")
+    st.markdown("Add your retailers and their MNP count. The scheme will apply automatically.")
     
-    mnp_done = st.number_input("Enter Total MNP Done by Retailer", min_value=0, value=0, step=1)
-    
-    payout = 0
-    if mnp_done >= 10:
-        payout = 700
-    elif mnp_done >= 5:
-        payout = 350
-    elif mnp_done >= 3:
-        payout = 165
-    elif mnp_done >= 2:
-        payout = 100
-    elif mnp_done >= 1:
-        payout = 30
-        
-    st.markdown("### Scheme Reward")
-    st.success(f"**Eligible Scheme Payout:** ₹{payout}")
-    
-    st.markdown("---")
-    st.markdown("""
-    **Current Active Slabs:**
-    * 1 MNP = ₹30
-    * 2 MNP = ₹100
-    * 3 MNP = ₹165
-    * 5 MNP = ₹350
-    * 10 MNP = ₹700
-    """)
+    if 'ret_df' not in st.session_state:
+        st.session_state.ret_df = pd.DataFrame({
+            "Retailer Name": ["Retailer 1", "Retailer 2"],
+            "MNP Done": [0, 0]
+        })
+
+    # Editable Table
+    edited_ret = st.data_editor(st.session_state.ret_df, num_rows="dynamic", use_container_width=True)
+    st.session_state.ret_df = edited_ret
+
+    def get_scheme(mnp):
+        if mnp >= 10: return 700
+        if mnp >= 5: return 350
+        if mnp >= 3: return 165
+        if mnp >= 2: return 100
+        if mnp >= 1: return 30
+        return 0
+
+    res_ret = edited_ret.copy()
+    res_ret["Scheme Payout"] = res_ret["MNP Done"].apply(get_scheme)
+
+    st.subheader("Retailer Scheme Calculation")
+    st.dataframe(res_ret, use_container_width=True)
