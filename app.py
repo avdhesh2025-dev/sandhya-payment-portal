@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import qrcode
+from io import BytesIO
 
 # 1. Page Config (A4 Size / Centered Layout)
 st.set_page_config(page_title="डिजिटल कमिटी", layout="centered")
@@ -28,6 +30,17 @@ st.markdown("""
     [data-testid="collapsedControl"] { display: none; }
     </style>
 """, unsafe_allow_html=True)
+
+# --- QR Code Generator Function ---
+def generate_qr(upi_id, name, amount):
+    upi_url = f"upi://pay?pa={upi_id}&pn={name}&am={amount}&cu=INR"
+    qr = qrcode.QRCode(version=1, box_size=8, border=2)
+    qr.add_data(upi_url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    return buf
 
 # 3. Session State for Navigation
 if 'page' not in st.session_state:
@@ -78,6 +91,7 @@ elif st.session_state.page == "Add_Member":
             name = st.text_input("मेंबर का पूरा नाम *")
             mobile = st.text_input("मोबाइल / WhatsApp नंबर *")
             aadhar = st.text_input("Aadhar Number *")
+            upi_id = st.text_input("UPI ID (पैसे रिसीव करने के लिए) *")
             
         with colB:
             pan = st.text_input("PAN Card Number *")
@@ -89,13 +103,13 @@ elif st.session_state.page == "Add_Member":
         submit = st.form_submit_button("डेटा सेव करें", use_container_width=True)
         
         if submit:
-            if not name or not mobile or not aadhar or not pan or not address or reference == "-- चुनें --" or not photo:
+            if not name or not mobile or not aadhar or not pan or not address or not upi_id or reference == "-- चुनें --" or not photo:
                 st.error("⚠️ कृपया सभी अनिवार्य (*) फील्ड भरें और फोटो अपलोड करें!")
             else:
                 st.success(f"✅ {name} का प्रोफाइल सफलतापूर्वक बन गया है!")
 
 # ----------------------------------------
-# PAGE 3: MEMBER LEDGER (PROFESSIONAL PROFILE & HISTORY)
+# PAGE 3: MEMBER LEDGER (PROFESSIONAL PROFILE)
 # ----------------------------------------
 elif st.session_state.page == "Ledger":
     st.header("📒 व्यक्तिगत मेंबर लेज़र")
@@ -104,7 +118,6 @@ elif st.session_state.page == "Ledger":
     
     if selected_member:
         st.markdown("---")
-        
         p_col1, p_col2, p_col3 = st.columns([1, 2, 2])
         
         with p_col1:
@@ -132,25 +145,29 @@ elif st.session_state.page == "Ledger":
             
         st.divider()
         
-        st.subheader("💳 ट्रांज़ैक्शन हिस्ट्री (Credit / Debit)")
+        st.subheader("💳 ट्रांज़ैक्शन हिस्ट्री")
         ledger_data = pd.DataFrame({
-            "तारीख": ["01-Jul", "05-Jul", "05-Jul", "05-Jul"],
-            "विवरण": ["मंथली जमा", "लोन लिया", "ब्याज कटा", "प्रॉफिट मिला"],
-            "क्रेडिट (आया)": ["₹ 2000", "₹ 20000", "-", "₹ 40"],
-            "डेबिट (गया)": ["-", "-", "₹ 400", "-"],
-            "बैलेंस": ["₹ 2000", "₹ -18000", "₹ -18400", "₹ -18360"]
+            "तारीख": ["01-Jul", "05-Jul", "05-Jul"],
+            "विवरण": ["मंथली जमा", "लोन लिया", "प्रॉफिट मिला"],
+            "क्रेडिट (आया)": ["₹ 2000", "₹ 20000", "₹ 40"],
+            "डेबिट (गया)": ["-", "-", "-"],
+            "बैलेंस": ["₹ 2000", "₹ -18000", "₹ -17960"]
         })
         st.dataframe(ledger_data, use_container_width=True)
 
 # ----------------------------------------
-# PAGE 4: COLLECTION & TRANSFER
+# PAGE 4: COLLECTION & TRANSFER WITH QR
 # ----------------------------------------
 elif st.session_state.page == "Collection":
     st.header("💰 मंथली कलेक्शन और ट्रांसफर")
-    st.info("जिस मेंबर ने पैसा लिया है, उसकी एंट्री यहाँ करें। (ब्याज और बोली दोनों एक साथ कैलकुलेट होंगे)")
+    st.info("यहाँ अमाउंट कैलकुलेट करें। नीचे दिए गए QR कोड से सभी मेंबर्स सीधा पैसा भेज सकते हैं।")
     
-    loan_taker = st.selectbox("इस महीने पैसा किसको मिला?", ["Member 1", "Member 2", "Member 3"])
-    total_amount = st.number_input("टोटल अमाउंट (₹)", value=20000)
+    colA, colB = st.columns(2)
+    with colA:
+        loan_taker = st.selectbox("इस महीने पैसा किसको मिला?", ["Member 1", "Member 2", "Member 3"])
+        receiver_upi = st.text_input("मेंबर की UPI ID (पैसे रिसीव करने के लिए)", value="7479584179@ybl")
+    with colB:
+        total_amount = st.number_input("टोटल अमाउंट (₹)", value=20000)
     
     interest_rate = st.number_input("ब्याज (%)", value=2.0)
     base_interest = (total_amount * interest_rate) / 100
@@ -164,30 +181,43 @@ elif st.session_state.page == "Collection":
     per_member_profit = total_deduction / total_members
     
     st.markdown("---")
-    st.write(f"**फिक्स ब्याज ({interest_rate}%):** ₹ {base_interest}")
-    st.write(f"**बोली का डिस्काउंट:** ₹ {bid_amount}")
-    st.write(f"**कुल काटा गया अमाउंट (ब्याज + बोली):** ₹ {total_deduction}")
-    st.write(f"**{loan_taker} के अकाउंट में ट्रांसफर होगा:** ₹ {final_amount_to_give}")
-    st.write(f"**हर मेंबर (10 लोगों) को प्रॉफिट बँटेगा:** ₹ {per_member_profit}")
     
-    if st.button("कंप्लीट ट्रांसफर दर्ज करें", use_container_width=True):
-        st.success(f"✅ {loan_taker} को ₹ {final_amount_to_give} ट्रांसफर की एंट्री हो गई है! सभी 10 मेंबर्स के लेज़र में ₹ {per_member_profit} प्रॉफिट क्रेडिट कर दिया गया।")
+    # Show QR and Details side-by-side
+    qr_col, detail_col = st.columns([1, 2])
+    
+    with detail_col:
+        st.write(f"**फिक्स ब्याज ({interest_rate}%):** ₹ {base_interest}")
+        st.write(f"**बोली का डिस्काउंट:** ₹ {bid_amount}")
+        st.write(f"**कुल काटा गया अमाउंट:** ₹ {total_deduction}")
+        st.markdown(f"#### **{loan_taker} को ट्रांसफर होगा:** ₹ {final_amount_to_give}")
+        st.write(f"**हर मेंबर को प्रॉफिट बँटेगा:** ₹ {per_member_profit}")
+        
+    with qr_col:
+        if receiver_upi:
+            qr_img = generate_qr(receiver_upi, loan_taker, final_amount_to_give)
+            st.image(qr_img, width=200, caption=f" स्कैन करके पेमेंट करें")
+        else:
+            st.warning("QR के लिए UPI ID डालें")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("✅ कंप्लीट ट्रांसफर दर्ज करें", use_container_width=True):
+        st.success(f"{loan_taker} को ₹ {final_amount_to_give} ट्रांसफर की एंट्री हो गई है! सभी मेंबर्स के लेज़र में ₹ {per_member_profit} प्रॉफिट क्रेडिट कर दिया गया।")
 
 # ----------------------------------------
-# PAGE 5: LATE FINE (PENALTY) CALCULATOR
+# PAGE 5: LATE FINE (PENALTY) WITH QR
 # ----------------------------------------
 elif st.session_state.page == "Penalty":
     st.header("⚠️ लेट फाइन (Penalty) कैलकुलेटर")
-    st.error("जो मेंबर समय पर मंथली जमा नहीं करेंगे, उन पर इस पेज से पेनल्टी लगाई जाएगी।")
+    st.error("लेट फाइन सीधा एडमिन (Admin) के खाते में जमा होगा, जिसे बाद में सभी मेंबर्स में बाँट दिया जाएगा।")
     
-    late_member = st.selectbox("लेट पेमेंट करने वाला मेंबर चुनें:", ["Member 1", "Member 2", "Member 3", "Member 4"])
+    late_member = st.selectbox("लेट पेमेंट करने वाला मेंबर चुनें:", ["Member 1", "Member 2", "Member 3"])
     monthly_due = st.number_input("मंथली जमा राशि (₹)", value=2000)
     days_late = st.number_input("कितने दिन लेट किया?", min_value=1, value=1)
+    admin_upi = st.text_input("एडमिन की UPI ID (फाइन रिसीव करने के लिए)", value="admin@ybl")
     
     fine_amount = 0
     calculation_rule = ""
     
-    # लॉजिक: 1 से 6 दिन के लिए 20 रुपये, 7 दिन या उससे ज्यादा के लिए 3% रोज़ाना
     if 1 <= days_late <= 6:
         fine_amount = days_late * 20
         calculation_rule = f"1 से 6 दिन वाला नियम: ({days_late} दिन x ₹20)"
@@ -200,9 +230,20 @@ elif st.session_state.page == "Penalty":
     profit_per_member = fine_amount / total_members
     
     st.markdown("---")
-    st.write(f"**कैलकुलेशन का नियम:** {calculation_rule}")
-    st.write(f"**कुल फाइन जो {late_member} को देना होगा:** ₹ {fine_amount}")
-    st.write(f"**हर मेंबर (10 लोगों) में प्रॉफिट बँटेगा:** ₹ {profit_per_member}")
     
-    if st.button("फाइन जमा करें", use_container_width=True):
-        st.success(f"✅ {late_member} का ₹ {fine_amount} फाइन सफलतापूर्वक जमा हो गया! सभी 10 मेंबर्स के लेज़र में ₹ {profit_per_member} क्रेडिट कर दिए गए हैं।")
+    # Show QR and Details side-by-side
+    f_qr_col, f_detail_col = st.columns([1, 2])
+    
+    with f_detail_col:
+        st.write(f"**कैलकुलेशन का नियम:** {calculation_rule}")
+        st.markdown(f"#### **कुल फाइन ({late_member}):** ₹ {fine_amount}")
+        st.write(f"**हर मेंबर में प्रॉफिट बँटेगा:** ₹ {profit_per_member}")
+        
+    with f_qr_col:
+        if admin_upi and fine_amount > 0:
+            qr_img = generate_qr(admin_upi, "Admin (Committee)", fine_amount)
+            st.image(qr_img, width=200, caption="एडमिन को फाइन भेजने के लिए स्कैन करें")
+            
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("✅ फाइन जमा करें", use_container_width=True):
+        st.success(f"{late_member} का ₹ {fine_amount} फाइन सफलतापूर्वक जमा हो गया! लेज़र में ₹ {profit_per_member} क्रेडिट कर दिए गए हैं।")
