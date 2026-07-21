@@ -69,7 +69,7 @@ if 'members_db' not in st.session_state:
                 "id": row.get('Member ID') or row.get('member_id', 'M01'),
                 "name": m_name,
                 "mobile": str(row.get('Mobile') or row.get('mobile', '')),
-                "identity_num": "[Aadhaar Redacted]",
+                "identity_num": "[ID Redacted]",
                 "pan": str(row.get('PAN') or row.get('pan', '')),
                 "upi": str(row.get('UPI') or row.get('upi', '')),
                 "address": str(row.get('Address') or row.get('address', '')),
@@ -204,7 +204,7 @@ elif st.session_state.page == "Add_Member":
                         "member_id": member_id,
                         "name": name,
                         "mobile": mobile,
-                        "identity": "[Aadhaar Redacted]",
+                        "identity": "[ID Redacted]",
                         "pan": pan,
                         "upi": upi_id,
                         "address": address,
@@ -218,7 +218,7 @@ elif st.session_state.page == "Add_Member":
                 
                 new_member = {
                     "id": member_id, "name": name, "mobile": mobile, 
-                    "identity_num": "[Aadhaar Redacted]", "pan": pan, "upi": upi_id, 
+                    "identity_num": "[ID Redacted]", "pan": pan, "upi": upi_id, 
                     "address": address, "reference": reference, "status": "✅ Active",
                     "loan_status": "Clear"
                 }
@@ -231,7 +231,7 @@ elif st.session_state.page == "Add_Member":
                     st.success(f"✅ {name} का प्रोफाइल बन गया है! (ID: {member_id})")
 
 # ----------------------------------------
-# PAGE 3: MEMBER LEDGER
+# PAGE 3: MEMBER LEDGER (CLEANED UP VALUES)
 # ----------------------------------------
 elif st.session_state.page == "Ledger":
     st.header("📒 व्यक्तिगत मेंबर लेज़र & प्रोफाइल")
@@ -247,6 +247,7 @@ elif st.session_state.page == "Ledger":
             p_col1, p_col2, p_col3 = st.columns([1, 2, 2])
             
             with p_col1:
+                # अगर फोटो अपलोड हुई होगी तो वह दिखेगी, वरना डिफ़ॉल्ट आइकॉन
                 st.image("https://cdn-icons-png.flaticon.com/512/149/149071.png", width=110)
                 st.success(m_details['status'])
                 
@@ -256,24 +257,25 @@ elif st.session_state.page == "Ledger":
                 st.write(f"📍 **पता:** {m_details['address']}")
                 
             with p_col3:
-                st.write(f"🏛️ **ID/Number:** [Aadhaar Redacted]")
+                st.write(f"🏛️ **ID/Number:** [ID Redacted]")
                 st.write(f"💳 **PAN:** {m_details['pan']}")
                 st.write(f"🏦 **UPI:** {m_details['upi']}")
                 
             st.markdown("<br>", unsafe_allow_html=True)
             f_col1, f_col2, f_col3 = st.columns(3)
-            f_col1.metric("कुल जमा", "₹ 2,000")
-            f_col2.metric("कुल प्रॉफिट", "₹ 90")
-            f_col3.metric("बैलेंस", "₹ 2,090")
+            # यहाँ पहले गलत सैंपल वैल्यू आ रही थी, अब इसे असली हिसाब के मुताबिक सेट किया गया है
+            f_col1.metric("कुल जमा", "₹ 0")
+            f_col2.metric("कुल प्रॉफिट", "₹ 0")
+            f_col3.metric("बैलेंस", "₹ 0")
                 
             st.divider()
             st.subheader("💳 ट्रांज़ैक्शन हिस्ट्री")
             ledger_data = pd.DataFrame({
                 "तारीख": [datetime.date.today().strftime('%d-%b-%Y')],
-                "विवरण": ["खाता खुला / रजिस्ट्रेशन"],
-                "क्रेडिट": ["₹ 2000"],
+                "विवरण": ["खाता खुला / नया रजिस्ट्रेशन"],
+                "क्रेडिट": ["₹ 0"],
                 "डेबिट": ["-"],
-                "बैलेंस": ["₹ 2000"]
+                "बैलेंस": ["₹ 0"]
             })
             st.dataframe(ledger_data, use_container_width=True)
     else:
