@@ -16,8 +16,8 @@ st.markdown("""
         border-bottom: 6px solid #d1d5db;
         box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
         font-weight: bold;
-        font-size: 16px;
-        height: 70px;
+        font-size: 15px;
+        height: 60px;
         transition: all 0.1s ease-in-out;
     }
     div.stButton > button:active {
@@ -35,12 +35,13 @@ if 'page' not in st.session_state:
 
 st.title("💸 डिजिटल कमिटी मैनेजर")
 
-# 4. Main Menu Display (3D Boxes)
-col1, col2, col3, col4 = st.columns(4)
+# 4. Main Menu Display (5 3D Boxes)
+col1, col2, col3, col4, col5 = st.columns(5)
 if col1.button("📊 डैशबोर्ड", use_container_width=True): st.session_state.page = "Dashboard"
 if col2.button("👤 नया मेंबर", use_container_width=True): st.session_state.page = "Add_Member"
-if col3.button("📒 मेंबर लेज़र", use_container_width=True): st.session_state.page = "Ledger"
-if col4.button("💰 कलेक्शन", use_container_width=True): st.session_state.page = "Collection"
+if col3.button("📒 लेज़र", use_container_width=True): st.session_state.page = "Ledger"
+if col4.button("💰 ट्रांसफर", use_container_width=True): st.session_state.page = "Collection"
+if col5.button("⚠️ लेट फाइन", use_container_width=True): st.session_state.page = "Penalty"
 
 st.divider()
 
@@ -104,7 +105,6 @@ elif st.session_state.page == "Ledger":
     if selected_member:
         st.markdown("---")
         
-        # 1. Professional Compact Profile
         p_col1, p_col2, p_col3 = st.columns([1, 2, 2])
         
         with p_col1:
@@ -122,9 +122,8 @@ elif st.session_state.page == "Ledger":
             st.write("📅 **जॉइनिंग Date:** 01-Jul-2026")
             st.write("🤝 **गारंटर:** Admin")
             
-        st.markdown("<br>", unsafe_allow_html=True) # थोड़ा गैप देने के लिए
+        st.markdown("<br>", unsafe_allow_html=True)
         
-        # 2. Quick Financial Summary (New Feature)
         st.markdown("##### 📊 वित्तीय सारांश (Financial Summary)")
         f_col1, f_col2, f_col3 = st.columns(3)
         f_col1.metric("कुल जमा (Total Deposit)", "₹ 2,000")
@@ -133,7 +132,6 @@ elif st.session_state.page == "Ledger":
             
         st.divider()
         
-        # 3. Transaction History
         st.subheader("💳 ट्रांज़ैक्शन हिस्ट्री (Credit / Debit)")
         ledger_data = pd.DataFrame({
             "तारीख": ["01-Jul", "05-Jul", "05-Jul", "05-Jul"],
@@ -174,3 +172,37 @@ elif st.session_state.page == "Collection":
     
     if st.button("कंप्लीट ट्रांसफर दर्ज करें", use_container_width=True):
         st.success(f"✅ {loan_taker} को ₹ {final_amount_to_give} ट्रांसफर की एंट्री हो गई है! सभी 10 मेंबर्स के लेज़र में ₹ {per_member_profit} प्रॉफिट क्रेडिट कर दिया गया।")
+
+# ----------------------------------------
+# PAGE 5: LATE FINE (PENALTY) CALCULATOR
+# ----------------------------------------
+elif st.session_state.page == "Penalty":
+    st.header("⚠️ लेट फाइन (Penalty) कैलकुलेटर")
+    st.error("जो मेंबर समय पर मंथली जमा नहीं करेंगे, उन पर इस पेज से पेनल्टी लगाई जाएगी।")
+    
+    late_member = st.selectbox("लेट पेमेंट करने वाला मेंबर चुनें:", ["Member 1", "Member 2", "Member 3", "Member 4"])
+    monthly_due = st.number_input("मंथली जमा राशि (₹)", value=2000)
+    days_late = st.number_input("कितने दिन लेट किया?", min_value=1, value=1)
+    
+    fine_amount = 0
+    calculation_rule = ""
+    
+    # लॉजिक: 1 से 6 दिन के लिए 20 रुपये, 7 दिन या उससे ज्यादा के लिए 3% रोज़ाना
+    if 1 <= days_late <= 6:
+        fine_amount = days_late * 20
+        calculation_rule = f"1 से 6 दिन वाला नियम: ({days_late} दिन x ₹20)"
+    elif days_late >= 7:
+        daily_3_percent = (monthly_due * 3) / 100
+        fine_amount = daily_3_percent * days_late
+        calculation_rule = f"7+ दिन वाला नियम: (रोज़ाना 3% यानी ₹{daily_3_percent} x {days_late} दिन)"
+        
+    total_members = 10
+    profit_per_member = fine_amount / total_members
+    
+    st.markdown("---")
+    st.write(f"**कैलकुलेशन का नियम:** {calculation_rule}")
+    st.write(f"**कुल फाइन जो {late_member} को देना होगा:** ₹ {fine_amount}")
+    st.write(f"**हर मेंबर (10 लोगों) में प्रॉफिट बँटेगा:** ₹ {profit_per_member}")
+    
+    if st.button("फाइन जमा करें", use_container_width=True):
+        st.success(f"✅ {late_member} का ₹ {fine_amount} फाइन सफलतापूर्वक जमा हो गया! सभी 10 मेंबर्स के लेज़र में ₹ {profit_per_member} क्रेडिट कर दिए गए हैं।")
