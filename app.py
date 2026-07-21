@@ -48,13 +48,16 @@ if 'page' not in st.session_state:
 
 st.title("💸 डिजिटल कमिटी मैनेजर")
 
-# 4. Main Menu Display (5 3D Boxes)
-col1, col2, col3, col4, col5 = st.columns(5)
-if col1.button("📊 डैशबोर्ड", use_container_width=True): st.session_state.page = "Dashboard"
-if col2.button("👤 नया मेंबर", use_container_width=True): st.session_state.page = "Add_Member"
-if col3.button("📒 लेज़र", use_container_width=True): st.session_state.page = "Ledger"
-if col4.button("💰 ट्रांसफर", use_container_width=True): st.session_state.page = "Collection"
-if col5.button("⚠️ लेट फाइन", use_container_width=True): st.session_state.page = "Penalty"
+# 4. Main Menu Display (6 3D Boxes in 2 Rows)
+c1, c2, c3 = st.columns(3)
+if c1.button("📊 डैशबोर्ड", use_container_width=True): st.session_state.page = "Dashboard"
+if c2.button("👤 नया मेंबर", use_container_width=True): st.session_state.page = "Add_Member"
+if c3.button("📒 लेज़र", use_container_width=True): st.session_state.page = "Ledger"
+
+c4, c5, c6 = st.columns(3)
+if c4.button("💰 ट्रांसफर", use_container_width=True): st.session_state.page = "Collection"
+if c5.button("⚠️ लेट फाइन", use_container_width=True): st.session_state.page = "Penalty"
+if c6.button("📥 मंथली रिपोर्ट", use_container_width=True): st.session_state.page = "Report"
 
 st.divider()
 
@@ -160,19 +163,17 @@ elif st.session_state.page == "Ledger":
 # ----------------------------------------
 elif st.session_state.page == "Collection":
     st.header("💰 मंथली कलेक्शन और ट्रांसफर")
-    st.info("यहाँ अमाउंट कैलकुलेट करें। नीचे दिए गए QR कोड से सभी मेंबर्स सीधा पैसा भेज सकते हैं।")
     
     colA, colB = st.columns(2)
     with colA:
         loan_taker = st.selectbox("इस महीने पैसा किसको मिला?", ["Member 1", "Member 2", "Member 3"])
-        receiver_upi = st.text_input("मेंबर की UPI ID (पैसे रिसीव करने के लिए)", value="7479584179@ybl")
+        receiver_upi = st.text_input("मेंबर की UPI ID", value="7479584179@ybl")
     with colB:
         total_amount = st.number_input("टोटल अमाउंट (₹)", value=20000)
     
     interest_rate = st.number_input("ब्याज (%)", value=2.0)
     base_interest = (total_amount * interest_rate) / 100
-    
-    bid_amount = st.number_input("बोली का अमाउंट (अगर किसी ने बोली नहीं लगाई तो 0 रहने दें - ₹)", value=500.0, step=100.0)
+    bid_amount = st.number_input("बोली का डिस्काउंट (₹)", value=500.0, step=100.0)
     
     total_deduction = base_interest + bid_amount
     final_amount_to_give = total_amount - total_deduction
@@ -181,13 +182,9 @@ elif st.session_state.page == "Collection":
     per_member_profit = total_deduction / total_members
     
     st.markdown("---")
-    
-    # Show QR and Details side-by-side
     qr_col, detail_col = st.columns([1, 2])
     
     with detail_col:
-        st.write(f"**फिक्स ब्याज ({interest_rate}%):** ₹ {base_interest}")
-        st.write(f"**बोली का डिस्काउंट:** ₹ {bid_amount}")
         st.write(f"**कुल काटा गया अमाउंट:** ₹ {total_deduction}")
         st.markdown(f"#### **{loan_taker} को ट्रांसफर होगा:** ₹ {final_amount_to_give}")
         st.write(f"**हर मेंबर को प्रॉफिट बँटेगा:** ₹ {per_member_profit}")
@@ -195,55 +192,110 @@ elif st.session_state.page == "Collection":
     with qr_col:
         if receiver_upi:
             qr_img = generate_qr(receiver_upi, loan_taker, final_amount_to_give)
-            st.image(qr_img, width=200, caption=f" स्कैन करके पेमेंट करें")
-        else:
-            st.warning("QR के लिए UPI ID डालें")
-    
-    st.markdown("<br>", unsafe_allow_html=True)
+            st.image(qr_img, width=200, caption="स्कैन करके पेमेंट करें")
+            
     if st.button("✅ कंप्लीट ट्रांसफर दर्ज करें", use_container_width=True):
-        st.success(f"{loan_taker} को ₹ {final_amount_to_give} ट्रांसफर की एंट्री हो गई है! सभी मेंबर्स के लेज़र में ₹ {per_member_profit} प्रॉफिट क्रेडिट कर दिया गया।")
+        st.success(f"{loan_taker} को ₹ {final_amount_to_give} ट्रांसफर हो गया!")
 
 # ----------------------------------------
 # PAGE 5: LATE FINE (PENALTY) WITH QR
 # ----------------------------------------
 elif st.session_state.page == "Penalty":
     st.header("⚠️ लेट फाइन (Penalty) कैलकुलेटर")
-    st.error("लेट फाइन सीधा एडमिन (Admin) के खाते में जमा होगा, जिसे बाद में सभी मेंबर्स में बाँट दिया जाएगा।")
     
     late_member = st.selectbox("लेट पेमेंट करने वाला मेंबर चुनें:", ["Member 1", "Member 2", "Member 3"])
     monthly_due = st.number_input("मंथली जमा राशि (₹)", value=2000)
     days_late = st.number_input("कितने दिन लेट किया?", min_value=1, value=1)
-    admin_upi = st.text_input("एडमिन की UPI ID (फाइन रिसीव करने के लिए)", value="admin@ybl")
+    admin_upi = st.text_input("एडमिन की UPI ID", value="admin@ybl")
     
     fine_amount = 0
-    calculation_rule = ""
-    
     if 1 <= days_late <= 6:
         fine_amount = days_late * 20
-        calculation_rule = f"1 से 6 दिन वाला नियम: ({days_late} दिन x ₹20)"
     elif days_late >= 7:
-        daily_3_percent = (monthly_due * 3) / 100
-        fine_amount = daily_3_percent * days_late
-        calculation_rule = f"7+ दिन वाला नियम: (रोज़ाना 3% यानी ₹{daily_3_percent} x {days_late} दिन)"
+        fine_amount = ((monthly_due * 3) / 100) * days_late
         
-    total_members = 10
-    profit_per_member = fine_amount / total_members
+    profit_per_member = fine_amount / 10
     
     st.markdown("---")
-    
-    # Show QR and Details side-by-side
     f_qr_col, f_detail_col = st.columns([1, 2])
     
     with f_detail_col:
-        st.write(f"**कैलकुलेशन का नियम:** {calculation_rule}")
         st.markdown(f"#### **कुल फाइन ({late_member}):** ₹ {fine_amount}")
         st.write(f"**हर मेंबर में प्रॉफिट बँटेगा:** ₹ {profit_per_member}")
         
     with f_qr_col:
         if admin_upi and fine_amount > 0:
-            qr_img = generate_qr(admin_upi, "Admin (Committee)", fine_amount)
-            st.image(qr_img, width=200, caption="एडमिन को फाइन भेजने के लिए स्कैन करें")
+            qr_img = generate_qr(admin_upi, "Admin", fine_amount)
+            st.image(qr_img, width=200, caption="एडमिन को फाइन भेजें")
             
-    st.markdown("<br>", unsafe_allow_html=True)
     if st.button("✅ फाइन जमा करें", use_container_width=True):
-        st.success(f"{late_member} का ₹ {fine_amount} फाइन सफलतापूर्वक जमा हो गया! लेज़र में ₹ {profit_per_member} क्रेडिट कर दिए गए हैं।")
+        st.success(f"फाइन जमा हो गया!")
+
+# ----------------------------------------
+# PAGE 6: MONTHLY REPORT & EXCEL EXPORT
+# ----------------------------------------
+elif st.session_state.page == "Report":
+    st.header("📥 मंथली रिपोर्ट जनरेटर")
+    st.info("महीने भर का पूरा हिसाब यहाँ देखें और WhatsApp ग्रुप के लिए Excel में डाउनलोड करें।")
+    
+    # रिपोर्ट के लिए डमी डेटा (बाद में यह आपके डेटाबेस से आएगा)
+    report_month = st.selectbox("महीना चुनें", ["July 2026", "August 2026", "September 2026"])
+    
+    # समरी डेटा
+    total_collection = 20000
+    loan_receiver = "Member 1"
+    total_interest_bidding = 900
+    total_late_fine = 100
+    total_profit_pool = total_interest_bidding + total_late_fine
+    per_member_profit = total_profit_pool / 10
+    
+    # स्क्रीन पर दिखाने के लिए
+    st.markdown(f"### 📋 {report_month} का फाइनल हिसाब")
+    st.write(f"🔹 **महीने का कुल कलेक्शन:** ₹ {total_collection}")
+    st.write(f"🔹 **इस महीने पैसा किसको मिला:** {loan_receiver}")
+    st.write(f"🔹 **ब्याज और बोली से कुल आय:** ₹ {total_interest_bidding}")
+    st.write(f"🔹 **कमिटी में कुल लेट फाइन आया:** ₹ {total_late_fine}")
+    st.write(f"🔹 **कुल प्रॉफिट (बांटने के लिए):** ₹ {total_profit_pool}")
+    st.success(f"💸 **हर मेंबर के खाते में जुड़ा प्रॉफिट:** ₹ {per_member_profit}")
+    
+    # Excel बनाने के लिए DataFrame तैयार करना
+    report_data = {
+        "विवरण (Description)": [
+            "महीना (Month)", 
+            "टोटल कलेक्शन (Total Collection)", 
+            "पैसा किसको मिला (Receiver)", 
+            "ब्याज + बोली (Interest & Bid)", 
+            "लेट फाइन (Late Fine)", 
+            "टोटल प्रॉफिट (Total Profit)", 
+            "हर मेंबर का प्रॉफिट (Per Member Profit)"
+        ],
+        "अमाउंट / नाम (Amount/Details)": [
+            report_month, 
+            f"₹ {total_collection}", 
+            loan_receiver, 
+            f"₹ {total_interest_bidding}", 
+            f"₹ {total_late_fine}", 
+            f"₹ {total_profit_pool}", 
+            f"₹ {per_member_profit}"
+        ]
+    }
+    
+    df_report = pd.DataFrame(report_data)
+    st.table(df_report)
+    
+    # Excel फाइल जनरेट और डाउनलोड बटन
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+        df_report.to_excel(writer, sheet_name=report_month, index=False)
+    
+    st.download_button(
+        label="📥 एक्सेल फाइल (Excel) डाउनलोड करें",
+        data=buffer,
+        file_name=f"Committee_Report_{report_month}.xlsx",
+        mime="application/vnd.ms-excel",
+        use_container_width=True
+    )
+    
+    # WhatsApp Share Text
+    whatsapp_text = f"*डिजिटल कमिटी - {report_month} की रिपोर्ट*%0A------------------------------%0A*कुल जमा:* ₹{total_collection}%0A*पैसा मिला:* {loan_receiver}%0A*ब्याज+बोली:* ₹{total_interest_bidding}%0A*लेट फाइन:* ₹{total_late_fine}%0A*टोटल प्रॉफिट:* ₹{total_profit_pool}%0A*हर मेंबर का प्रॉफिट:* ₹{per_member_profit}%0A------------------------------"
+    st.markdown(f"[📲 WhatsApp ग्रुप में यह मेसेज भेजने के लिए यहाँ क्लिक करें](https://wa.me/?text={whatsapp_text})", unsafe_allow_html=True)
