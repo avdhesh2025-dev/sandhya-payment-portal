@@ -31,7 +31,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Google Apps Script Web App URL ---
-APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrsJYjhwSkdQzXjb2yUL67vwRtC2K5sJU21n70tDEbm1uGMEhbz3JBZmUXAhSN28sGA/exec"
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbybAWFNtp9o8PiptHiVakz5NFWLOSqDVNlv3C81E1PX1nUbG6JnH8-oSeB83_-mcfGKAg/exec"
 
 # --- QR Code Generator Function ---
 def generate_qr(upi_id, name, amount):
