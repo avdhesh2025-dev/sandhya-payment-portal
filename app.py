@@ -83,6 +83,10 @@ if 'payment_status' not in st.session_state:
     for m in st.session_state.members_db:
         st.session_state.payment_status[m['name']] = "❌ Pending"
 
+# लेज़र ट्रांज़ैक्शन डेटा स्टोर करने के लिए
+if 'ledger_transactions' not in st.session_state:
+    st.session_state.ledger_transactions = []
+
 if 'current_receiver' not in st.session_state:
     st.session_state.current_receiver = "कोई नहीं (नया)"
 
@@ -225,16 +229,29 @@ elif st.session_state.page == "Add_Member":
                 st.session_state.members_db.append(new_member)
                 st.session_state.payment_status[name] = "❌ Pending"
                 
+                # ऑटोमैटिक पहला रजिस्ट्रेशन ट्रांज़ैक्शन जोड़ना
+                st.session_state.ledger_transactions.append({
+                    "name": name,
+                    "date": str(datetime.date.today()),
+                    desc_text := "खाता खुला / रजिस्ट्रेशन जमा": desc_text,
+                    "credit": 2000,
+                    "debit": 0,
+                    "loan": 0,
+                    "commission": 0,
+                    "fine": 0,
+                    "balance": 2000
+                })
+                
                 if saved_to_sheet:
                     st.success(f"✅ {name} का डेटा सीधे आपकी **Google Sheet** और ऐप में सेव हो गया! ID: {member_id}")
                 else:
                     st.success(f"✅ {name} का प्रोफाइल बन गया है! (ID: {member_id})")
 
 # ----------------------------------------
-# PAGE 3: MEMBER LEDGER (CLEANED UP VALUES)
+# PAGE 3: MEMBER LEDGER (FULL TRANSACTION COLUMNS)
 # ----------------------------------------
 elif st.session_state.page == "Ledger":
-    st.header("📒 व्यक्तिगत मेंबर लेज़र & प्रोफाइल")
+    st.header("📒 व्यक्तिगत मेंबर लेज़र, लोन, कमीशन & ट्रांज़ैक्शन")
     
     if len(st.session_state.members_db) > 0:
         member_names = [m['name'] for m in st.session_state.members_db]
@@ -247,7 +264,6 @@ elif st.session_state.page == "Ledger":
             p_col1, p_col2, p_col3 = st.columns([1, 2, 2])
             
             with p_col1:
-                # अगर फोटो अपलोड हुई होगी तो वह दिखेगी, वरना डिफ़ॉल्ट आइकॉन
                 st.image("https://cdn-icons-png.flaticon.com/512/149/149071.png", width=110)
                 st.success(m_details['status'])
                 
@@ -262,22 +278,67 @@ elif st.session_state.page == "Ledger":
                 st.write(f"🏦 **UPI:** {m_details['upi']}")
                 
             st.markdown("<br>", unsafe_allow_html=True)
-            f_col1, f_col2, f_col3 = st.columns(3)
-            # यहाँ पहले गलत सैंपल वैल्यू आ रही थी, अब इसे असली हिसाब के मुताबिक सेट किया गया है
-            f_col1.metric("कुल जमा", "₹ 0")
-            f_col2.metric("कुल प्रॉफिट", "₹ 0")
-            f_col3.metric("बैलेंस", "₹ 0")
+            
+            # इस मेंबर के कुल ट्रांज़ैक्शन फिल्टर करना
+            member_txns = [t for t in st.session_state.ledger_transactions if t['name'] == selected_member]
+            
+            total_credit = sum([t['credit'] for t in member_txns])
+            total_debit = sum([t['debit'] for t in member_txns])
+            total_loan = sum([t['loan'] for t in member_txns])
+            total_comm = sum([t['commission'] for t in member_txns])
+            total_fine = sum([t['fine'] for t in member_txns])
+            net_balance = total_credit - total_debit
+            
+            f_col1, f_col2, f_col3, f_col4 = st.columns(4)
+            f_col1.metric("कुल जमा (Credit)", f"₹ {total_credit}")
+            f_col2.metric("कुल लोन लिया", f"₹ {total_loan}")
+            f_col3.metric("कमीशन / प्रॉफिट", f"₹ {total_comm}")
+            f_col4.metric("net बैलेंस", f"₹ {net_balance}")
                 
             st.divider()
-            st.subheader("💳 ट्रांज़ैक्शन हिस्ट्री")
-            ledger_data = pd.DataFrame({
-                "तारीख": [datetime.date.today().strftime('%d-%b-%Y')],
-                "विवरण": ["खाता खुला / नया रजिस्ट्रेशन"],
-                "क्रेडिट": ["₹ 0"],
-                "डेबिट": ["-"],
-                "बैलेंस": ["₹ 0"]
-            })
-            st.dataframe(ledger_data, use_container_width=True)
+            
+            # --- नया ट्रांज़ैक्शन जोड़ने का फॉर्म ---
+            with st.expander("➕ इस मेंबर के लिए नया अमाउंट / लेज़र एंट्री जोड़ें"):
+                with st.form(f"txn_form_{selected_member}"):
+                    t_date = st.date_input("तारीख", datetime.date.today())
+                    t_desc = st.text_input("विवरण (जैसे: मंथली किस्त, लोन वितरण, आदि)")
+                    
+                    tc1, tc2 = st.columns(2)
+                    with tc1:
+                        c_amount = st.number_input("क्रेडिट / जमा (₹)", min_value=0.0, value=0.0)
+                        l_amount = st.number_input("लोन लिया गया (₹)", min_value=0.0, value=0.0)
+                        f_amount = st.number_input("फाइन / पेनल्टी (₹)", min_value=0.0, value=0.0)
+                    with tc2:
+                        d_amount = st.number_input("डेबिट / भुगतान (₹)", min_value=0.0, value=0.0)
+                        comm_amount = st.number_input("कमीशन / प्रॉफिट मिला (₹)", min_value=0.0, value=0.0)
+                        
+                    t_submit = st.form_submit_button("लेज़र में एंट्री सेव करें")
+                    
+                    if t_submit:
+                        new_bal = net_balance + c_amount - d_amount
+                        st.session_state.ledger_transactions.append({
+                            "name": selected_member,
+                            "date": str(t_date),
+                            "विवरण": t_desc if t_desc else "लेज़र एंट्री",
+                            "credit": c_amount,
+                            "debit": d_amount,
+                            "loan": l_amount,
+                            "commission": comm_amount,
+                            "fine": f_amount,
+                            "balance": new_bal
+                        })
+                        st.success("✅ लेज़र में एंट्री सफलतापूर्वक जोड़ दी गई है!")
+                        st.rerun()
+
+            st.subheader("💳 विस्तृत ट्रांज़ैक्शन हिस्ट्री")
+            if len(member_txns) > 0:
+                df_txn = pd.DataFrame(member_txns)
+                # कॉलम नाम साफ़ करना
+                df_txn = df_txn[['date', 'विवरण', 'credit', 'debit', 'loan', 'commission', 'fine', 'balance']]
+                df_txn.columns = ['तारीख', 'विवरण', 'क्रेडिट (₹)', 'डेबिट (₹)', 'लोन (₹)', 'कमीशन (₹)', 'फाइन (₹)', 'बैलेंस (₹)']
+                st.dataframe(df_txn, use_container_width=True)
+            else:
+                st.info("इस मेंबर की अभी कोई अतिरिक्त ट्रांज़ैक्शन एंट्री नहीं है। ऊपर दिए गए बॉक्स से एंट्री जोड़ें।")
     else:
         st.warning("⚠️ लेज़र देखने के लिए पहले 'नया मेंबर' विकल्प से कम से कम एक मेंबर रजिस्टर करें।")
 
@@ -334,6 +395,20 @@ elif st.session_state.page == "Collection":
                 for m in st.session_state.members_db:
                     if m['name'] == loan_taker:
                         m['loan_status'] = "Active Loan"
+                
+                # लेज़र में आटोमैटिक लोन और कमीशन की एंट्री जोड़ना
+                st.session_state.ledger_transactions.append({
+                    "name": loan_taker,
+                    "date": str(datetime.date.today()),
+                    "विवरण": "लोन वितरण (मंथली कमिटी)",
+                    "credit": 0,
+                    "debit": final_amount_to_give,
+                    "loan": final_amount_to_give,
+                    "commission": 0,
+                    "fine": 0,
+                    "balance": -final_amount_to_give
+                })
+                
                 st.success(f"✅ {loan_taker} को ₹ {final_amount_to_give} ट्रांसफर की एंट्री हो गई है!")
     else:
         st.warning("⚠️ ट्रांसफर करने के लिए पहले 'नया मेंबर' जोड़ें।")
@@ -371,7 +446,18 @@ elif st.session_state.page == "Penalty":
                 st.image(qr_img, width=200, caption="एडमिन को फाइन भेजें")
                 
         if st.button("✅ फाइन जमा करें", use_container_width=True):
-            st.success("फाइन जमा हो गया!")
+            st.session_state.ledger_transactions.append({
+                "name": late_member,
+                "date": str(datetime.date.today()),
+                "विवरण": "लेट फाइन भुगतान",
+                "credit": fine_amount,
+                "debit": 0,
+                "loan": 0,
+                "commission": 0,
+                "fine": fine_amount,
+                "balance": fine_amount
+            })
+            st.success("✅ फाइन जमा हो गया और लेज़र में दर्ज कर लिया गया!")
     else:
         st.warning("⚠️ कोई मेंबर उपलब्ध नहीं है।")
 
