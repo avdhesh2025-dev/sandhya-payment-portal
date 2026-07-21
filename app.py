@@ -297,7 +297,6 @@ elif st.session_state.page == "Ledger":
                         m_details['upi'] = edit_upi
                         m_details['address'] = edit_addr
                         
-                        # Google Sheet Update Request
                         try:
                             update_payload = {
                                 "action": "update",
