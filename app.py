@@ -44,7 +44,7 @@ def generate_qr(upi_id, name, amount):
     img.save(buf, format="PNG")
     return buf
 
-# 3. Session State Initialization
+# 3. Session State Initialization (All Dummy Data Cleared)
 if 'page' not in st.session_state:
     st.session_state.page = "Dashboard"
 
@@ -52,14 +52,10 @@ if 'members_db' not in st.session_state:
     st.session_state.members_db = []
 
 if 'payment_status' not in st.session_state:
-    st.session_state.payment_status = {
-        "Member 1": "❌ Pending", "Member 2": "❌ Pending", "Member 3": "❌ Pending",
-        "Member 4": "❌ Pending", "Member 5": "❌ Pending", "Member 6": "❌ Pending",
-        "Member 7": "❌ Pending", "Member 8": "❌ Pending", "Member 9": "❌ Pending", "Member 10": "❌ Pending"
-    }
+    st.session_state.payment_status = {}  # बिलकुल खाली रखा गया है
 
 if 'current_receiver' not in st.session_state:
-    st.session_state.current_receiver = "Member 1"
+    st.session_state.current_receiver = "कोई नहीं (नया)"
 
 # --- SIDEBAR: LOGIN & SETTINGS ---
 st.sidebar.title("🔐 सिस्टम सेटिंग्स")
@@ -106,32 +102,35 @@ if st.session_state.page == "Dashboard":
     st.markdown("---")
     st.subheader("🟢 इस महीने किसका पेमेंट आया / किसका बाकी है?")
     
-    update_member = st.selectbox("स्टेटस बदलने के लिए मेंबर चुनें:", list(st.session_state.payment_status.keys()))
-    new_status = st.radio("नया स्टेटस चुनें:", ["✅ Complete", "❌ Pending"], horizontal=True)
-    
-    if st.button("स्टेटस अपडेट करें"):
-        st.session_state.payment_status[update_member] = new_status
-        st.success(f"✅ {update_member} का स्टेटस अपडेट होकर '{new_status}' हो गया है!")
+    if len(st.session_state.payment_status) > 0:
+        update_member = st.selectbox("स्टेटस बदलने के लिए मेंबर चुनें:", list(st.session_state.payment_status.keys()))
+        new_status = st.radio("नया स्टेटस चुनें:", ["✅ Complete", "❌ Pending"], horizontal=True)
         
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    table_data = []
-    for member, status in st.session_state.payment_status.items():
-        receiver_info = st.session_state.current_receiver if member == st.session_state.current_receiver else "-"
-        table_data.append({
-            "मेंबर का नाम": member,
-            "भुगतान स्टेटस": status,
-            "इस महीने भुगतान किसको मिलना है": receiver_info
-        })
+        if st.button("स्टेटस अपडेट करें"):
+            st.session_state.payment_status[update_member] = new_status
+            st.success(f"✅ {update_member} का स्टेटस अपडेट होकर '{new_status}' हो गया है!")
+            
+        st.markdown("<br>", unsafe_allow_html=True)
         
-    status_df = pd.DataFrame(table_data)
-    st.dataframe(status_df, use_container_width=True)
+        table_data = []
+        for member, status in st.session_state.payment_status.items():
+            receiver_info = st.session_state.current_receiver if member == st.session_state.current_receiver else "-"
+            table_data.append({
+                "मेंबर का नाम": member,
+                "भुगतान स्टेटस": status,
+                "इस महीने भुगतान किसको मिलना है": receiver_info
+            })
+            
+        status_df = pd.DataFrame(table_data)
+        st.dataframe(status_df, use_container_width=True)
+    else:
+        st.info("⚠️ अभी कोई भी मेंबर रजिस्टर्ड नहीं है। कृपया 'नया मेंबर' वाले पेज पर जाकर पहले मेंबर जोड़ें।")
 
 # ----------------------------------------
-# PAGE 2: ADD NEW MEMBER (AADHAR, ADDRESS & DUPLICATE VALIDATION)
+# PAGE 2: ADD NEW MEMBER
 # ----------------------------------------
 elif st.session_state.page == "Add_Member":
-    st.header("👤 नया मेंबर रजिस्ट्रेशन (Duplicate & Validation Check)")
+    st.header("👤 नया मेंबर रजिस्ट्रेशन (Blank Form)")
     
     with st.form("new_member_form", clear_on_submit=True):
         colA, colB = st.columns(2)
@@ -144,7 +143,7 @@ elif st.session_state.page == "Add_Member":
         with colB:
             upi_id = st.text_input("UPI ID (पैसे रिसीव करने के लिए) *")
             address = st.text_area("पूरा पता (Village, Post, Dist, PIN) *")
-            reference = st.selectbox("रेफरेंस / गारंटर *", ["-- चुनें --", "Admin", "Member 1", "Member 2"])
+            reference = st.selectbox("रेफरेंस / गारंटर *", ["-- चुनें --", "Admin"])
             
         photo = st.file_uploader("मेंबर की फोटो अपलोड करें *", type=["jpg", "png", "jpeg"])
         
@@ -154,7 +153,6 @@ elif st.session_state.page == "Add_Member":
         submit = st.form_submit_button("डेटा सेव करें और गूगल शीट में भेजें", use_container_width=True)
         
         if submit:
-            # Duplicate and Validation Check
             existing_mobiles = [m['mobile'] for m in st.session_state.members_db]
             existing_aadhars = [m['aadhar'] for m in st.session_state.members_db]
             existing_pans = [m['pan'] for m in st.session_state.members_db]
@@ -174,7 +172,7 @@ elif st.session_state.page == "Add_Member":
             else:
                 member_id = f"M0{len(st.session_state.members_db) + 1}"
                 
-                # Sending data to Google Sheet via Apps Script Web App
+                # Google Sheet Sync
                 saved_to_sheet = False
                 try:
                     payload = {
@@ -197,7 +195,7 @@ elif st.session_state.page == "Add_Member":
                     "id": member_id, "name": name, "mobile": mobile, 
                     "aadhar": aadhar, "pan": pan, "upi": upi_id, 
                     "address": address, "reference": reference, "status": "✅ Active",
-                    "loan_status": "Clear" # Loan tracking status
+                    "loan_status": "Clear"
                 }
                 st.session_state.members_db.append(new_member)
                 st.session_state.payment_status[name] = "❌ Pending"
@@ -208,138 +206,148 @@ elif st.session_state.page == "Add_Member":
                     st.success(f"✅ {name} का प्रोफाइल बन गया है! (ID: {member_id})")
 
 # ----------------------------------------
-# PAGE 3: MEMBER LEDGER (WITH PROFILE & DETAILS)
+# PAGE 3: MEMBER LEDGER
 # ----------------------------------------
 elif st.session_state.page == "Ledger":
     st.header("📒 व्यक्तिगत मेंबर लेज़र & प्रोफाइल")
     
-    # Check if any members exist
-    member_names = [m['name'] for m in st.session_state.members_db] if st.session_state.members_db else list(st.session_state.payment_status.keys())
-    selected_member = st.selectbox("हिसाब देखने के लिए मेंबर चुनें:", member_names)
-    
-    if selected_member:
-        st.markdown("---")
-        p_col1, p_col2, p_col3 = st.columns([1, 2, 2])
+    if len(st.session_state.members_db) > 0:
+        member_names = [m['name'] for m in st.session_state.members_db]
+        selected_member = st.selectbox("हिसाब देखने के लिए मेंबर चुनें:", member_names)
         
-        with p_col1:
-            st.image("https://cdn-icons-png.flaticon.com/512/149/149071.png", width=110)
-            st.success("🟢 Active")
+        # Find selected member details
+        m_details = next((m for m in st.session_state.members_db if m['name'] == selected_member), None)
+        
+        if m_details:
+            st.markdown("---")
+            p_col1, p_col2, p_col3 = st.columns([1, 2, 2])
             
-        with p_col2:
-            st.write(f"👤 **नाम:** {selected_member}")
-            st.write("📱 **मोबाइल:** 9876543210")
-            st.write("📍 **पता:** Meghpatti, Samastipur, Bihar")
-            
-        with p_col3:
-            st.write("🏛️ **Aadhar:** XXXX-XXXX-1234")
-            st.write("💳 **PAN:** ABCDE1234F")
-            st.write("🏦 **UPI:** user@ybl")
-            
-        st.markdown("<br>", unsafe_allow_html=True)
-        f_col1, f_col2, f_col3 = st.columns(3)
-        f_col1.metric("कुल जमा", "₹ 2,000")
-        f_col2.metric("कुल प्रॉफिट", "₹ 90")
-        f_col3.metric("बैलेंस", "₹ 2,090")
-            
-        st.divider()
-        st.subheader("💳 ट्रांज़ैक्शन हिस्ट्री")
-        ledger_data = pd.DataFrame({
-            "तारीख": ["01-Jul", "05-Jul"],
-            "विवरण": ["मंथली जमा", "प्रॉफिट मिला"],
-            "क्रेडिट": ["₹ 2000", "₹ 40"],
-            "डेबिट": ["-", "-"],
-            "बैलेंस": ["₹ 2000", "₹ 2040"]
-        })
-        st.dataframe(ledger_data, use_container_width=True)
+            with p_col1:
+                st.image("https://cdn-icons-png.flaticon.com/512/149/149071.png", width=110)
+                st.success(m_details['status'])
+                
+            with p_col2:
+                st.write(f"👤 **नाम:** {m_details['name']}")
+                st.write(f"📱 **मोबाइल:** {m_details['mobile']}")
+                st.write(f"📍 **पता:** {m_details['address']}")
+                
+            with p_col3:
+                st.write(f"🏛️ **Aadhar:** [Redacted]")
+                st.write(f"💳 **PAN:** {m_details['pan']}")
+                st.write(f"🏦 **UPI:** {m_details['upi']}")
+                
+            st.markdown("<br>", unsafe_allow_html=True)
+            f_col1, f_col2, f_col3 = st.columns(3)
+            f_col1.metric("कुल जमा", "₹ 2,000")
+            f_col2.metric("कुल प्रॉफिट", "₹ 90")
+            f_col3.metric("बैलेंस", "₹ 2,090")
+                
+            st.divider()
+            st.subheader("💳 ट्रांज़ैक्शन हिस्ट्री")
+            ledger_data = pd.DataFrame({
+                "तारीख": [datetime.date.today().strftime('%d-%b-%Y')],
+                "विवरण": ["खाता खुला / रजिस्ट्रेशन"],
+                "क्रेडिट": ["₹ 2000"],
+                "डेबिट": ["-"],
+                "बैलेंस": ["₹ 2000"]
+            })
+            st.dataframe(ledger_data, use_container_width=True)
+    else:
+        st.warning("⚠️ लेज़र देखने के लिए पहले 'नया मेंबर' विकल्प से कम से कम एक मेंबर रजिस्टर करें।")
 
 # ----------------------------------------
-# PAGE 4: COLLECTION & TRANSFER WITH QR & LOAN LOCK
+# PAGE 4: COLLECTION & TRANSFER
 # ----------------------------------------
 elif st.session_state.page == "Collection":
     st.header("💰 मंथली कलेक्शन और लोन ट्रांसफर")
     
-    colA, colB = st.columns(2)
-    with colA:
-        loan_taker = st.selectbox("इस महीने पैसा किसको मिला?", list(st.session_state.payment_status.keys()))
-        receiver_upi = st.text_input("UPI ID", value="7479584179@ybl")
-    with colB:
-        total_amount = st.number_input("टोटल अमाउंट (₹)", value=20000)
-    
-    interest_rate = st.number_input("ब्याज (%)", value=2.0)
-    base_interest = (total_amount * interest_rate) / 100
-    bid_amount = st.number_input("बोली का डिस्काउंट (₹)", value=500.0, step=100.0)
-    
-    total_deduction = base_interest + bid_amount
-    final_amount_to_give = total_amount - total_deduction
-    per_member_profit = total_deduction / 10
-    
-    st.markdown("---")
-    qr_col, detail_col = st.columns([1, 2])
-    
-    with detail_col:
-        st.write(f"**कुल काटा गया अमाउंट:** ₹ {total_deduction}")
-        st.markdown(f"#### **{loan_taker} को ट्रांसफर होगा:** ₹ {final_amount_to_give}")
-        st.write(f"**हर मेंबर को प्रॉफिट बँटेगा:** ₹ {per_member_profit}")
+    if len(st.session_state.members_db) > 0:
+        colA, colB = st.columns(2)
+        with colA:
+            loan_taker = st.selectbox("इस महीने पैसा किसको मिला?", [m['name'] for m in st.session_state.members_db])
+            receiver_upi = st.text_input("UPI ID", value="7479584179@ybl")
+        with colB:
+            total_amount = st.number_input("टोटल अमाउंट (₹)", value=20000)
         
-    with qr_col:
-        if receiver_upi:
-            qr_img = generate_qr(receiver_upi, loan_taker, final_amount_to_give)
-            st.image(qr_img, width=200, caption="स्कैन करके पेमेंट करें")
+        interest_rate = st.number_input("ब्याज (%)", value=2.0)
+        base_interest = (total_amount * interest_rate) / 100
+        bid_amount = st.number_input("बोली का डिस्काउंट (₹)", value=500.0, step=100.0)
+        
+        total_deduction = base_interest + bid_amount
+        final_amount_to_give = total_amount - total_deduction
+        per_member_profit = total_deduction / len(st.session_state.members_db) if len(st.session_state.members_db) > 0 else 0
+        
+        st.markdown("---")
+        qr_col, detail_col = st.columns([1, 2])
+        
+        with detail_col:
+            st.write(f"**कुल काटा गया अमाउंट:** ₹ {total_deduction}")
+            st.markdown(f"#### **{loan_taker} को ट्रांसफर होगा:** ₹ {final_amount_to_give}")
+            st.write(f"**हर मेंबर को प्रॉफिट बँटेगा:** ₹ {per_member_profit:.2f}")
             
-    # Loan Lock Validation Rule: Check if already has active loan
-    has_active_loan = False
-    for m in st.session_state.members_db:
-        if m['name'] == loan_taker and m.get('loan_status') == "Active Loan":
-            has_active_loan = True
-            
-    if has_active_loan:
-        st.error(f"❌ {loan_taker} को पहले ही लोन मिल चुका है और वह अभी चल रहा है! जब तक पिछला लोन क्लियर नहीं होता, इन्हें दोबारा पैसा नहीं मिल सकता।")
-        if st.button("⚡ फोर्स क्लोज करें (₹500 पेनल्टी जमा करके)", use_container_width=True):
-            for m in st.session_state.members_db:
-                if m['name'] == loan_taker:
-                    m['loan_status'] = "Clear"
-            st.success(f"✅ ₹500 पेनल्टी जमा हो गई और {loan_taker} का पिछला लोन फोर्स क्लोज कर दिया गया है अब नया पैसा मिल सकता है!")
+        with qr_col:
+            if receiver_upi:
+                qr_img = generate_qr(receiver_upi, loan_taker, final_amount_to_give)
+                st.image(qr_img, width=200, caption="स्कैन करके पेमेंट करें")
+                
+        has_active_loan = False
+        for m in st.session_state.members_db:
+            if m['name'] == loan_taker and m.get('loan_status') == "Active Loan":
+                has_active_loan = True
+                
+        if has_active_loan:
+            st.error(f"❌ {loan_taker} को पहले ही लोन मिल चुका है और वह अभी चल रहा है! जब तक पिछला लोन क्लियर नहीं होता, इन्हें दोबारा पैसा नहीं मिल सकता।")
+            if st.button("⚡ फोर्स क्लोज करें (₹500 पेनल्टी जमा करके)", use_container_width=True):
+                for m in st.session_state.members_db:
+                    if m['name'] == loan_taker:
+                        m['loan_status'] = "Clear"
+                st.success(f"✅ ₹500 पेनल्टी जमा हो गई और {loan_taker} का पिछला लोन फोर्स क्लोज कर दिया गया है!")
+        else:
+            if st.button("✅ कंप्लीट ट्रांसफर दर्ज करें", use_container_width=True):
+                st.session_state.current_receiver = loan_taker
+                for m in st.session_state.members_db:
+                    if m['name'] == loan_taker:
+                        m['loan_status'] = "Active Loan"
+                st.success(f"✅ {loan_taker} को ₹ {final_amount_to_give} ट्रांसफर की एंट्री हो गई है!")
     else:
-        if st.button("✅ कंप्लीट ट्रांसफर दर्ज करें", use_container_width=True):
-            st.session_state.current_receiver = loan_taker
-            for m in st.session_state.members_db:
-                if m['name'] == loan_taker:
-                    m['loan_status'] = "Active Loan"
-            st.success(f"✅ {loan_taker} को ₹ {final_amount_to_give} ट्रांसफर की एंट्री हो गई है और इनका लोन स्टेटस 'Active' हो गया है!")
+        st.warning("⚠️ ट्रांसफर करने के लिए पहले 'नया मेंबर' जोड़ें।")
 
 # ----------------------------------------
-# PAGE 5: LATE FINE (PENALTY) WITH QR
+# PAGE 5: LATE FINE (PENALTY)
 # ----------------------------------------
 elif st.session_state.page == "Penalty":
     st.header("⚠️ लेट फाइन (Penalty) कैलकुलेटर")
     
-    late_member = st.selectbox("लेट पेमेंट करने वाला मेंबर चुनें:", list(st.session_state.payment_status.keys()))
-    monthly_due = st.number_input("मंथली जमा राशि (₹)", value=2000)
-    days_late = st.number_input("कितने दिन लेट किया?", min_value=1, value=1)
-    admin_upi = st.text_input("एडमिन की UPI ID", value="admin@ybl")
-    
-    fine_amount = 0
-    if 1 <= days_late <= 6:
-        fine_amount = days_late * 20
-    elif days_late >= 7:
-        fine_amount = ((monthly_due * 3) / 100) * days_late
+    if len(st.session_state.members_db) > 0:
+        late_member = st.selectbox("लेट पेमेंट करने वाला मेंबर चुनें:", [m['name'] for m in st.session_state.members_db])
+        monthly_due = st.number_input("मंथली जमा राशि (₹)", value=2000)
+        days_late = st.number_input("कितने दिन लेट किया?", min_value=1, value=1)
+        admin_upi = st.text_input("एडमिन की UPI ID", value="admin@ybl")
         
-    profit_per_member = fine_amount / 10
-    
-    st.markdown("---")
-    f_qr_col, f_detail_col = st.columns([1, 2])
-    
-    with f_detail_col:
-        st.markdown(f"#### **कुल फाइन ({late_member}):** ₹ {fine_amount}")
-        st.write(f"**हर मेंबर में प्रॉफिट बँटेगा:** ₹ {profit_per_member}")
-        
-    with f_qr_col:
-        if admin_upi and fine_amount > 0:
-            qr_img = generate_qr(admin_upi, "Admin", fine_amount)
-            st.image(qr_img, width=200, caption="एडमिन को फाइन भेजें")
+        fine_amount = 0
+        if 1 <= days_late <= 6:
+            fine_amount = days_late * 20
+        elif days_late >= 7:
+            fine_amount = ((monthly_due * 3) / 100) * days_late
             
-    if st.button("✅ फाइन जमा करें", use_container_width=True):
-        st.success("फाइन जमा हो गया!")
+        profit_per_member = fine_amount / len(st.session_state.members_db)
+        
+        st.markdown("---")
+        f_qr_col, f_detail_col = st.columns([1, 2])
+        
+        with f_detail_col:
+            st.markdown(f"#### **कुल फाइन ({late_member}):** ₹ {fine_amount}")
+            st.write(f"**हर मेंबर में प्रॉफिट बँटेगा:** ₹ {profit_per_member:.2f}")
+            
+        with f_qr_col:
+            if admin_upi and fine_amount > 0:
+                qr_img = generate_qr(admin_upi, "Admin", fine_amount)
+                st.image(qr_img, width=200, caption="एडमिन को फाइन भेजें")
+                
+        if st.button("✅ फाइन जमा करें", use_container_width=True):
+            st.success("फाइन जमा हो गया!")
+    else:
+        st.warning("⚠️ कोई मेंबर उपलब्ध नहीं है।")
 
 # ----------------------------------------
 # PAGE 6: MONTHLY REPORT & EXCEL EXPORT
@@ -350,7 +358,6 @@ elif st.session_state.page == "Report":
     report_month = st.selectbox("महीना चुनें", ["July 2026", "August 2026"])
     total_collection = 20000
     loan_receiver = st.session_state.current_receiver
-    total_profit_pool = 1000
     per_member_profit = 100.0
     
     st.markdown(f"### 📋 {report_month} का फाइनल हिसाब")
