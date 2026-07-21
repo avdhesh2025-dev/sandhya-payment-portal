@@ -24,12 +24,12 @@ st.markdown("""
         border-bottom: 2px solid #d1d5db;
         transform: translateY(4px);
     }
-    /* Hide Sidebar completely if needed */
+    /* Hide Sidebar completely */
     [data-testid="collapsedControl"] { display: none; }
     </style>
 """, unsafe_allow_html=True)
 
-# 3. Session State for Navigation (मेन स्क्रीन पर मेनू चलाने के लिए)
+# 3. Session State for Navigation
 if 'page' not in st.session_state:
     st.session_state.page = "Dashboard"
 
@@ -50,7 +50,6 @@ st.divider()
 if st.session_state.page == "Dashboard":
     st.header("📊 कमिटी समरी (Dashboard)")
     
-    # Dashboard Metrics
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("टोटल मेंबर्स", "10 / 10")
     m2.metric("कमिटी के पास बैलेंस", "₹ 0")
@@ -58,7 +57,6 @@ if st.session_state.page == "Dashboard":
     m4.metric("वर्तमान लोन धारक", "अवधेश (Jul)")
     
     st.subheader("इस महीने का पेमेंट स्टेटस")
-    # डमी डेटा
     status_data = pd.DataFrame({
         "मेंबर का नाम": ["Member 1", "Member 2", "Member 3", "Member 4"],
         "जमा राशि": ["₹2000", "₹2000", "₹0", "₹0"],
@@ -90,14 +88,13 @@ elif st.session_state.page == "Add_Member":
         submit = st.form_submit_button("डेटा सेव करें", use_container_width=True)
         
         if submit:
-            # Mandatory Field Check (Validation)
             if not name or not mobile or not aadhar or not pan or not address or reference == "-- चुनें --" or not photo:
                 st.error("⚠️ कृपया सभी अनिवार्य (*) फील्ड भरें और फोटो अपलोड करें!")
             else:
                 st.success(f"✅ {name} का प्रोफाइल सफलतापूर्वक बन गया है!")
 
 # ----------------------------------------
-# PAGE 3: MEMBER LEDGER (PROFILE & HISTORY)
+# PAGE 3: MEMBER LEDGER (PROFESSIONAL PROFILE & HISTORY)
 # ----------------------------------------
 elif st.session_state.page == "Ledger":
     st.header("📒 व्यक्तिगत मेंबर लेज़र")
@@ -105,24 +102,39 @@ elif st.session_state.page == "Ledger":
     selected_member = st.selectbox("हिसाब देखने के लिए मेंबर चुनें:", ["Member 1", "Member 2", "Member 3"])
     
     if selected_member:
-        st.subheader("👤 प्रोफाइल डिटेल्स")
-        p_col1, p_col2 = st.columns([1, 3])
+        st.markdown("---")
+        
+        # 1. Professional Compact Profile
+        p_col1, p_col2, p_col3 = st.columns([1, 2, 2])
+        
         with p_col1:
-            # डमी फोटो आइकॉन
             st.image("https://cdn-icons-png.flaticon.com/512/149/149071.png", width=120)
+            st.success("🟢 Active Member")
+            
         with p_col2:
-            st.write(f"**नाम:** {selected_member}")
-            st.write("**मोबाइल:** 9876543210")
-            st.write("**Aadhar Number:** XXXX-XXXX-XXXX") 
-            st.write("**PAN Card:** ABCDE1234F")
-            st.write("**Joining Date:** 01-Jul-2026")
-            st.write("**गारंटर:** Admin")
-            st.write("**पता:** Meghpatti, Samastipur, Bihar")
+            st.write(f"👤 **नाम:** {selected_member}")
+            st.write("📱 **मोबाइल:** 9876543210")
+            st.write("📍 **पता:** Meghpatti, Samastipur, Bihar")
+            
+        with p_col3:
+            st.write("🏛️ **Aadhar:** XXXX-XXXX-XXXX")
+            st.write("💳 **PAN:** ABCDE1234F")
+            st.write("📅 **जॉइनिंग Date:** 01-Jul-2026")
+            st.write("🤝 **गारंटर:** Admin")
+            
+        st.markdown("<br>", unsafe_allow_html=True) # थोड़ा गैप देने के लिए
+        
+        # 2. Quick Financial Summary (New Feature)
+        st.markdown("##### 📊 वित्तीय सारांश (Financial Summary)")
+        f_col1, f_col2, f_col3 = st.columns(3)
+        f_col1.metric("कुल जमा (Total Deposit)", "₹ 2,000")
+        f_col2.metric("कुल प्रॉफिट (Profit Earned)", "₹ 90")
+        f_col3.metric("वर्तमान बैलेंस (Current Balance)", "₹ 2,090")
             
         st.divider()
-        st.subheader("💳 ट्रांज़ैक्शन हिस्ट्री (Credit / Debit)")
         
-        # लेज़र का डमी डेटा
+        # 3. Transaction History
+        st.subheader("💳 ट्रांज़ैक्शन हिस्ट्री (Credit / Debit)")
         ledger_data = pd.DataFrame({
             "तारीख": ["01-Jul", "05-Jul", "05-Jul", "05-Jul"],
             "विवरण": ["मंथली जमा", "लोन लिया", "ब्याज कटा", "प्रॉफिट मिला"],
@@ -142,18 +154,15 @@ elif st.session_state.page == "Collection":
     loan_taker = st.selectbox("इस महीने पैसा किसको मिला?", ["Member 1", "Member 2", "Member 3"])
     total_amount = st.number_input("टोटल अमाउंट (₹)", value=20000)
     
-    # 1. फिक्स ब्याज (2%)
     interest_rate = st.number_input("ब्याज (%)", value=2.0)
     base_interest = (total_amount * interest_rate) / 100
     
-    # 2. बोली (Bidding) का अमाउंट (अगर बोली नहीं है तो 0 रखें)
     bid_amount = st.number_input("बोली का अमाउंट (अगर किसी ने बोली नहीं लगाई तो 0 रहने दें - ₹)", value=500.0, step=100.0)
     
-    # कुल कैलकुलेशन
     total_deduction = base_interest + bid_amount
     final_amount_to_give = total_amount - total_deduction
     
-    total_members = 10 # 10 लोगों का ग्रुप है
+    total_members = 10 
     per_member_profit = total_deduction / total_members
     
     st.markdown("---")
