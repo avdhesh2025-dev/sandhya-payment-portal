@@ -8,12 +8,18 @@ import hashlib
 import urllib.parse
 
 # ==========================================
-# 1. HELPER FUNCTIONS & CONFIGURATION
+# 1. CONFIGURATION & FULL DISPLAY LAYOUT
 # ==========================================
+# 🌟 'wide' layout का उपयोग किया गया है ताकि ऐप पूरी डिस्प्ले पर फ़ैले
 st.set_page_config(page_title="Sandhya ERP - Digital Committee", layout="wide", page_icon="🏢")
 
 st.markdown("""
     <style>
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        max-width: 100% !important;
+    }
     div.stButton > button {
         background-color: #ffffff;
         color: #1f2937;
@@ -33,27 +39,29 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 🌟 आपका नया Apps Script URL यहाँ अपडेट कर दिया गया है
 APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyO1X1iG-49QvgFDlPBQKFnw7is6HrbCFBLZOXqFxrpKH6aLXytvnolinxnfX6WpnVIJA/exec"
 ADMIN_HASH = hashlib.sha256("9557".encode()).hexdigest()
 
-@st.cache_data(ttl=2)
+# ==========================================
+# 2. ROBUST DATA FETCHING & SYNCING
+# ==========================================
+@st.cache_data(ttl=1)
 def load_data_from_sheet():
     try:
-        response = requests.get(APPS_SCRIPT_URL)
+        response = requests.get(APPS_SCRIPT_URL, timeout=10)
         if response.status_code == 200:
             return response.json()
-    except:
-        pass
+    except Exception as e:
+        st.sidebar.error(f"⚠️ Sheet Sync Error: {e}")
     return []
 
 def save_ledger_txns(txns_list):
     st.session_state.ledger.extend(txns_list)
     try:
         payload = {"action": "add_ledger_bulk", "data": txns_list}
-        requests.post(APPS_SCRIPT_URL, json=payload, timeout=3)
-    except:
-        pass
+        requests.post(APPS_SCRIPT_URL, json=payload, timeout=5)
+    except Exception as e:
+        st.error(f"⚠️ लेज़र शीट में सेव नहीं हो पाया: {e}")
 
 def generate_qr(upi_id, name, amount=None):
     upi_url = f"upi://pay?pa={upi_id}&pn={urllib.parse.quote(name)}&cu=INR"
@@ -71,27 +79,43 @@ def get_whatsapp_link(message):
     return f"https://wa.me/?text={encoded_msg}"
 
 # ==========================================
-# 2. SESSION STATE SETUP
+# 3. SESSION STATE INITIALIZATION
 # ==========================================
 if 'auth_status' not in st.session_state: st.session_state.auth_status = False
 if 'page' not in st.session_state: st.session_state.page = "Dashboard"
 
 if 'members_db' not in st.session_state:
-    st.session_state.members_db = [] 
-if 'ledger' not in st.session_state:
-    st.session_state.ledger = [] 
-if 'active_loans' not in st.session_state:
-    st.session_state.active_loans = {}
+    raw_data = load_data_from_sheet()
+    st.session_state.members_db = []
+    for row in raw_data:
+        m_name = row.get('Name') or row.get('name')
+        if m_name:
+            st.session_state.members_db.append({
+                "id": str(row.get('Member ID') or row.get('member_id', 'SE0001')),
+                "name": m_name,
+                "father_name": str(row.get('Father Name') or row.get('father_name', '-')),
+                "mobile": str(row.get('Mobile') or row.get('mobile', '')),
+                "dob": str(row.get('DOB') or row.get('dob', '-')),
+                "gender": str(row.get('Gender') or row.get('gender', '-')),
+                "aadhaar": "[Aadhaar Redacted]",
+                "pan": str(row.get('PAN') or row.get('pan', '')),
+                "upi": str(row.get('UPI ID') or row.get('upi', '')),
+                "address": str(row.get('Address') or row.get('address', '')),
+                "status": "Active", "photo": None
+            })
+
+if 'ledger' not in st.session_state: st.session_state.ledger = [] 
+if 'active_loans' not in st.session_state: st.session_state.active_loans = {}
 
 # ==========================================
-# 3. SECURE LOGIN
+# 4. SECURE LOGIN
 # ==========================================
 if not st.session_state.auth_status:
     st.title("🔒 Sandhya Enterprises - सिक्योर लॉगिन")
     with st.form("login_form"):
         username = st.text_input("यूज़रनेम (admin)")
         password = st.text_input("पासवर्ड (9557)", type="password")
-        if st.form_submit_button("लॉगिन करें"):
+        if st.form_submit_button("लॉगिन करें", use_container_width=True):
             if username == "admin" and hashlib.sha256(password.encode()).hexdigest() == ADMIN_HASH:
                 st.session_state.auth_status = True
                 st.rerun()
@@ -100,11 +124,14 @@ if not st.session_state.auth_status:
     st.stop()
 
 # ==========================================
-# 4. NAVIGATION MENUS
+# 5. NAVIGATION MENUS
 # ==========================================
 st.sidebar.title("🏢 Sandhya ERP")
-if st.sidebar.button("🔄 ऐप रिफ्रेश"): st.rerun()
-if st.sidebar.button("🚪 लॉग आउट"): 
+if st.sidebar.button("🔄 डेटा सिंक & रिफ्रेश", use_container_width=True):
+    st.cache_data.clear()
+    st.rerun()
+
+if st.sidebar.button("🚪 लॉग आउट", use_container_width=True): 
     st.session_state.auth_status = False
     st.rerun()
 
@@ -113,7 +140,7 @@ menu_opts = ["📊 डैशबोर्ड", "👤 नया मेंबर �
 choice = st.sidebar.radio("मेनू चुनें:", menu_opts)
 
 # ==========================================
-# 5. PAGE LOGIC
+# 6. PAGES LOGIC (FULL WIDTH DISPLAY)
 # ==========================================
 
 if choice == "👤 नया मेंबर जोड़ें":
@@ -139,6 +166,7 @@ if choice == "👤 नया मेंबर जोड़ें":
                 st.error("⚠️ कृपया सभी (*) अनिवार्य फील्ड भरें!")
             else:
                 new_mem = {
+                    "id": f"SE{len(st.session_state.members_db)+1:04d}",
                     "name": name, "father_name": father_name, "mobile": mobile,
                     "aadhaar": "[Aadhaar Redacted]", "pan": pan.upper(), "upi": upi_id,
                     "address": address, "dob": str(dob), "gender": gender,
@@ -146,12 +174,12 @@ if choice == "👤 नया मेंबर जोड़ें":
                 }
                 
                 payload = {
-                    "member_id": f"SE{len(st.session_state.members_db)+1:04d}",
+                    "member_id": new_mem["id"],
                     "name": name, "father_name": father_name, "mobile": mobile,
                     "dob": str(dob), "gender": gender, "aadhaar": "[Aadhaar Redacted]",
                     "pan": pan.upper(), "upi": upi_id, "address": address
                 }
-                try: requests.post(APPS_SCRIPT_URL, json=payload)
+                try: requests.post(APPS_SCRIPT_URL, json=payload, timeout=5)
                 except: pass
                 
                 st.session_state.members_db.append(new_mem)
@@ -160,7 +188,7 @@ if choice == "👤 नया मेंबर जोड़ें":
 elif choice == "📂 मेंबर प्रोफाइल & लेज़र":
     st.header("📂 मेंबर प्रोफाइल & लेज़र पासबुक")
     if not st.session_state.members_db:
-        st.warning("कोई मेंबर नहीं है।")
+        st.warning("कोई मेंबर नहीं है। साइडबार से 'डेटा सिंक' पर क्लिक करें या नया मेंबर जोड़ें।")
     else:
         mem_names = [m['name'] for m in st.session_state.members_db]
         selected_name = st.selectbox("प्रोफाइल देखने के लिए मेंबर चुनें:", mem_names)
@@ -171,7 +199,7 @@ elif choice == "📂 मेंबर प्रोफाइल & लेज़र"
         st.markdown("---")
         c1, c2, c3 = st.columns([1,2,2])
         with c1:
-            if mem['photo']: st.image(mem['photo'], width=120)
+            if mem.get('photo'): st.image(mem['photo'], width=120)
             else: st.image("https://cdn-icons-png.flaticon.com/512/149/149071.png", width=120)
             
             is_active = st.toggle("✅ Active Member", value=(mem['status'] == "Active"))
