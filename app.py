@@ -37,6 +37,9 @@ st.markdown("""
 # Admin Security
 ADMIN_HASH = hashlib.sha256("9557".encode()).hexdigest()
 
+# 👉 आपका नया Google Apps Script URL यहाँ अपडेट कर दिया गया है 👈
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby7WHaNevFEemxTbL2FT9r05vhDxCywARHSfXy_xbwoQW6wInjeyn-Sih93zz7Vs2ZyVw/exec"
+
 def generate_qr(upi_id, name, amount=None):
     upi_url = f"upi://pay?pa={upi_id}&pn={urllib.parse.quote(name)}&cu=INR"
     if amount: upi_url += f"&am={amount}"
@@ -136,12 +139,24 @@ if choice == "👤 नया मेंबर जोड़ें":
                 elif aadhaar in existing_aadhaars:
                     st.error("❌ यह Aadhar नंबर पहले से उपयोग में है!")
                 else:
+                    m_id = f"SE{len(st.session_state.members_db)+1:04d}"
                     new_mem = {
-                        "name": name, "father_name": father_name, "mobile": mobile,
+                        "id": m_id, "name": name, "father_name": father_name, "mobile": mobile,
                         "aadhaar": aadhaar, "pan": pan.upper(), "upi": upi_id,
                         "address": address, "dob": str(dob), "gender": gender,
                         "photo": photo, "status": "Active" # Active / Inactive(Defaulter)
                     }
+                    
+                    # 2. Google Sheet में डेटा भेजना
+                    payload = {
+                        "action": "add_member", "member_id": m_id, "name": name, 
+                        "father_name": father_name, "mobile": mobile, "dob": str(dob), 
+                        "gender": gender, "aadhaar": "[Aadhaar Redacted]", "pan": pan.upper(), 
+                        "upi": upi_id, "address": address, "status": "Active"
+                    }
+                    try: requests.post(APPS_SCRIPT_URL, json=payload)
+                    except: pass
+                    
                     st.session_state.members_db.append(new_mem)
                     st.success(f"✅ {name} कमिटी में सफलतापूर्वक जुड़ गए हैं!")
 
@@ -167,7 +182,7 @@ elif choice == "📂 मेंबर प्रोफाइल & लेज़र"
             if mem['photo']: st.image(mem['photo'], width=120)
             else: st.image("https://cdn-icons-png.flaticon.com/512/149/149071.png", width=120)
             
-            # 2. Defaulter / Inactive Toggle
+            # Defaulter / Inactive Toggle
             is_active = st.toggle("✅ Active Member", value=(mem['status'] == "Active"))
             new_status = "Active" if is_active else "Defaulter (Inactive)"
             
@@ -227,62 +242,71 @@ elif choice == "💰 कमिटी विनर & QR":
         if defaulters:
             st.error(f"❌ Defaulter (लोन नहीं ले सकते): {', '.join(defaulters)}")
             
-        winner_name = st.selectbox("कमिटी विजेता चुनें:", [m['name'] for m in eligible_members])
-        
-        st.markdown("---")
-        c1, c2 = st.columns(2)
-        total_pool = len(st.session_state.members_db) * 2000
-        with c1:
-            st.write(f"**कमिटी का कुल फंड (Total Pool):** ₹ {total_pool}")
-            tenure = st.selectbox("लोन की अवधि चुनें (महीने)", [6, 12, 18, 24])
-            interest_rate = 2.0 # Fixed 2% per month
+        if eligible_members:
+            winner_name = st.selectbox("कमिटी विजेता चुनें:", [m['name'] for m in eligible_members])
             
-        with c2:
-            # 2% per month interest
-            monthly_interest = (total_pool * interest_rate) / 100
-            monthly_principal = total_pool / tenure
-            emi = monthly_principal + monthly_interest
-            
-            st.success(f"**प्रति माह 2% ब्याज:** ₹ {monthly_interest}")
-            st.error(f"**विजेता की नई EMI:** ₹ {emi} (अगले {tenure} महीनों तक)")
+            st.markdown("---")
+            c1, c2 = st.columns(2)
+            total_pool = len(st.session_state.members_db) * 2000
+            with c1:
+                st.write(f"**कमिटी का कुल फंड (Total Pool):** ₹ {total_pool}")
+                tenure = st.selectbox("लोन की अवधि चुनें (महीने)", [6, 12, 18, 24])
+                interest_rate = 2.0 # Fixed 2% per month
+                
+            with c2:
+                # 2% per month interest
+                monthly_interest = (total_pool * interest_rate) / 100
+                monthly_principal = total_pool / tenure
+                emi = monthly_principal + monthly_interest
+                
+                st.success(f"**प्रति माह 2% ब्याज:** ₹ {monthly_interest}")
+                st.error(f"**विजेता की नई EMI:** ₹ {emi} (अगले {tenure} महीनों तक)")
 
-        if st.button("✅ लोन पास करें और QR जनरेट करें", use_container_width=True):
-            winner_upi = next(m['upi'] for m in eligible_members if m['name'] == winner_name)
-            
-            # Update Active Loan State
-            st.session_state.active_loans[winner_name] = {
-                "principal": total_pool,
-                "emi": emi,
-                "months_left": tenure,
-                "monthly_interest": monthly_interest
-            }
-            
-            # Ledger entry for taking loan
-            st.session_state.ledger.append({
-                "name": winner_name, "date": str(datetime.date.today()), 
-                "desc": f"{tenure} महीने के लिए कमिटी उठाई", "type": "Loan Taken", "amount": total_pool
-            })
-            
-            st.session_state.current_winner_qr = {
-                "name": winner_name, "upi": winner_upi, "amount": 2000 # 2000 to be sent by everyone
-            }
-            st.success("लोन पास हो गया है!")
+            if st.button("✅ लोन पास करें और QR जनरेट करें", use_container_width=True):
+                winner_upi = next(m['upi'] for m in eligible_members if m['name'] == winner_name)
+                
+                # Update Active Loan State
+                st.session_state.active_loans[winner_name] = {
+                    "principal": total_pool,
+                    "emi": emi,
+                    "months_left": tenure,
+                    "monthly_interest": monthly_interest
+                }
+                
+                # Ledger entry for taking loan
+                entry = {
+                    "name": winner_name, "date": str(datetime.date.today()), 
+                    "desc": f"{tenure} महीने के लिए कमिटी उठाई", "type": "Loan Taken", "amount": total_pool
+                }
+                st.session_state.ledger.append(entry)
+                
+                # Google Sheet में भेजना
+                try: 
+                    requests.post(APPS_SCRIPT_URL, json={"action": "add_ledger", **entry})
+                except: pass
+                
+                st.session_state.current_winner_qr = {
+                    "name": winner_name, "upi": winner_upi, "amount": 2000 # 2000 to be sent by everyone
+                }
+                st.success("लोन पास हो गया है!")
 
-        # Display QR Code if generated
-        if hasattr(st.session_state, 'current_winner_qr'):
-            qr_data = st.session_state.current_winner_qr
-            st.divider()
-            st.subheader(f"📲 {qr_data['name']} का पेमेंट QR")
-            
-            q_col, t_col = st.columns([1,2])
-            with q_col:
-                img = generate_qr(qr_data['upi'], qr_data['name'], qr_data['amount'])
-                st.image(img, width=200)
-            with t_col:
-                st.warning("⚠️ **ज़रूरी सूचना:** यह QR कोड 5 तारीख को रात 9:00 बजे तक ही मान्य है। उसके बाद पेमेंट करने पर फाइन लगेगा।")
-                wa_msg = f"इस महीने की कमिटी *{qr_data['name']}* को दी जा रही है।\nकृपया ₹2000 इस UPI पर भेजें: {qr_data['upi']}\n\n*ध्यान दें:* 5 तारीख रात 9 बजे से पहले स्क्रीनशॉट भेजें, अन्यथा फाइन लगेगा।"
-                link = get_whatsapp_link(wa_msg)
-                st.markdown(f'<a href="{link}" target="_blank"><button style="background-color:#25D366; color:white; border-radius:8px; padding:10px; border:none;">💬 ग्रुप में WhatsApp पर भेजें</button></a>', unsafe_allow_html=True)
+            # Display QR Code if generated
+            if hasattr(st.session_state, 'current_winner_qr'):
+                qr_data = st.session_state.current_winner_qr
+                st.divider()
+                st.subheader(f"📲 {qr_data['name']} का पेमेंट QR")
+                
+                q_col, t_col = st.columns([1,2])
+                with q_col:
+                    img = generate_qr(qr_data['upi'], qr_data['name'], qr_data['amount'])
+                    st.image(img, width=200)
+                with t_col:
+                    st.warning("⚠️ **ज़रूरी सूचना:** यह QR कोड 5 तारीख को रात 9:00 बजे तक ही मान्य है। उसके बाद पेमेंट करने पर फाइन लगेगा।")
+                    wa_msg = f"इस महीने की कमिटी *{qr_data['name']}* को दी जा रही है।\nकृपया ₹2000 इस UPI पर भेजें: {qr_data['upi']}\n\n*ध्यान दें:* 5 तारीख रात 9 बजे से पहले स्क्रीनशॉट भेजें, अन्यथा फाइन लगेगा।"
+                    link = get_whatsapp_link(wa_msg)
+                    st.markdown(f'<a href="{link}" target="_blank"><button style="background-color:#25D366; color:white; border-radius:8px; padding:10px; border:none;">💬 ग्रुप में WhatsApp पर भेजें</button></a>', unsafe_allow_html=True)
+        else:
+            st.warning("कोई भी एक्टिव मेंबर नहीं है जो लोन ले सके।")
 
 # ------------------------------------------
 # PAGE 4: MONTHLY COLLECTION, EMI & FINE
@@ -330,20 +354,20 @@ elif choice == "💸 मंथली कलेक्शन & EMI":
         actual_paid = st.number_input("वास्तव में कितना पैसा दिया?", value=float(total_payable + fine_amount))
         
         if st.button("पेमेंट कन्फर्म करें (लेज़र में जोड़ें)"):
-            # Record Main Payment
-            st.session_state.ledger.append({
-                "name": col_name, "date": str(date_today), "desc": f"महीने का पेमेंट", 
-                "type": pay_type, "amount": total_payable
-            })
-            # Record Fine if collected
+            # 1. Record Main Payment
+            entry1 = {"name": col_name, "date": str(date_today), "desc": f"महीने का पेमेंट", "type": pay_type, "amount": total_payable}
+            st.session_state.ledger.append(entry1)
+            try: requests.post(APPS_SCRIPT_URL, json={"action": "add_ledger", **entry1})
+            except: pass
+            
+            # 2. Record Fine if collected
             if fine_amount > 0:
-                st.session_state.ledger.append({
-                    "name": col_name, "date": str(date_today), "desc": f"{days_late} दिन का लेट फाइन", 
-                    "type": "Fine Paid", "amount": fine_amount
-                })
+                entry2 = {"name": col_name, "date": str(date_today), "desc": f"{days_late} दिन का लेट फाइन", "type": "Fine Paid", "amount": fine_amount}
+                st.session_state.ledger.append(entry2)
+                try: requests.post(APPS_SCRIPT_URL, json={"action": "add_ledger", **entry2})
+                except: pass
                 
             # PROFIT DISTRIBUTION (Fine and Interest)
-            # Find how much profit was generated in this transaction
             profit_generated = 0
             if is_emi_payer:
                 profit_generated += st.session_state.active_loans[col_name]['monthly_interest']
@@ -356,11 +380,10 @@ elif choice == "💸 मंथली कलेक्शन & EMI":
                 if eligible_for_profit:
                     per_head_profit = profit_generated / len(eligible_for_profit)
                     for emp in eligible_for_profit:
-                        st.session_state.ledger.append({
-                            "name": emp, "date": str(date_today), 
-                            "desc": f"ब्याज/फाइन का प्रॉफिट शेयर (Source: {col_name})", 
-                            "type": "Profit Share", "amount": round(per_head_profit, 2)
-                        })
+                        entry3 = {"name": emp, "date": str(date_today), "desc": f"ब्याज/फाइन का प्रॉफिट शेयर (Source: {col_name})", "type": "Profit Share", "amount": round(per_head_profit, 2)}
+                        st.session_state.ledger.append(entry3)
+                        try: requests.post(APPS_SCRIPT_URL, json={"action": "add_ledger", **entry3})
+                        except: pass
                     st.success(f"✅ पेमेंट सेव हुआ! और प्रॉफिट (₹ {profit_generated}) सभी योग्य {len(eligible_for_profit)} मेंबर्स में बाँट दिया गया है।")
                 else:
                     st.success("✅ पेमेंट सेव हुआ! (प्रॉफिट बांटने के लिए कोई योग्य मेंबर नहीं बचा)")
