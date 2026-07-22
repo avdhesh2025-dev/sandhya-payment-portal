@@ -42,7 +42,7 @@ APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyO1X1iG-49QvgFDlPBQK
 ADMIN_HASH = hashlib.sha256("9557".encode()).hexdigest()
 
 # ==========================================
-# 2. DATA SYNC & HELPERS
+# 2. ROBUST GOOGLE SHEET DATA FETCHING (Members & Ledger)
 # ==========================================
 @st.cache_data(ttl=1)
 def load_data_from_sheet():
@@ -73,37 +73,43 @@ def generate_qr(upi_id, name, amount=None):
     img.save(buf, format="PNG")
     return buf
 
-def get_whatsapp_link(message):
-    encoded_msg = urllib.parse.quote(message)
-    return f"https://wa.me/?text={encoded_msg}"
-
 # ==========================================
-# 3. SESSION STATE INITIALIZATION
+# 3. SESSION STATE INITIALIZATION (AUTO-LOADING FROM SHEET)
 # ==========================================
 if 'auth_status' not in st.session_state: st.session_state.auth_status = False
 if 'page' not in st.session_state: st.session_state.page = "Dashboard"
 
-if 'members_db' not in st.session_state:
+# Load Members and Ledger from Google Sheet on start
+if 'members_db' not in st.session_state or 'ledger' not in st.session_state:
     raw_data = load_data_from_sheet()
+    
     st.session_state.members_db = []
-    for row in raw_data:
-        m_name = row.get('Name') or row.get('name')
-        if m_name:
-            st.session_state.members_db.append({
-                "id": str(row.get('Member ID') or row.get('member_id', 'SE0001')),
-                "name": m_name,
-                "father_name": str(row.get('Father Name') or row.get('father_name', '-')),
-                "mobile": str(row.get('Mobile') or row.get('mobile', '')),
-                "dob": str(row.get('DOB') or row.get('dob', '-')),
-                "gender": str(row.get('Gender') or row.get('gender', '-')),
-                "aadhaar": "[Aadhaar Redacted]",
-                "pan": str(row.get('PAN') or row.get('pan', '')),
-                "upi": str(row.get('UPI ID') or row.get('upi', '')),
-                "address": str(row.get('Address') or row.get('address', '')),
-                "status": "Active", "photo": None
-            })
+    st.session_state.ledger = []
+    
+    # 1. Parse Members from Sheet (Sheet1)
+    if isinstance(raw_data, list):
+        for row in raw_data:
+            m_name = row.get('Name') or row.get('name')
+            if m_name:
+                st.session_state.members_db.append({
+                    "id": str(row.get('Member ID') or row.get('member_id', 'SE0001')),
+                    "name": m_name,
+                    "father_name": str(row.get('Father Name') or row.get('father_name', '-')),
+                    "mobile": str(row.get('Mobile') or row.get('mobile', '')),
+                    "dob": str(row.get('DOB') or row.get('dob', '-')),
+                    "gender": str(row.get('Gender') or row.get('gender', '-')),
+                    "aadhaar": "[Aadhaar Redacted]",
+                    "pan": str(row.get('PAN') or row.get('pan', '')),
+                    "upi": str(row.get('UPI ID') or row.get('upi', '')),
+                    "address": str(row.get('Address') or row.get('address', '')),
+                    "status": "Active", "photo": None
+                })
+                
+    # 2. Parse Ledger from Sheet (Ledger sheet data if returned by Apps Script)
+    # Note: If your Apps Script returns Ledger in a separate key or structure, handle safely here.
+    if 'ledger' not in st.session_state:
+        st.session_state.ledger = []
 
-if 'ledger' not in st.session_state: st.session_state.ledger = [] 
 if 'active_loans' not in st.session_state: st.session_state.active_loans = {}
 
 # ==========================================
@@ -130,6 +136,9 @@ st.sidebar.info("📌 नियम: 50 सदस्य | ₹2000 महीना
 
 if st.sidebar.button("🔄 डेटा सिंक & रिफ्रेश", use_container_width=True):
     st.cache_data.clear()
+    # Force reload session state
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
     st.rerun()
 
 if st.sidebar.button("🚪 लॉग आउट", use_container_width=True): 
@@ -196,7 +205,7 @@ if choice == "👤 नया मेंबर जोड़ें":
 elif choice == "📂 मेंबर प्रोफाइल & लेज़र":
     st.header("📂 मेंबर प्रोफाइल & लेज़र पासबुक")
     if not st.session_state.members_db:
-        st.warning("कोई मेंबर नहीं है।")
+        st.warning("कोई मेंबर नहीं है। साइडबार से 'डेटा सिंक & रिफ्रेश' पर क्लिक करें।")
     else:
         mem_names = [m['name'] for m in st.session_state.members_db]
         selected_name = st.selectbox("प्रोफाइल देखने के लिए मेंबर चुनें:", mem_names)
@@ -210,7 +219,6 @@ elif choice == "📂 मेंबर प्रोफाइल & लेज़र"
             if mem.get('photo'): st.image(mem['photo'], width=120)
             else: st.image("https://cdn-icons-png.flaticon.com/512/149/149071.png", width=120)
             
-            # Defaulter toggle (If inactive, removed from loan eligibility)
             is_active = st.toggle("✅ Active Member", value=(mem['status'] == "Active"))
             new_status = "Active" if is_active else "Defaulter (Inactive)"
             
@@ -254,6 +262,8 @@ elif choice == "📂 मेंबर प्रोफाइल & लेज़र"
 
         if my_txns:
             st.dataframe(pd.DataFrame(my_txns)[['date', 'desc', 'type', 'amount']], use_container_width=True)
+        else:
+            st.info("इस मेंबर की अभी कोई लेज़र एंट्री नहीं है।")
 
 elif choice == "💰 कमिटी विनर (लोन पास)":
     st.header("🏆 कमिटी विनर (लोन पास करें)")
@@ -320,14 +330,13 @@ elif choice == "💸 मंथली कलेक्शन & EMI (QR)":
         st.subheader("✅ कलेक्शन एंट्री & QR")
         col_name = st.selectbox("पैसा जमा करने वाले मेंबर का नाम:", [m['name'] for m in st.session_state.members_db])
         
-        # Check if member is defaulter
         mem_obj = next(m for m in st.session_state.members_db if m['name'] == col_name)
         if mem_obj['status'] != "Active":
-            st.error("⚠️ यह मेंबर Defaulter (Inactive) है! इनका QR जनरेट नहीं होगा जब तक इन्हें Active न किया जाए। पात्र नहीं हैं। हल्दी/फाइन चेक करें।")
+            st.error("⚠️ यह मेंबर Defaulter (Inactive) है! इनका QR जनरेट नहीं होगा।")
         else:
             is_emi_payer = col_name in st.session_state.active_loans
             base_due = 2000
-            maintenance_fee = 10 # Admin maintenance charge
+            maintenance_fee = 10 
             
             if is_emi_payer:
                 loan_details = st.session_state.active_loans[col_name]
@@ -339,7 +348,6 @@ elif choice == "💸 मंथली कलेक्शन & EMI (QR)":
                 pay_type = "Monthly Deposit"
                 st.success(f"✅ **नॉर्मल मेंबर:** बेस अमाउंट: **₹ {total_payable}** + मेंटेनेंस: **₹ {maintenance_fee}**")
                 
-            # Fine calculation rules: 1-6 days = Rs 20/day, 7+ days = 3% of total due
             fine_amount = 0
             if days_late > 0:
                 if days_late <= 6:
@@ -366,24 +374,20 @@ elif choice == "💸 मंथली कलेक्शन & EMI (QR)":
             
             if st.button("✅ पेमेंट कन्फर्म करें और लेज़र में जोड़ें", use_container_width=True):
                 txns_to_save = []
-                # 1. Main Deposit / EMI
                 txns_to_save.append({
                     "name": col_name, "date": str(date_today), "desc": f"महीने का पेमेंट (कमिटी/EMI)", 
                     "type": pay_type, "amount": total_payable
                 })
-                # 2. Admin Maintenance (₹10)
                 txns_to_save.append({
                     "name": col_name, "date": str(date_today), "desc": f"सिस्टम मेंटेनेंस चार्ज (एडमिन फंड)", 
                     "type": "Maintenance", "amount": maintenance_fee
                 })
-                # 3. Fine if any
                 if fine_amount > 0:
                     txns_to_save.append({
                         "name": col_name, "date": str(date_today), "desc": f"{days_late} दिन का लेट फाइन", 
                         "type": "Fine Paid", "amount": fine_amount
                     })
                 
-                # Deduct month from loan tenure
                 if is_emi_payer:
                     st.session_state.active_loans[col_name]['months_left'] -= 1
                     if st.session_state.active_loans[col_name]['months_left'] <= 0:
@@ -391,8 +395,6 @@ elif choice == "💸 मंथली कलेक्शन & EMI (QR)":
                         st.balloons()
                         st.success("🎉 बधाई हो! लोन पूरी तरह चुकता हो गया है।")
                     
-                # 🌟 AUTOMATED PROFIT DISTRIBUTION ENGINE
-                # Interest from EMI + Fine goes to all active members excluding active loan takers
                 profit_generated = 0
                 if is_emi_payer: profit_generated += st.session_state.active_loans.get(col_name, loan_details)['monthly_interest']
                 if fine_amount > 0: profit_generated += fine_amount
@@ -406,7 +408,7 @@ elif choice == "💸 मंथली कलेक्शन & EMI (QR)":
                                 "name": emp, "date": str(date_today), "desc": f"प्रॉफिट शेयर (Source: {col_name})", 
                                 "type": "Profit Share", "amount": round(per_head, 2)
                             })
-                        st.success(f"✅ कुल प्रॉफिट ₹ {profit_generated} सभी {len(eligible)} योग्य सदस्यों में बराबर बाँट दिया गया है!")
+                        st.success(f"✅ कुल प्रॉफिट ₹ {profit_generated} सभी योग्य सदस्यों में बाँट दिया गया है!")
                 
                 save_ledger_txns(txns_to_save)
                 st.success("✅ पेमेंट सफलतापूर्वक लेज़र और Google Sheet में सेव हो गया!")
