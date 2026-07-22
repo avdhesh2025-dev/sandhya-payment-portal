@@ -38,7 +38,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyO1X1iG-49QvgFDlPBQKFnw7is6HrbCFBLZOXqFxrpKH6aLXytvnolinxnfX6WpnVIJA/exec"
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyUjDWkeZZeCzp6jk-fkVa9pp3Rmn0lPrxi1SRTB1HRTT1zMOjR0eV85OgatzJdALer7w/exec"
 ADMIN_HASH = hashlib.sha256("9557".encode()).hexdigest()
 
 # ==========================================
