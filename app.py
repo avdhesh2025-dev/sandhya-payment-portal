@@ -10,7 +10,6 @@ import urllib.parse
 # ==========================================
 # 1. CONFIGURATION & FULL DISPLAY LAYOUT
 # ==========================================
-# 🌟 'wide' layout का उपयोग किया गया है ताकि ऐप पूरी डिस्प्ले पर फ़ैले
 st.set_page_config(page_title="Sandhya ERP - Digital Committee", layout="wide", page_icon="🏢")
 
 st.markdown("""
@@ -43,7 +42,7 @@ APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyO1X1iG-49QvgFDlPBQK
 ADMIN_HASH = hashlib.sha256("9557".encode()).hexdigest()
 
 # ==========================================
-# 2. ROBUST DATA FETCHING & SYNCING
+# 2. DATA SYNC & HELPERS
 # ==========================================
 @st.cache_data(ttl=1)
 def load_data_from_sheet():
@@ -127,6 +126,8 @@ if not st.session_state.auth_status:
 # 5. NAVIGATION MENUS
 # ==========================================
 st.sidebar.title("🏢 Sandhya ERP")
+st.sidebar.info("📌 नियम: 50 सदस्य | ₹2000 महीना | ₹10 मेंटेनेंस | 2% ब्याज")
+
 if st.sidebar.button("🔄 डेटा सिंक & रिफ्रेश", use_container_width=True):
     st.cache_data.clear()
     st.rerun()
@@ -140,11 +141,11 @@ menu_opts = ["📊 डैशबोर्ड", "👤 नया मेंबर �
 choice = st.sidebar.radio("मेनू चुनें:", menu_opts)
 
 # ==========================================
-# 6. PAGES LOGIC (FULL WIDTH DISPLAY)
+# 6. PAGES LOGIC
 # ==========================================
 
 if choice == "👤 नया मेंबर जोड़ें":
-    st.header("👤 नया मेंबर रजिस्ट्रेशन")
+    st.header("👤 नया मेंबर रजिस्ट्रेशन (यूनिक चेक)")
     with st.form("add_member"):
         c1, c2 = st.columns(2)
         with c1:
@@ -165,30 +166,37 @@ if choice == "👤 नया मेंबर जोड़ें":
             if not name or not mobile or not aadhaar or not pan or not father_name:
                 st.error("⚠️ कृपया सभी (*) अनिवार्य फील्ड भरें!")
             else:
-                new_mem = {
-                    "id": f"SE{len(st.session_state.members_db)+1:04d}",
-                    "name": name, "father_name": father_name, "mobile": mobile,
-                    "aadhaar": "[Aadhaar Redacted]", "pan": pan.upper(), "upi": upi_id,
-                    "address": address, "dob": str(dob), "gender": gender,
-                    "photo": photo, "status": "Active" 
-                }
+                existing_mobiles = [m['mobile'] for m in st.session_state.members_db]
+                existing_pans = [m['pan'].upper() for m in st.session_state.members_db]
                 
-                payload = {
-                    "member_id": new_mem["id"],
-                    "name": name, "father_name": father_name, "mobile": mobile,
-                    "dob": str(dob), "gender": gender, "aadhaar": "[Aadhaar Redacted]",
-                    "pan": pan.upper(), "upi": upi_id, "address": address
-                }
-                try: requests.post(APPS_SCRIPT_URL, json=payload, timeout=5)
-                except: pass
-                
-                st.session_state.members_db.append(new_mem)
-                st.success(f"✅ {name} कमिटी में सफलतापूर्वक जुड़ गए हैं!")
+                if mobile in existing_mobiles:
+                    st.error("❌ यह मोबाइल नंबर पहले से रजिस्टर्ड है!")
+                elif pan.upper() in existing_pans:
+                    st.error("❌ यह PAN नंबर पहले से मौजूद है!")
+                else:
+                    new_mem = {
+                        "id": f"SE{len(st.session_state.members_db)+1:04d}",
+                        "name": name, "father_name": father_name, "mobile": mobile,
+                        "aadhaar": "[Aadhaar Redacted]", "pan": pan.upper(), "upi": upi_id,
+                        "address": address, "dob": str(dob), "gender": gender,
+                        "photo": photo, "status": "Active" 
+                    }
+                    
+                    payload = {
+                        "member_id": new_mem["id"], "name": name, "father_name": father_name, 
+                        "mobile": mobile, "dob": str(dob), "gender": gender, "aadhaar": "[Aadhaar Redacted]",
+                        "pan": pan.upper(), "upi": upi_id, "address": address
+                    }
+                    try: requests.post(APPS_SCRIPT_URL, json=payload, timeout=5)
+                    except: pass
+                    
+                    st.session_state.members_db.append(new_mem)
+                    st.success(f"✅ {name} कमिटी में सफलतापूर्वक जुड़ गए हैं!")
 
 elif choice == "📂 मेंबर प्रोफाइल & लेज़र":
     st.header("📂 मेंबर प्रोफाइल & लेज़र पासबुक")
     if not st.session_state.members_db:
-        st.warning("कोई मेंबर नहीं है। साइडबार से 'डेटा सिंक' पर क्लिक करें या नया मेंबर जोड़ें।")
+        st.warning("कोई मेंबर नहीं है।")
     else:
         mem_names = [m['name'] for m in st.session_state.members_db]
         selected_name = st.selectbox("प्रोफाइल देखने के लिए मेंबर चुनें:", mem_names)
@@ -202,12 +210,16 @@ elif choice == "📂 मेंबर प्रोफाइल & लेज़र"
             if mem.get('photo'): st.image(mem['photo'], width=120)
             else: st.image("https://cdn-icons-png.flaticon.com/512/149/149071.png", width=120)
             
+            # Defaulter toggle (If inactive, removed from loan eligibility)
             is_active = st.toggle("✅ Active Member", value=(mem['status'] == "Active"))
             new_status = "Active" if is_active else "Defaulter (Inactive)"
             
             if mem['status'] != new_status:
                 st.session_state.members_db[member_idx]['status'] = new_status
                 st.rerun()
+            
+            if new_status == "Active": st.success("Active Member")
+            else: st.error("❌ Defaulter (QR बंद)")
 
         with c2:
             st.write(f"**नाम:** {mem['name']}")
@@ -245,12 +257,16 @@ elif choice == "📂 मेंबर प्रोफाइल & लेज़र"
 
 elif choice == "💰 कमिटी विनर (लोन पास)":
     st.header("🏆 कमिटी विनर (लोन पास करें)")
-    st.info("विजेता की कुल बचत (Running Balance) को लोन अमाउंट से माइनस कर दिया जाएगा।")
+    st.info("विजेता की कुल बचत (Running Balance) को टोटल पूल से माइनस करके बचे हुए अमाउंट पर 2% ब्याज से EMI बनाई जाएगी।")
     
     if not st.session_state.members_db:
         st.warning("मेंबर मौजूद नहीं हैं।")
     else:
         eligible_members = [m for m in st.session_state.members_db if m['status'] == "Active"]
+        defaulters = [m['name'] for m in st.session_state.members_db if m['status'] != "Active"]
+        if defaulters:
+            st.error(f"❌ Defaulter सदस्य (इनका QR और लोन बंद है): {', '.join(defaulters)}")
+            
         winner_name = st.selectbox("कमिटी विजेता चुनें:", [m['name'] for m in eligible_members])
         
         winner_txns = [t for t in st.session_state.ledger if t['name'] == winner_name]
@@ -263,7 +279,7 @@ elif choice == "💰 कमिटी विनर (लोन पास)":
         net_loan_principal = total_pool - winner_savings
         
         with c1:
-            st.write(f"**कमिटी का कुल फंड:** ₹ {total_pool}")
+            st.write(f"**कमिटी का कुल फंड (50 x 2000):** ₹ {total_pool}")
             st.success(f"**विजेता की कुल बचत (माइनस होगी):** - ₹ {winner_savings}")
             st.error(f"**एक्चुअल लोन अमाउंट (बचत कटने के बाद):** ₹ {net_loan_principal}")
             tenure = st.selectbox("लोन की अवधि चुनें (महीने)", [6, 12, 18, 24])
@@ -293,97 +309,123 @@ elif choice == "💰 कमिटी विनर (लोन पास)":
             st.success(f"✅ {winner_name} का लोन पास हो गया और EMI ₹ {emi} सेट कर दी गई है!")
 
 elif choice == "💸 मंथली कलेक्शन & EMI (QR)":
-    st.header("💸 मंथली कलेक्शन & डायनामिक पेमेंट QR")
+    st.header("💸 मंथली कलेक्शन, मेंटेनेंस चार्ज & डायनामिक पेमेंट QR")
     
     date_today = st.date_input("आज की तारीख", datetime.date.today())
     due_date = datetime.date(date_today.year, date_today.month, 5)
     days_late = (date_today - due_date).days if (date_today - due_date).days > 0 else 0
-    st.info(f"**मंथली ड्यू डेट:** 5 तारीख | **लेट दिन:** {days_late}")
+    st.info(f"**मंथली ड्यू डेट:** 5 तारीख (रात 9 बजे तक मान्य) | **लेट दिन:** {days_late}")
     
     if st.session_state.members_db:
         st.subheader("✅ कलेक्शन एंट्री & QR")
         col_name = st.selectbox("पैसा जमा करने वाले मेंबर का नाम:", [m['name'] for m in st.session_state.members_db])
         
-        is_emi_payer = col_name in st.session_state.active_loans
-        base_due = 2000
-        
-        if is_emi_payer:
-            loan_details = st.session_state.active_loans[col_name]
-            total_payable = loan_details['emi']
-            pay_type = "EMI Paid"
-            st.warning(f"⚠️ **लोन एक्टिव है!** इस मेंबर की EMI: **₹ {total_payable}**")
+        # Check if member is defaulter
+        mem_obj = next(m for m in st.session_state.members_db if m['name'] == col_name)
+        if mem_obj['status'] != "Active":
+            st.error("⚠️ यह मेंबर Defaulter (Inactive) है! इनका QR जनरेट नहीं होगा जब तक इन्हें Active न किया जाए। पात्र नहीं हैं। हल्दी/फाइन चेक करें।")
         else:
-            total_payable = base_due
-            pay_type = "Monthly Deposit"
-            st.success(f"✅ **नॉर्मल मेंबर:** इस मेंबर का बेस अमाउंट: **₹ {total_payable}**")
-            
-        fine_amount = 0
-        if days_late > 0:
-            if days_late <= 6:
-                fine_amount = days_late * 20
-                st.error(f"लेट फाइन: ₹ {fine_amount}")
-            else:
-                fine_amount = (total_payable * 3) / 100
-                st.error(f"7+ दिन लेट! टोटल अमाउंट का 3% फाइन = ₹ {fine_amount}")
-                
-        actual_total = total_payable + fine_amount
-        st.markdown("---")
-        st.subheader("📲 पेमेंट प्राप्त करें (QR Code)")
-        
-        admin_upi = st.text_input("पैसे प्राप्त करने वाला UPI ID:", value="admin@ybl")
-        actual_paid = st.number_input("वास्तव में कितना पैसा लिया जा रहा है?", value=float(actual_total))
-        
-        qr_col, txt_col = st.columns([1, 2])
-        with qr_col:
-            if admin_upi:
-                pay_qr = generate_qr(admin_upi, "Committee Collection", actual_paid)
-                st.image(pay_qr, width=180)
-        
-        if st.button("✅ पेमेंट कन्फर्म करें और लेज़र में जोड़ें", use_container_width=True):
-            txns_to_save = []
-            txns_to_save.append({
-                "name": col_name, "date": str(date_today), "desc": f"महीने का पेमेंट", 
-                "type": pay_type, "amount": total_payable
-            })
-            if fine_amount > 0:
-                txns_to_save.append({
-                    "name": col_name, "date": str(date_today), "desc": f"{days_late} दिन का लेट फाइन", 
-                    "type": "Fine Paid", "amount": fine_amount
-                })
+            is_emi_payer = col_name in st.session_state.active_loans
+            base_due = 2000
+            maintenance_fee = 10 # Admin maintenance charge
             
             if is_emi_payer:
-                st.session_state.active_loans[col_name]['months_left'] -= 1
-                if st.session_state.active_loans[col_name]['months_left'] <= 0:
-                    del st.session_state.active_loans[col_name]
-                    st.balloons()
+                loan_details = st.session_state.active_loans[col_name]
+                total_payable = loan_details['emi']
+                pay_type = "EMI Paid"
+                st.warning(f"⚠️ **लोन एक्टिव है!** इस मेंबर की EMI: **₹ {total_payable}** + मेंटेनेंस: **₹ {maintenance_fee}**")
+            else:
+                total_payable = base_due
+                pay_type = "Monthly Deposit"
+                st.success(f"✅ **नॉर्मल मेंबर:** बेस अमाउंट: **₹ {total_payable}** + मेंटेनेंस: **₹ {maintenance_fee}**")
                 
-            profit_generated = 0
-            if is_emi_payer: profit_generated += st.session_state.active_loans.get(col_name, loan_details)['monthly_interest']
-            if fine_amount > 0: profit_generated += fine_amount
-                
-            if profit_generated > 0:
-                eligible = [m['name'] for m in st.session_state.members_db if m['name'] not in st.session_state.active_loans]
-                if eligible:
-                    per_head = profit_generated / len(eligible)
-                    for emp in eligible:
-                        txns_to_save.append({
-                            "name": emp, "date": str(date_today), "desc": f"प्रॉफिट शेयर ({col_name})", 
-                            "type": "Profit Share", "amount": round(per_head, 2)
-                        })
+            # Fine calculation rules: 1-6 days = Rs 20/day, 7+ days = 3% of total due
+            fine_amount = 0
+            if days_late > 0:
+                if days_late <= 6:
+                    fine_amount = days_late * 20
+                    st.error(f"लेट फाइन ({days_late} दिन x ₹20): ₹ {fine_amount}")
+                else:
+                    fine_amount = ((total_payable + maintenance_fee) * 3) / 100
+                    st.error(f"7+ दिन लेट! टोटल अमाउंट का 3% फाइन = ₹ {fine_amount}")
+                    
+            actual_total = total_payable + maintenance_fee + fine_amount
+            st.markdown("---")
+            st.subheader("📲 डायनामिक पेमेंट QR कोड")
             
-            save_ledger_txns(txns_to_save)
-            st.success("✅ पेमेंट सफलतापूर्वक लेज़र और Google Sheet में सेव हो गया!")
+            admin_upi = st.text_input("पैसे प्राप्त करने वाला UPI ID (एडमिन/कमिटी):", value="admin@ybl")
+            actual_paid = st.number_input("वास्तव में कितना पैसा लिया जा रहा है?", value=float(actual_total))
+            
+            qr_col, txt_col = st.columns([1, 2])
+            with qr_col:
+                if admin_upi:
+                    pay_qr = generate_qr(admin_upi, f"Committee-{col_name}", actual_paid)
+                    st.image(pay_qr, width=180)
+            with txt_col:
+                st.info(f"**{col_name}** के लिए जनरेटेड QR\n- कमिटी/EMI: ₹{total_payable}\n- एडमिन मेंटेनेंस: ₹{maintenance_fee}\n- लेट फाइन: ₹{fine_amount}\n\n**कुल योग: ₹{actual_total}**")
+            
+            if st.button("✅ पेमेंट कन्फर्म करें और लेज़र में जोड़ें", use_container_width=True):
+                txns_to_save = []
+                # 1. Main Deposit / EMI
+                txns_to_save.append({
+                    "name": col_name, "date": str(date_today), "desc": f"महीने का पेमेंट (कमिटी/EMI)", 
+                    "type": pay_type, "amount": total_payable
+                })
+                # 2. Admin Maintenance (₹10)
+                txns_to_save.append({
+                    "name": col_name, "date": str(date_today), "desc": f"सिस्टम मेंटेनेंस चार्ज (एडमिन फंड)", 
+                    "type": "Maintenance", "amount": maintenance_fee
+                })
+                # 3. Fine if any
+                if fine_amount > 0:
+                    txns_to_save.append({
+                        "name": col_name, "date": str(date_today), "desc": f"{days_late} दिन का लेट फाइन", 
+                        "type": "Fine Paid", "amount": fine_amount
+                    })
+                
+                # Deduct month from loan tenure
+                if is_emi_payer:
+                    st.session_state.active_loans[col_name]['months_left'] -= 1
+                    if st.session_state.active_loans[col_name]['months_left'] <= 0:
+                        del st.session_state.active_loans[col_name]
+                        st.balloons()
+                        st.success("🎉 बधाई हो! लोन पूरी तरह चुकता हो गया है।")
+                    
+                # 🌟 AUTOMATED PROFIT DISTRIBUTION ENGINE
+                # Interest from EMI + Fine goes to all active members excluding active loan takers
+                profit_generated = 0
+                if is_emi_payer: profit_generated += st.session_state.active_loans.get(col_name, loan_details)['monthly_interest']
+                if fine_amount > 0: profit_generated += fine_amount
+                    
+                if profit_generated > 0:
+                    eligible = [m['name'] for m in st.session_state.members_db if m['name'] not in st.session_state.active_loans and m['status'] == "Active"]
+                    if eligible:
+                        per_head = profit_generated / len(eligible)
+                        for emp in eligible:
+                            txns_to_save.append({
+                                "name": emp, "date": str(date_today), "desc": f"प्रॉफिट शेयर (Source: {col_name})", 
+                                "type": "Profit Share", "amount": round(per_head, 2)
+                            })
+                        st.success(f"✅ कुल प्रॉफिट ₹ {profit_generated} सभी {len(eligible)} योग्य सदस्यों में बराबर बाँट दिया गया है!")
+                
+                save_ledger_txns(txns_to_save)
+                st.success("✅ पेमेंट सफलतापूर्वक लेज़र और Google Sheet में सेव हो गया!")
 
 elif choice == "📊 डैशबोर्ड":
-    st.header("📊 कमिटी समरी")
+    st.header("📊 कमिटी समरी & एनालिटिक्स")
     t_mems = len(st.session_state.members_db)
     act_loans = len(st.session_state.active_loans)
+    defaulters = len([m for m in st.session_state.members_db if m['status'] != 'Active'])
+    
     c1, c2, c3 = st.columns(3)
     c1.metric("कुल मेंबर्स", t_mems)
-    c2.metric("चल रहे लोन", act_loans)
+    c2.metric("चल रहे लोन (EMI)", act_loans)
+    c3.metric("डिफॉल्टर (Inactive)", defaulters)
     
     st.markdown("---")
     st.subheader("हाल के लेन-देन (Google Sheet Synced)")
     if st.session_state.ledger:
         recent = pd.DataFrame(st.session_state.ledger).iloc[::-1].head(10)
         st.dataframe(recent, use_container_width=True)
+    else:
+        st.info("अभी कोई लेन-देन रिकॉर्ड नहीं हुआ है।")
