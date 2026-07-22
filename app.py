@@ -42,7 +42,7 @@ APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyO1X1iG-49QvgFDlPBQK
 ADMIN_HASH = hashlib.sha256("9557".encode()).hexdigest()
 
 # ==========================================
-# 2. ROBUST GOOGLE SHEET DATA FETCHING (Members & Ledger)
+# 2. DATA SYNC & HELPERS (Members & Ledger)
 # ==========================================
 @st.cache_data(ttl=1)
 def load_data_from_sheet():
@@ -52,7 +52,7 @@ def load_data_from_sheet():
             return response.json()
     except Exception as e:
         st.sidebar.error(f"⚠️ Sheet Sync Error: {e}")
-    return []
+    return {}
 
 def save_ledger_txns(txns_list):
     st.session_state.ledger.extend(txns_list)
@@ -74,21 +74,21 @@ def generate_qr(upi_id, name, amount=None):
     return buf
 
 # ==========================================
-# 3. SESSION STATE INITIALIZATION (AUTO-LOADING FROM SHEET)
+# 3. SESSION STATE INITIALIZATION
 # ==========================================
 if 'auth_status' not in st.session_state: st.session_state.auth_status = False
 if 'page' not in st.session_state: st.session_state.page = "Dashboard"
 
-# Load Members and Ledger from Google Sheet on start
 if 'members_db' not in st.session_state or 'ledger' not in st.session_state:
-    raw_data = load_data_from_sheet()
+    res_data = load_data_from_sheet()
     
     st.session_state.members_db = []
     st.session_state.ledger = []
     
-    # 1. Parse Members from Sheet (Sheet1)
-    if isinstance(raw_data, list):
-        for row in raw_data:
+    # Parse Members
+    m_raw = res_data.get("members", []) if isinstance(res_data, dict) else res_data
+    if isinstance(m_raw, list):
+        for row in m_raw:
             m_name = row.get('Name') or row.get('name')
             if m_name:
                 st.session_state.members_db.append({
@@ -105,10 +105,12 @@ if 'members_db' not in st.session_state or 'ledger' not in st.session_state:
                     "status": "Active", "photo": None
                 })
                 
-    # 2. Parse Ledger from Sheet (Ledger sheet data if returned by Apps Script)
-    # Note: If your Apps Script returns Ledger in a separate key or structure, handle safely here.
-    if 'ledger' not in st.session_state:
-        st.session_state.ledger = []
+    # Parse Ledger
+    l_raw = res_data.get("ledger", []) if isinstance(res_data, dict) else []
+    if isinstance(l_raw, list):
+        for l_row in l_raw:
+            if l_row.get('name'):
+                st.session_state.ledger.append(l_row)
 
 if 'active_loans' not in st.session_state: st.session_state.active_loans = {}
 
@@ -136,7 +138,6 @@ st.sidebar.info("📌 नियम: 50 सदस्य | ₹2000 महीना
 
 if st.sidebar.button("🔄 डेटा सिंक & रिफ्रेश", use_container_width=True):
     st.cache_data.clear()
-    # Force reload session state
     for key in list(st.session_state.keys()):
         del st.session_state[key]
     st.rerun()
@@ -205,7 +206,7 @@ if choice == "👤 नया मेंबर जोड़ें":
 elif choice == "📂 मेंबर प्रोफाइल & लेज़र":
     st.header("📂 मेंबर प्रोफाइल & लेज़र पासबुक")
     if not st.session_state.members_db:
-        st.warning("कोई मेंबर नहीं है। साइडबार से 'डेटा सिंक & रिफ्रेश' पर क्लिक करें।")
+        st.warning("कोई मेंबर नहीं है।")
     else:
         mem_names = [m['name'] for m in st.session_state.members_db]
         selected_name = st.selectbox("प्रोफाइल देखने के लिए मेंबर चुनें:", mem_names)
@@ -241,10 +242,10 @@ elif choice == "📂 मेंबर प्रोफाइल & लेज़र"
         st.markdown("<br>", unsafe_allow_html=True)
 
         my_txns = [t for t in st.session_state.ledger if t['name'] == mem['name']]
-        total_deposited = sum(t['amount'] for t in my_txns if t['type'] in ['Monthly Deposit', 'EMI Paid'])
-        profit_earned = sum(t['amount'] for t in my_txns if t['type'] == 'Profit Share')
-        total_fine_paid = sum(t['amount'] for t in my_txns if t['type'] == 'Fine Paid')
-        total_taken = sum(t['amount'] for t in my_txns if t['type'] == 'Loan Taken')
+        total_deposited = sum(float(t['amount']) for t in my_txns if t['type'] in ['Monthly Deposit', 'EMI Paid'])
+        profit_earned = sum(float(t['amount']) for t in my_txns if t['type'] == 'Profit Share')
+        total_fine_paid = sum(float(t['amount']) for t in my_txns if t['type'] == 'Fine Paid')
+        total_taken = sum(float(t['amount']) for t in my_txns if t['type'] == 'Loan Taken')
         
         net_savings = total_deposited + profit_earned
 
@@ -280,7 +281,7 @@ elif choice == "💰 कमिटी विनर (लोन पास)":
         winner_name = st.selectbox("कमिटी विजेता चुनें:", [m['name'] for m in eligible_members])
         
         winner_txns = [t for t in st.session_state.ledger if t['name'] == winner_name]
-        winner_savings = sum(t['amount'] for t in winner_txns if t['type'] in ['Monthly Deposit', 'EMI Paid']) + sum(t['amount'] for t in winner_txns if t['type'] == 'Profit Share')
+        winner_savings = sum(float(t['amount']) for t in winner_txns if t['type'] in ['Monthly Deposit', 'EMI Paid']) + sum(float(t['amount']) for t in winner_txns if t['type'] == 'Profit Share')
         
         st.markdown("---")
         c1, c2 = st.columns(2)
