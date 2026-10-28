@@ -174,34 +174,47 @@ h1, h2, h3, h4, h5 {
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # ==============================================================================
-# 2. THREAD-SAFE DATABASE SETUP (MULTI-TENANT ARCHITECTURE)
+# 2. THREAD-SAFE DATABASE SETUP WITH AUTOMATIC MIGRATION
 # ==============================================================================
 DB_FILE = 'jio_saas_erp.db'
 
 def get_db():
-    conn = sqlite3.connect(DB_FILE, check_same_thread=False, timeout=10)
+    conn = sqlite3.connect(DB_FILE, check_same_thread=False, timeout=15)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
     conn = get_db()
     with conn:
-        # Users & SaaS Subscriptions
+        # 1. Users Table (Multi-Tenant SaaS)
         conn.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
                 role TEXT NOT NULL,
-                business_name TEXT,
-                phone TEXT,
+                business_name TEXT DEFAULT '',
+                phone TEXT DEFAULT '',
                 valid_until DATE NOT NULL,
                 status TEXT DEFAULT 'active',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
 
-        # Module 1: Auto-refill & Retailer Ledger
+        # Auto-migrate missing columns in users if existing DB was from older version
+        c = conn.cursor()
+        c.execute("PRAGMA table_info(users)")
+        u_cols = [r[1] for r in c.fetchall()]
+        if 'business_name' not in u_cols:
+            c.execute("ALTER TABLE users ADD COLUMN business_name TEXT DEFAULT ''")
+        if 'phone' not in u_cols:
+            c.execute("ALTER TABLE users ADD COLUMN phone TEXT DEFAULT ''")
+        if 'status' not in u_cols:
+            c.execute("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active'")
+        if 'created_at' not in u_cols:
+            c.execute("ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+
+        # 2. Module 1: Auto-refill & Retailer Ledger
         conn.execute('''
             CREATE TABLE IF NOT EXISTS auto_refill_ledger (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -216,7 +229,20 @@ def init_db():
             )
         ''')
 
-        # Commission Settings per Distributor
+        # Migrate old 'ledger' data if it exists from previous version
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ledger'")
+        if c.fetchone():
+            c.execute("SELECT COUNT(*) FROM auto_refill_ledger")
+            if c.fetchone()[0] == 0:
+                try:
+                    c.execute("""
+                        INSERT INTO auto_refill_ledger (dist_id, retailer_name, phone, amount_given, amount_received, date)
+                        SELECT dist_id, retailer_name, phone, given, received, date FROM ledger
+                    """)
+                except Exception:
+                    pass
+
+        # 3. Commission Settings Table & Auto-Migration
         conn.execute('''
             CREATE TABLE IF NOT EXISTS commission_settings (
                 dist_id INTEGER PRIMARY KEY,
@@ -231,7 +257,43 @@ def init_db():
             )
         ''')
 
-        # Module 2: FSE / DAB Payout Entries
+        # Auto-migrate commission_settings columns
+        c.execute("PRAGMA table_info(commission_settings)")
+        cs_cols = [r[1] for r in c.fetchall()]
+        if 'fse_sim_rate' not in cs_cols:
+            c.execute("ALTER TABLE commission_settings ADD COLUMN fse_sim_rate REAL DEFAULT 15.0")
+        if 'fse_mnp_rate' not in cs_cols:
+            c.execute("ALTER TABLE commission_settings ADD COLUMN fse_mnp_rate REAL DEFAULT 50.0")
+        if 'fse_recharge_pct' not in cs_cols:
+            c.execute("ALTER TABLE commission_settings ADD COLUMN fse_recharge_pct REAL DEFAULT 1.0")
+        if 'fse_daily_da' not in cs_cols:
+            c.execute("ALTER TABLE commission_settings ADD COLUMN fse_daily_da REAL DEFAULT 100.0")
+        if 'airfiber_rate' not in cs_cols:
+            if 'airfiber' in cs_cols:
+                c.execute("ALTER TABLE commission_settings ADD COLUMN airfiber_rate REAL DEFAULT 150.0")
+                c.execute("UPDATE commission_settings SET airfiber_rate = airfiber WHERE airfiber IS NOT NULL")
+            else:
+                c.execute("ALTER TABLE commission_settings ADD COLUMN airfiber_rate REAL DEFAULT 150.0")
+        if 'idu_rate' not in cs_cols:
+            if 'idu' in cs_cols:
+                c.execute("ALTER TABLE commission_settings ADD COLUMN idu_rate REAL DEFAULT 40.0")
+                c.execute("UPDATE commission_settings SET idu_rate = idu WHERE idu IS NOT NULL")
+            else:
+                c.execute("ALTER TABLE commission_settings ADD COLUMN idu_rate REAL DEFAULT 40.0")
+        if 'stb_rate' not in cs_cols:
+            if 'stb' in cs_cols:
+                c.execute("ALTER TABLE commission_settings ADD COLUMN stb_rate REAL DEFAULT 30.0")
+                c.execute("UPDATE commission_settings SET stb_rate = stb WHERE stb IS NOT NULL")
+            else:
+                c.execute("ALTER TABLE commission_settings ADD COLUMN stb_rate REAL DEFAULT 30.0")
+        if 'odu_rate' not in cs_cols:
+            if 'odu' in cs_cols:
+                c.execute("ALTER TABLE commission_settings ADD COLUMN odu_rate REAL DEFAULT 50.0")
+                c.execute("UPDATE commission_settings SET odu_rate = odu WHERE odu IS NOT NULL")
+            else:
+                c.execute("ALTER TABLE commission_settings ADD COLUMN odu_rate REAL DEFAULT 50.0")
+
+        # 4. Module 2: FSE / DAB Payout Entries
         conn.execute('''
             CREATE TABLE IF NOT EXISTS fse_entries (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -248,7 +310,7 @@ def init_db():
             )
         ''')
 
-        # Module 3: AirFiber Payout Entries
+        # 5. Module 3: AirFiber Payout Entries
         conn.execute('''
             CREATE TABLE IF NOT EXISTS airfiber_entries (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -264,7 +326,7 @@ def init_db():
             )
         ''')
 
-        # Module 4: Device Recovery Entries (IDU / STB / ODU)
+        # 6. Module 4: Device Recovery Entries (IDU / STB / ODU)
         conn.execute('''
             CREATE TABLE IF NOT EXISTS recovery_entries (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -284,16 +346,60 @@ def init_db():
         ''')
 
         # Seed Super Admin if not exists
-        cursor = conn.cursor()
-        cursor.execute("SELECT id FROM users WHERE role='admin'")
-        if not cursor.fetchone():
-            cursor.execute('''
+        c.execute("SELECT id FROM users WHERE role='admin'")
+        if not c.fetchone():
+            c.execute('''
                 INSERT INTO users (username, password, role, business_name, phone, valid_until, status)
                 VALUES ('avdhesh_admin', 'admin123', 'admin', 'Sandhya Enterprises Tech HQ', '9876543210', '2099-12-31', 'active')
             ''')
     conn.close()
 
 init_db()
+
+# Safe Commission Rates Loader (Guaranteed no IndexError)
+def get_commission_rates(dist_id):
+    defaults = {
+        'fse_sim_rate': 15.0,
+        'fse_mnp_rate': 50.0,
+        'fse_recharge_pct': 1.0,
+        'fse_daily_da': 100.0,
+        'airfiber_rate': 150.0,
+        'idu_rate': 40.0,
+        'stb_rate': 30.0,
+        'odu_rate': 50.0
+    }
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM commission_settings WHERE dist_id=?", (dist_id,))
+    row = c.fetchone()
+    
+    if not row:
+        c.execute('''
+            INSERT OR REPLACE INTO commission_settings 
+            (dist_id, fse_sim_rate, fse_mnp_rate, fse_recharge_pct, fse_daily_da, airfiber_rate, idu_rate, stb_rate, odu_rate)
+            VALUES (?, 15.0, 50.0, 1.0, 100.0, 150.0, 40.0, 30.0, 50.0)
+        ''', (dist_id,))
+        conn.commit()
+        rates = defaults.copy()
+    else:
+        rates = {}
+        row_keys = row.keys() if hasattr(row, 'keys') else []
+        for k, def_val in defaults.items():
+            if k in row_keys and row[k] is not None:
+                try:
+                    rates[k] = float(row[k])
+                except (ValueError, TypeError):
+                    rates[k] = def_val
+            else:
+                rates[k] = def_val
+        # Support legacy column name 'airfiber' if 'airfiber_rate' is default
+        if 'airfiber' in row_keys and row['airfiber'] is not None and rates['airfiber_rate'] == 150.0:
+            try:
+                rates['airfiber_rate'] = float(row['airfiber'])
+            except Exception:
+                pass
+    conn.close()
+    return rates
 
 # ==============================================================================
 # 3. AUTHENTICATION & SESSION MANAGEMENT
@@ -332,29 +438,35 @@ def login_page():
                 else:
                     conn = get_db()
                     c = conn.cursor()
-                    c.execute("SELECT id, username, password, role, business_name, valid_until, status FROM users WHERE username=? AND password=?", (uname, upass))
+                    c.execute("SELECT * FROM users WHERE username=? AND password=?", (uname, upass))
                     user = c.fetchone()
                     conn.close()
 
                     if user:
-                        # Check status & validity
-                        is_active = user['status'] == 'active'
-                        valid_date = datetime.strptime(user['valid_until'], '%Y-%m-%d').date()
+                        # Extract fields safely
+                        user_keys = user.keys() if hasattr(user, 'keys') else []
+                        u_role = user['role']
+                        u_status = user['status'] if 'status' in user_keys else 'active'
+                        u_biz = user['business_name'] if 'business_name' in user_keys else ''
+                        u_valid = user['valid_until']
+
+                        is_active = (u_status == 'active')
+                        valid_date = datetime.strptime(u_valid, '%Y-%m-%d').date()
                         today = datetime.now().date()
 
-                        if user['role'] == 'admin' or (is_active and valid_date >= today):
+                        if u_role == 'admin' or (is_active and valid_date >= today):
                             st.session_state['logged_in'] = True
                             st.session_state['user_id'] = user['id']
-                            st.session_state['role'] = user['role']
+                            st.session_state['role'] = u_role
                             st.session_state['username'] = user['username']
-                            st.session_state['business_name'] = user['business_name'] or user['username']
+                            st.session_state['business_name'] = u_biz or user['username']
                             st.success(f"✅ स्वागत है, {st.session_state['business_name']}!")
                             st.rerun()
                         elif not is_active:
                             st.error("🚫 आपका खाता निष्क्रिय (Deactivated) कर दिया गया है। कृपया अवधेश जी से संपर्क करें।")
                         else:
                             days_expired = (today - valid_date).days
-                            st.error(f"⌛ आपका 1 महीने का सब्सक्रिप्शन {days_expired} दिन पहले समाप्त हो चुका है ({user['valid_until']})।\nकृपया बैंक/UPI में रीचार्ज पेमेंट भेजकर अवधेश जी से रिन्यू कराएं।")
+                            st.error(f"⌛ आपका 1 महीने का सब्सक्रिप्शन {days_expired} दिन पहले समाप्त हो चुका है ({u_valid})।\nकृपया बैंक/UPI में रीचार्ज पेमेंट भेजकर अवधेश जी से रिन्यू कराएं।")
                     else:
                         st.error("❌ अमान्य यूजरनेम या पासवर्ड!")
             st.markdown('</div>', unsafe_allow_html=True)
@@ -437,7 +549,8 @@ def admin_panel():
 
                     # Seed default commission rates
                     c.execute('''
-                        INSERT INTO commission_settings (dist_id, fse_sim_rate, fse_mnp_rate, fse_recharge_pct, fse_daily_da, airfiber_rate, idu_rate, stb_rate, odu_rate)
+                        INSERT OR REPLACE INTO commission_settings 
+                        (dist_id, fse_sim_rate, fse_mnp_rate, fse_recharge_pct, fse_daily_da, airfiber_rate, idu_rate, stb_rate, odu_rate)
                         VALUES (?, 15.0, 50.0, 1.0, 100.0, 150.0, 40.0, 30.0, 50.0)
                     ''', (new_dist_id,))
                     conn.commit()
@@ -574,17 +687,8 @@ def distributor_panel():
         ]
     )
 
-    # Load Commission Rates
-    c.execute("SELECT * FROM commission_settings WHERE dist_id=?", (dist_id,))
-    rates = c.fetchone()
-    if not rates:
-        c.execute('''
-            INSERT INTO commission_settings (dist_id, fse_sim_rate, fse_mnp_rate, fse_recharge_pct, fse_daily_da, airfiber_rate, idu_rate, stb_rate, odu_rate)
-            VALUES (?, 15.0, 50.0, 1.0, 100.0, 150.0, 40.0, 30.0, 50.0)
-        ''', (dist_id,))
-        conn.commit()
-        c.execute("SELECT * FROM commission_settings WHERE dist_id=?", (dist_id,))
-        rates = c.fetchone()
+    # Load Commission Rates Safely (Guaranteed no IndexError)
+    rates = get_commission_rates(dist_id)
 
     # --------------------------------------------------------------------------
     # MODULE 1: AUTO-REFILL & RETAILER LEDGER (उधार - जमा और रिमाइंडर)
@@ -595,8 +699,8 @@ def distributor_panel():
         # Overview Metrics for Auto-Refill
         c.execute("SELECT SUM(amount_given), SUM(amount_received) FROM auto_refill_ledger WHERE dist_id=?", (dist_id,))
         sums = c.fetchone()
-        total_given = sums[0] or 0.0
-        total_received = sums[1] or 0.0
+        total_given = sums[0] if (sums and sums[0]) else 0.0
+        total_received = sums[1] if (sums and sums[1]) else 0.0
         total_market_due = total_given - total_received
 
         m1, m2, m3 = st.columns(3)
@@ -674,7 +778,6 @@ def distributor_panel():
             if df_all.empty:
                 st.info("अभी कोई ऑटो-रिफिल एंट्री दर्ज नहीं है।")
             else:
-                # Search by Retailer
                 search_q = st.text_input("🔍 रिटेलर खोजें (Search Retailer Name)", "")
                 if search_q:
                     df_filtered = df_all[df_all['retailer_name'].str.contains(search_q, case=False, na=False)]
@@ -683,7 +786,6 @@ def distributor_panel():
 
                 st.dataframe(df_filtered, use_container_width=True, hide_index=True)
 
-                # Export to CSV
                 csv_buffer = io.StringIO()
                 df_filtered.to_csv(csv_buffer, index=False)
                 st.download_button(
@@ -699,7 +801,6 @@ def distributor_panel():
             st.markdown("### 📱 1-क्लिक व्हाट्सएप पेमेंट रिमाइंडर एवं डायरेक्ट कॉल")
             st.caption("नीचे प्रत्येक रिटेलर का कुल बकाया हिसाब है। आप एक क्लिक में व्हाट्सएप संदेश भेज सकते हैं या कॉल कर सकते हैं।")
 
-            # Group by Retailer to get cumulative balances
             df_summary = pd.read_sql_query(f"""
                 SELECT retailer_name, phone, 
                        SUM(amount_given) as total_given, 
@@ -723,7 +824,6 @@ def distributor_panel():
                     given = row['total_given']
                     recv = row['total_received']
 
-                    # WhatsApp pre-filled Hindi message
                     reminder_msg = (
                         f"नमस्ते {ret_name} जी,\n\n"
                         f"यह *{biz_name}* (Jio Distributor) की तरफ से ऑटो-रिफिल बकाया पेमेंट का सूचना संदेश है:\n"
@@ -763,13 +863,12 @@ def distributor_panel():
         st.markdown('<div class="section-header">👥 2. FSE / DAB / DSE STAFF PAYOUT & SLIP GENERATOR</div>', unsafe_allow_html=True)
         st.caption("अपने फ़ील्ड लड़कों (DAB/FSE) की दैनिक/मासिक एक्टिवेशन एंट्री करें और उनका आधिकारिक पेमेंट स्लिप बनाएं।")
 
-        # Current Commission Rates for FSE
         fse_sim = rates['fse_sim_rate']
         fse_mnp = rates['fse_mnp_rate']
         fse_rch = rates['fse_recharge_pct']
         fse_da = rates['fse_daily_da']
 
-        st.info(f"⚙️ वर्तमान कमीशन दरें: **SIM Activation:** ₹{fse_sim}/SIM | **MNP Port:** ₹{fse_mnp}/Port | **Recharge:** {fse_rch}% | **Daily DA:** ₹{fse_da}/Day (दरें बदलने के लिए 'Commission Settings' मेनू में जाएं)")
+        st.info(f"⚙️ वर्तमान कमीशन दरें: **SIM Activation:** ₹{fse_sim:,.2f}/SIM | **MNP Port:** ₹{fse_mnp:,.2f}/Port | **Recharge:** {fse_rch:,.2f}% | **Daily DA:** ₹{fse_da:,.2f}/Day (दरें बदलने के लिए 'Commission Settings' मेनू में जाएं)")
 
         tab_calc, tab_history = st.tabs(["📝 नया FSE पेमेंट बनाएं (New Slip)", "📜 FSE पेमेंट इतिहास व रिपोर्ट"])
 
@@ -788,14 +887,12 @@ def distributor_panel():
 
             entry_remarks = st.text_input("नोट / रिमार्क्स (Payment Remarks)", placeholder="e.g. October 2nd Week Payment")
 
-            # Real-time Calculation
             payout_sim = sim_done * fse_sim
             payout_mnp = mnp_done * fse_mnp
             payout_rch = (rch_done * fse_rch) / 100.0
             payout_da = days_da * fse_da
             grand_total = payout_sim + payout_mnp + payout_rch + payout_da
 
-            # Preview Slip
             st.markdown(f"""
                 <div class="slip-box">
                     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #e2e8f0; padding-bottom:10px;">
@@ -919,7 +1016,7 @@ def distributor_panel():
         stb_r = rates['stb_rate']
         odu_r = rates['odu_rate']
 
-        st.info(f"⚙️ रिकवरी कमीशन दरें: **IDU:** ₹{idu_r}/Unit | **STB:** ₹{stb_r}/Unit | **ODU:** ₹{odu_r}/Unit")
+        st.info(f"⚙️ रिकवरी कमीशन दरें: **IDU:** ₹{idu_r:,.2f}/Unit | **STB:** ₹{stb_r:,.2f}/Unit | **ODU:** ₹{odu_r:,.2f}/Unit")
 
         tab_rec_entry, tab_rec_hist = st.tabs(["📝 नया रिकवरी पे-आउट बनाएं", "📜 रिकवरी इतिहास"])
 
@@ -940,9 +1037,9 @@ def distributor_panel():
                     <h3 style="margin:0; color:#1e3a8a;">📦 JIO DEVICE RECOVERY SLIP</h3>
                     <div style="font-size:13px; color:#64748b; font-weight:700;">{biz_name} • Staff: <b>{rec_staff or 'N/A'}</b></div>
                     <div style="margin:14px 0; font-size:15px;">
-                        ▪ IDU Recovered: <b>{idu_c} nos × ₹{idu_r} = ₹{idu_c * idu_r:,.2f}</b><br/>
-                        ▪ STB Recovered: <b>{stb_c} nos × ₹{stb_r} = ₹{stb_c * stb_r:,.2f}</b><br/>
-                        ▪ ODU Recovered: <b>{odu_c} nos × ₹{odu_r} = ₹{odu_c * odu_r:,.2f}</b>
+                        ▪ IDU Recovered: <b>{idu_c} nos × ₹{idu_r:,.2f} = ₹{idu_c * idu_r:,.2f}</b><br/>
+                        ▪ STB Recovered: <b>{stb_c} nos × ₹{stb_r:,.2f} = ₹{stb_c * stb_r:,.2f}</b><br/>
+                        ▪ ODU Recovered: <b>{odu_c} nos × ₹{odu_r:,.2f} = ₹{odu_c * odu_r:,.2f}</b>
                     </div>
                     <h2 style="color:#16a34a; margin:0;">कुल रिकवरी पेमेंट: ₹{total_rec:,.2f}</h2>
                 </div>
@@ -996,11 +1093,10 @@ def distributor_panel():
 
         if st.button("💾 नए रेट्स अपडेट करें (Save All Rates)", type="primary"):
             c.execute('''
-                UPDATE commission_settings 
-                SET fse_sim_rate=?, fse_mnp_rate=?, fse_recharge_pct=?, fse_daily_da=?, 
-                    airfiber_rate=?, idu_rate=?, stb_rate=?, odu_rate=?
-                WHERE dist_id=?
-            ''', (new_sim_r, new_mnp_r, new_rch_p, new_da_r, new_af_r, new_idu_r, new_stb_r, new_odu_r, dist_id))
+                INSERT OR REPLACE INTO commission_settings 
+                (dist_id, fse_sim_rate, fse_mnp_rate, fse_recharge_pct, fse_daily_da, airfiber_rate, idu_rate, stb_rate, odu_rate)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (dist_id, new_sim_r, new_mnp_r, new_rch_p, new_da_r, new_af_r, new_idu_r, new_stb_r, new_odu_r))
             conn.commit()
             st.success("✅ आपके सभी कमीशन रेट्स अपडेट हो गए हैं! अब से सभी नए पे-आउट इसी दर से बनेंगे।")
             st.rerun()
