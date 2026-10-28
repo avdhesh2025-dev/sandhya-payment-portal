@@ -6,7 +6,7 @@ import urllib.parse
 import io
 
 # ==============================================================================
-# 1. PAGE CONFIG & MODERN ULTRA-PRO GLASSMORPHISM DESIGN
+# 1. PAGE CONFIG & MODERN ULTRA-PRO GLASSMORPHISM + KHATABOOK UI STYLES
 # ==============================================================================
 st.set_page_config(
     page_title="Jio Distributor SaaS ERP",
@@ -17,9 +17,9 @@ st.set_page_config(
 
 CUSTOM_CSS = """
 <style>
-/* 🌟 ULTRA-PRO DYNAMIC GRADIENT BACKGROUND */
+/* 🌟 GLOBAL BACKGROUND & TYPOGRAPHY */
 html, body, [data-testid="stAppViewContainer"], [data-testid="stAppViewBlockContainer"], [data-testid="stMain"] { 
-    background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 40%, #e0e7ff 75%, #f1f5f9 100%) !important;
+    background: #f1f5f9 !important;
     color: #0f172a;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
@@ -38,7 +38,7 @@ h1, h2, h3, h4, h5 {
 
 /* 🌟 LIQUID TRANSPARENT INPUT FIELDS */
 .stTextInput input, .stNumberInput input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"], .stDateInput input {
-    background: rgba(255, 255, 255, 0.95) !important;
+    background: #ffffff !important;
     border-radius: 12px !important;
     border: 2px solid #cbd5e1 !important;
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.03) !important;
@@ -48,32 +48,32 @@ h1, h2, h3, h4, h5 {
 }
 .stTextInput input:focus, .stNumberInput input:focus, .stSelectbox div[data-baseweb="select"]:focus-within {
     background: #ffffff !important;
-    border-color: #2563eb !important;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+    border-color: #1565c0 !important;
+    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.15) !important;
 }
 
 /* 🌟 3D HERO BANNER */
 .hero-banner {
-    background: linear-gradient(135deg, #091e42 0%, #1e3a8a 50%, #2563eb 100%);
-    padding: 24px 28px;
-    border-radius: 20px;
+    background: linear-gradient(135deg, #091e42 0%, #1565c0 60%, #1e88e5 100%);
+    padding: 20px 24px;
+    border-radius: 18px;
     border: 1px solid rgba(255, 255, 255, 0.3);
-    border-bottom: 6px solid #0a1128;
-    box-shadow: 0 16px 32px rgba(30, 58, 138, 0.25);
+    border-bottom: 5px solid #0a1128;
+    box-shadow: 0 12px 28px rgba(21, 101, 192, 0.25);
     color: #ffffff;
-    margin-bottom: 22px;
+    margin-bottom: 18px;
 }
 .hero-title {
-    font-size: 28px;
+    font-size: 26px;
     font-weight: 900;
-    margin: 0 0 6px 0;
+    margin: 0 0 4px 0;
     color: #ffffff !important;
     text-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }
 .hero-subtitle {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
-    color: #bfdbfe !important;
+    color: #bbdefb !important;
     margin: 0;
 }
 
@@ -85,22 +85,21 @@ h1, h2, h3, h4, h5 {
     border-bottom: 4px solid #000000;
     color: #ffffff !important;
     font-weight: 800;
-    font-size: 17px;
+    font-size: 16px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin: 18px 0 14px 0;
-    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.15);
+    margin: 16px 0 14px 0;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
 }
 
 /* 🌟 GLASS CONTAINER CARDS */
 .glass-card {
-    background: rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.9);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
     border-bottom: 4px solid #cbd5e1;
     border-radius: 18px;
     padding: 20px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
     margin-bottom: 18px;
 }
 
@@ -111,7 +110,7 @@ h1, h2, h3, h4, h5 {
     background: #ffffff;
     border-radius: 16px;
     border: 1px solid #e2e8f0;
-    border-bottom: 5px solid #2563eb;
+    border-bottom: 5px solid #1565c0;
     box-shadow: 0 6px 18px rgba(0,0,0,0.04);
     margin-bottom: 12px;
 }
@@ -140,34 +139,249 @@ h1, h2, h3, h4, h5 {
 /* 🌟 PAYMENT SLIP CARD */
 .slip-box {
     background: #ffffff;
-    border: 2px dashed #2563eb;
+    border: 2px dashed #1565c0;
     border-radius: 16px;
     padding: 22px;
     margin-top: 15px;
-    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.08);
+    box-shadow: 0 8px 24px rgba(21, 101, 192, 0.08);
 }
 
-/* 🌟 ACTION BUTTONS (WHATSAPP & CALL) */
-.btn-wa {
-    display: inline-block;
-    background-color: #25D366;
-    color: white !important;
-    font-weight: 800;
-    padding: 8px 14px;
-    border-radius: 10px;
-    text-decoration: none;
-    box-shadow: 0 4px 10px rgba(37, 211, 102, 0.3);
-    margin-right: 8px;
+/* ==============================================================================
+   🌟 KHATABOOK AUTHENTIC STYLING (FROM USER SCREENSHOTS)
+============================================================================== */
+.kb-topbar {
+    background: #0d47a1;
+    color: white;
+    padding: 14px 20px;
+    border-radius: 16px 16px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
-.btn-call {
-    display: inline-block;
-    background-color: #0284c7;
-    color: white !important;
+.kb-summary-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 16px 20px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    border: 1px solid #e2e8f0;
+    margin-bottom: 16px;
+}
+.kb-summary-split {
+    display: flex;
+    justify-content: space-around;
+    text-align: center;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 12px;
+}
+.kb-summary-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #64748b;
+    margin-bottom: 4px;
+}
+.kb-summary-dene {
+    font-size: 24px;
+    font-weight: 900;
+    color: #16a34a;
+}
+.kb-summary-milenge {
+    font-size: 24px;
+    font-weight: 900;
+    color: #dc2626;
+}
+.kb-report-link {
+    text-align: center;
+    padding-top: 10px;
+    font-size: 14px;
     font-weight: 800;
-    padding: 8px 14px;
-    border-radius: 10px;
+    color: #1565c0;
+    cursor: pointer;
+}
+
+/* Khatabook Customer List Card */
+.kb-customer-card {
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    transition: all 0.15s ease-in-out;
+}
+.kb-customer-card:hover {
+    border-color: #93c5fd;
+    box-shadow: 0 4px 12px rgba(21, 101, 192, 0.08);
+}
+.kb-avatar {
+    width: 44px;
+    height: 44px;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    color: #1e3a8a;
+    font-size: 15px;
+    margin-right: 14px;
+    position: relative;
+    flex-shrink: 0;
+}
+.kb-avatar-dot {
+    width: 10px;
+    height: 10px;
+    background: #dc2626;
+    border: 2px solid white;
+    border-radius: 50%;
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+.kb-customer-name {
+    font-size: 15px;
+    font-weight: 900;
+    color: #0f172a;
+    margin: 0 0 2px 0;
+}
+.kb-customer-time {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    margin: 0;
+}
+.kb-amount-due {
+    font-size: 18px;
+    font-weight: 900;
+    color: #dc2626;
+    text-align: right;
+}
+.kb-amount-advance {
+    font-size: 18px;
+    font-weight: 900;
+    color: #16a34a;
+    text-align: right;
+}
+.kb-amount-zero {
+    font-size: 18px;
+    font-weight: 900;
+    color: #475569;
+    text-align: right;
+}
+.kb-remind-link {
+    color: #1565c0 !important;
+    font-size: 12px;
+    font-weight: 800;
     text-decoration: none;
-    box-shadow: 0 4px 10px rgba(2, 132, 199, 0.3);
+    display: block;
+    text-align: right;
+    margin-top: 2px;
+}
+
+/* Floating Customer Add Button */
+.kb-fab {
+    background: linear-gradient(135deg, #be185d 0%, #9d174d 100%) !important;
+    color: white !important;
+    font-weight: 900 !important;
+    font-size: 15px !important;
+    padding: 12px 24px !important;
+    border-radius: 30px !important;
+    box-shadow: 0 8px 20px rgba(190, 24, 93, 0.35) !important;
+    border: none !important;
+    text-align: center;
+    margin: 14px auto;
+    display: inline-block;
+}
+
+/* Khatabook Passbook View */
+.kb-passbook-banner {
+    background: #0d47a1;
+    color: white;
+    padding: 16px 20px;
+    border-radius: 16px;
+    margin-bottom: 14px;
+}
+.kb-balance-pill-barabar {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    margin-bottom: 14px;
+}
+.kb-action-bar {
+    display: flex;
+    justify-content: space-around;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 16px;
+}
+.kb-action-item {
+    text-align: center;
+    color: #1e3a8a;
+    font-size: 13px;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+/* Khatabook Transaction Row */
+.kb-txn-date-header {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 800;
+    color: #64748b;
+    margin: 18px 0 8px 0;
+}
+.kb-txn-row {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.kb-txn-bal {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    display: inline-block;
+    margin-bottom: 4px;
+}
+
+/* Big Dual Buttons */
+.btn-diye {
+    background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
+    color: #ffffff !important;
+    font-weight: 900 !important;
+    font-size: 16px !important;
+    padding: 14px !important;
+    border-radius: 12px !important;
+    border: none !important;
+    width: 100% !important;
+    box-shadow: 0 4px 14px rgba(185, 28, 28, 0.3) !important;
+}
+.btn-mile {
+    background: linear-gradient(135deg, #15803d 0%, #166534 100%) !important;
+    color: #ffffff !important;
+    font-weight: 900 !important;
+    font-size: 16px !important;
+    padding: 14px !important;
+    border-radius: 12px !important;
+    border: none !important;
+    width: 100% !important;
+    box-shadow: 0 4px 14px rgba(21, 128, 61, 0.3) !important;
 }
 </style>
 """
@@ -197,11 +411,11 @@ def init_db():
                 phone TEXT DEFAULT '',
                 valid_until DATE NOT NULL,
                 status TEXT DEFAULT 'active',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TEXT DEFAULT ''
             )
         ''')
 
-        # Auto-migrate missing columns in users if existing DB was from older version
+        # Auto-migrate missing columns safely
         c = conn.cursor()
         try:
             c.execute("PRAGMA table_info(users)")
@@ -218,7 +432,7 @@ def init_db():
         except Exception:
             pass
 
-        # 2. Module 1: Auto-refill & Retailer Ledger
+        # 2. Module 1: Auto-refill & Retailer Ledger (Khatabook Store)
         conn.execute('''
             CREATE TABLE IF NOT EXISTS auto_refill_ledger (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -227,8 +441,8 @@ def init_db():
                 phone TEXT NOT NULL,
                 amount_given REAL DEFAULT 0.0,
                 amount_received REAL DEFAULT 0.0,
-                payment_mode TEXT DEFAULT 'Cash',
-                remarks TEXT,
+                payment_mode TEXT DEFAULT 'Etop transfer',
+                remarks TEXT DEFAULT '',
                 date TEXT NOT NULL
             )
         ''')
@@ -261,7 +475,6 @@ def init_db():
             )
         ''')
 
-        # Auto-migrate commission_settings columns
         try:
             c.execute("PRAGMA table_info(commission_settings)")
             cs_cols = [r[1] for r in c.fetchall()]
@@ -349,8 +562,8 @@ def init_db():
         c.execute("SELECT id FROM users WHERE role='admin'")
         if not c.fetchone():
             c.execute('''
-                INSERT INTO users (username, password, role, business_name, phone, valid_until, status)
-                VALUES ('avdhesh_admin', 'admin123', 'admin', 'Sandhya Enterprises Tech HQ', '9876543210', '2099-12-31', 'active')
+                INSERT INTO users (username, password, role, business_name, phone, valid_until, status, created_at)
+                VALUES ('avdhesh_admin', 'admin123', 'admin', 'Sandhya Enterprises Tech HQ', '9876543210', '2099-12-31', 'active', datetime('now'))
             ''')
     conn.close()
 
@@ -392,7 +605,6 @@ def get_commission_rates(dist_id):
                     rates[k] = def_val
             else:
                 rates[k] = def_val
-        # Support legacy column name 'airfiber' if 'airfiber_rate' is default
         if 'airfiber' in row_keys and row['airfiber'] is not None and rates['airfiber_rate'] == 150.0:
             try:
                 rates['airfiber_rate'] = float(row['airfiber'])
@@ -400,6 +612,16 @@ def get_commission_rates(dist_id):
                 pass
     conn.close()
     return rates
+
+# Helper to extract initials
+def get_initials(name):
+    clean = name.strip()
+    if not clean:
+        return "R"
+    parts = clean.split()
+    if len(parts) >= 2:
+        return (parts[0][0] + parts[1][0]).upper()
+    return clean[:2].upper()
 
 # ==============================================================================
 # 3. AUTHENTICATION & SESSION MANAGEMENT
@@ -414,6 +636,10 @@ if 'username' not in st.session_state:
     st.session_state['username'] = None
 if 'business_name' not in st.session_state:
     st.session_state['business_name'] = ""
+if 'kb_selected_retailer' not in st.session_state:
+    st.session_state['kb_selected_retailer'] = None
+if 'kb_action_mode' not in st.session_state:
+    st.session_state['kb_action_mode'] = None  # 'diye' or 'mile' or None
 
 def login_page():
     st.markdown("""
@@ -443,7 +669,6 @@ def login_page():
                     conn.close()
 
                     if user:
-                        # Extract fields safely
                         user_keys = user.keys() if hasattr(user, 'keys') else []
                         u_role = user['role']
                         u_status = user['status'] if 'status' in user_keys else 'active'
@@ -485,7 +710,6 @@ def admin_panel():
     conn = get_db()
     c = conn.cursor()
 
-    # Admin KPI Overview
     c.execute("SELECT COUNT(*) FROM users WHERE role='distributor'")
     total_dist = c.fetchone()[0]
 
@@ -542,12 +766,11 @@ def admin_panel():
                 expiry_date = (datetime.now() + timedelta(days=validity_days)).strftime('%Y-%m-%d')
                 try:
                     c.execute('''
-                        INSERT INTO users (username, password, role, business_name, phone, valid_until, status)
-                        VALUES (?, ?, 'distributor', ?, ?, ?, 'active')
+                        INSERT INTO users (username, password, role, business_name, phone, valid_until, status, created_at)
+                        VALUES (?, ?, 'distributor', ?, ?, ?, 'active', datetime('now'))
                     ''', (new_username.strip(), new_password.strip(), biz_name.strip(), phone_no.strip(), expiry_date))
                     new_dist_id = c.lastrowid
 
-                    # Seed default commission rates
                     c.execute('''
                         INSERT OR REPLACE INTO commission_settings 
                         (dist_id, fse_sim_rate, fse_mnp_rate, fse_recharge_pct, fse_daily_da, airfiber_rate, idu_rate, stb_rate, odu_rate)
@@ -649,7 +872,6 @@ def distributor_panel():
     conn = get_db()
     c = conn.cursor()
 
-    # Check validity info
     c.execute("SELECT valid_until FROM users WHERE id=?", (dist_id,))
     user_row = c.fetchone()
     valid_until_str = user_row['valid_until'] if user_row else "2099-12-31"
@@ -679,7 +901,7 @@ def distributor_panel():
     app_menu = st.sidebar.radio(
         "मोड्यूल चुनें (Select Module)",
         [
-            "1. 📒 Auto-refill & Retailer Ledger",
+            "1. 📒 Auto-refill & Retailer Ledger (Khatabook)",
             "2. 👥 FSE / DAB Payout & Slip",
             "3. 🌐 AirFiber Commission",
             "4. 📦 Recovery (IDU / STB / ODU)",
@@ -687,174 +909,375 @@ def distributor_panel():
         ]
     )
 
-    # Load Commission Rates Safely (Guaranteed no IndexError)
     rates = get_commission_rates(dist_id)
 
     # --------------------------------------------------------------------------
-    # MODULE 1: AUTO-REFILL & RETAILER LEDGER (उधार - जमा और रिमाइंडर)
+    # MODULE 1: AUTHENTIC KHATABOOK AUTO-REFILL & RETAILER LEDGER
     # --------------------------------------------------------------------------
     if "1. 📒 Auto-refill" in app_menu:
-        st.markdown('<div class="section-header">📒 1. AUTO-REFILL & RETAILER BALANCE LEDGER (उधार-जमा खाता)</div>', unsafe_allow_html=True)
+        # Check if a customer is selected for Passbook Detail View (Image 2)
+        selected_cust = st.session_state.get('kb_selected_retailer')
 
-        # Overview Metrics for Auto-Refill
-        c.execute("SELECT SUM(amount_given), SUM(amount_received) FROM auto_refill_ledger WHERE dist_id=?", (dist_id,))
-        sums = c.fetchone()
-        total_given = sums[0] if (sums and sums[0]) else 0.0
-        total_received = sums[1] if (sums and sums[1]) else 0.0
-        total_market_due = total_given - total_received
+        # ======================================================================
+        # VIEW A: KHATABOOK CUSTOMER PASSBOOK DETAIL (IMAGE 2)
+        # ======================================================================
+        if selected_cust:
+            # Back Button
+            if st.button("⬅️ Wapas (Sabhi Retailers List)", type="secondary"):
+                st.session_state['kb_selected_retailer'] = None
+                st.session_state['kb_action_mode'] = None
+                st.rerun()
 
-        m1, m2, m3 = st.columns(3)
-        with m1:
+            # Fetch retailer info & transactions
+            df_cust_txns = pd.read_sql_query(f"""
+                SELECT id, retailer_name, phone, amount_given, amount_received, payment_mode, remarks, date
+                FROM auto_refill_ledger
+                WHERE dist_id={dist_id} AND retailer_name=?
+                ORDER BY id ASC
+            """, conn, params=(selected_cust,))
+
+            # Calculate Running Balances
+            if not df_cust_txns.empty:
+                df_cust_txns['net'] = df_cust_txns['amount_given'] - df_cust_txns['amount_received']
+                df_cust_txns['running_bal'] = df_cust_txns['net'].cumsum()
+                current_bal = df_cust_txns['running_bal'].iloc[-1]
+                cust_phone = df_cust_txns['phone'].iloc[-1]
+            else:
+                current_bal = 0.0
+                cust_phone = ""
+
+            initials = get_initials(selected_cust)
+
+            # Top Customer Header (Like Khatabook Blue Header)
             st.markdown(f"""
-                <div class="metric-card">
-                    <h4>💸 कुल ऑटो-रिफिल दिया (Given)</h4>
-                    <h2>₹ {total_given:,.2f}</h2>
+                <div class="kb-topbar">
+                    <div style="display:flex; align-items:center;">
+                        <div class="kb-avatar" style="background:#ffffff; color:#0d47a1; margin-right:12px;">{initials}</div>
+                        <div>
+                            <div style="font-size:18px; font-weight:900;">{selected_cust.upper()} {cust_phone}</div>
+                            <div style="font-size:12px; color:#bbdefb;">Settings Dekhein • Jio LAPU Retailer</div>
+                        </div>
+                    </div>
+                    <div>
+                        {f'<a href="tel:+91{cust_phone}" style="background:#ffffff; color:#0d47a1; padding:8px 14px; border-radius:10px; font-weight:900; text-decoration:none;">📞 Call</a>' if cust_phone else ''}
+                    </div>
                 </div>
             """, unsafe_allow_html=True)
-        with m2:
+
+            # Balance Banner Card
+            if current_bal == 0:
+                bal_status_text = "Balance barabar"
+                bal_color = "#16a34a"
+                bal_icon = "✅"
+            elif current_bal > 0:
+                bal_status_text = "Aapko Milenge (Due)"
+                bal_color = "#dc2626"
+                bal_icon = "🔴"
+            else:
+                bal_status_text = "Aapko Dene Hain (Advance)"
+                bal_color = "#16a34a"
+                bal_icon = "🟢"
+
             st.markdown(f"""
-                <div class="metric-card metric-card-success">
-                    <h4>💰 कुल कैश/खाते में मिला (Received)</h4>
-                    <h2 style="color:#16a34a;">₹ {total_received:,.2f}</h2>
+                <div class="kb-balance-pill-barabar" style="border-left: 6px solid {bal_color}; margin-top:10px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:18px;">{bal_icon}</span>
+                        <span style="font-size:17px; font-weight:900; color:{bal_color};">{bal_status_text}</span>
+                    </div>
+                    <div style="font-size:24px; font-weight:900; color:{bal_color};">
+                        ₹ {abs(current_bal):,.2f}
+                    </div>
                 </div>
             """, unsafe_allow_html=True)
-        with m3:
-            st.markdown(f"""
-                <div class="metric-card metric-card-danger">
-                    <h4>⚠️ मार्केट में बकाया बाकी (Net Due)</h4>
-                    <h2 style="color:#dc2626;">₹ {total_market_due:,.2f}</h2>
-                </div>
-            """, unsafe_allow_html=True)
 
-        tab_entry, tab_report, tab_quick_reminder = st.tabs(["➕ नई एंट्री दर्ज करें (New Entry)", "📊 रिटेलर खाता रिपोर्ट व डाउनलोड", "💬 तुरंत पेमेंट रिमाइंडर भेजें"])
+            # Action Bar (Report, WhatsApp Reminder, SMS)
+            reminder_text = (
+                f"नमस्ते {selected_cust} जी,\n\n"
+                f"यह *{biz_name}* (Jio Distributor) की तरफ से ऑटो-रिफिल बकाया पेमेंट का सूचना संदेश है:\n"
+                f"👉 *वर्तमान बकाया राशि: ₹{current_bal:,.2f}*\n\n"
+                f"कृपया बकाया राशि आज ही कैश या ऑनलाइन जमा कराने की कृपा करें। धन्यवाद!"
+            )
+            encoded_reminder = urllib.parse.quote(reminder_text)
+            wa_reminder_url = f"https://api.whatsapp.com/send?phone=91{cust_phone}&text={encoded_reminder}" if cust_phone else "#"
 
-        with tab_entry:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown("<h4 style='margin-top:0;'>➕ ऑटो-रिफिल / पेमेंट एंट्री जोड़ें</h4>", unsafe_allow_html=True)
-            
-            with st.form("auto_refill_form", clear_on_submit=True):
-                col1, col2 = st.columns(2)
-                r_name = col1.text_input("रिटेलर का नाम (Retailer Name)*", placeholder="जैसे: राजेश मोबाइल, शर्मा टेलीकॉम")
-                r_phone = col2.text_input("व्हाट्सएप / मोबाइल नंबर (10 Digit Phone)*", placeholder="जैसे: 9876543210")
+            col_act1, col_act2, col_act3 = st.columns(3)
+            with col_act1:
+                # PDF / CSV Download Statement
+                csv_passbook = io.StringIO()
+                if not df_cust_txns.empty:
+                    df_cust_txns[['date', 'payment_mode', 'amount_given', 'amount_received', 'running_bal', 'remarks']].to_csv(csv_passbook, index=False)
+                st.download_button("📄 Report Download", data=csv_passbook.getvalue(), file_name=f"{selected_cust}_Ledger.csv", use_container_width=True)
+            with col_act2:
+                if cust_phone:
+                    st.markdown(f'<a href="{wa_reminder_url}" target="_blank" style="text-align:center; display:block; background:#25D366; color:white; font-weight:800; padding:10px; border-radius:10px; text-decoration:none;">💬 Reminder (WhatsApp)</a>', unsafe_allow_html=True)
+                else:
+                    st.button("💬 Reminder (No Phone)", disabled=True, use_container_width=True)
+            with col_act3:
+                if cust_phone:
+                    st.markdown(f'<a href="tel:+91{cust_phone}" style="text-align:center; display:block; background:#0284c7; color:white; font-weight:800; padding:10px; border-radius:10px; text-decoration:none;">📞 Phone Call</a>', unsafe_allow_html=True)
+                else:
+                    st.button("📞 Phone Call", disabled=True, use_container_width=True)
 
-                col3, col4, col5 = st.columns(3)
-                given_amt = col3.number_input("ऑटो-रिफिल दिया (Amount Given ₹)", min_value=0.0, step=100.0, value=0.0)
-                recv_amt = col4.number_input("कैश / अकाउंट में मिला (Amount Received ₹)", min_value=0.0, step=100.0, value=0.0)
-                pay_mode = col5.selectbox("पेमेंट माध्यम (Mode)", ["Cash (नकद)", "PhonePe / GPay / UPI", "Bank Account Transfer", "Pending / None"])
+            st.divider()
 
-                remarks = st.text_input("रिमार्क्स / नोट (Remarks)", placeholder="e.g. Morning 10AM lapu refill")
-                submit_entry = st.form_submit_button("🚀 खाता में सेव करें (Save Ledger Entry)", type="primary")
+            # Entry Form Trigger (When either Big Button is Clicked)
+            action_mode = st.session_state.get('kb_action_mode')
+            if action_mode in ['diye', 'mile']:
+                is_diye = (action_mode == 'diye')
+                form_title = "🔴 AAPNE DIYE ₹ (Auto-refill / E-top Diya)" if is_diye else "🟢 AAPKO MILE ₹ (Cash / AC Transfer Mila)"
+                form_bg = "#fef2f2" if is_diye else "#f0fdf4"
 
-                if submit_entry:
-                    if not r_name.strip():
-                        st.error("कृपया रिटेलर का नाम दर्ज करें!")
-                    elif given_amt == 0 and recv_amt == 0:
-                        st.warning("कृपया दिया गया या प्राप्त हुआ अमाउंट भरें!")
+                st.markdown(f"""
+                    <div style="background:{form_bg}; border:2px solid {'#b91c1c' if is_diye else '#15803d'}; border-radius:16px; padding:18px; margin-bottom:16px;">
+                        <h4 style="margin:0 0 10px 0; color:{'#b91c1c' if is_diye else '#15803d'}; font-weight:900;">{form_title}</h4>
+                    </div>
+                """, unsafe_allow_html=True)
+
+                with st.form("khatabook_entry_form", clear_on_submit=True):
+                    fe_c1, fe_c2 = st.columns(2)
+                    entry_amt = fe_c1.number_input("राशि (Amount ₹)*", min_value=1.0, step=100.0, value=2000.0)
+                    
+                    if is_diye:
+                        entry_mode = fe_c2.selectbox("माध्यम / टाइप (Entry Type)", ["Etop transfer", "Auto-refill", "Lapu Recharge", "SIM stock", "Other"])
                     else:
-                        clean_phone = ''.join(filter(str.isdigit, r_phone))
-                        date_str = datetime.now().strftime('%Y-%m-%d %H:%M')
+                        entry_mode = fe_c2.selectbox("माध्यम / टाइप (Payment Type)", ["AC transfer", "Cash", "PhonePe / GPay / UPI", "MNP scheme", "Bank Deposit"])
+
+                    fe_c3, fe_c4 = st.columns(2)
+                    entry_date_str = fe_c3.text_input("तारीख व समय (Date & Time)", value=datetime.now().strftime('%Y-%m-%d %I:%M %p'))
+                    entry_rem = fe_c4.text_input("रिमार्क्स / नोट (Optional Remarks)", placeholder="e.g. Morning 10AM refill")
+
+                    submit_entry = st.form_submit_button("💾 Save Entry", type="primary", use_container_width=True)
+                    if submit_entry:
+                        given_val = entry_amt if is_diye else 0.0
+                        received_val = 0.0 if is_diye else entry_amt
                         c.execute('''
                             INSERT INTO auto_refill_ledger (dist_id, retailer_name, phone, amount_given, amount_received, payment_mode, remarks, date)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        ''', (dist_id, r_name.strip(), clean_phone, given_amt, recv_amt, pay_mode, remarks.strip(), date_str))
+                        ''', (dist_id, selected_cust, cust_phone, given_val, received_val, entry_mode, entry_rem, entry_date_str))
                         conn.commit()
-                        net_diff = given_amt - recv_amt
-                        st.success(f"✅ एंट्री सेव हो गई! ({r_name} - बाकी बैलेंस बदलाव: ₹{net_diff:,.2f})")
+                        st.session_state['kb_action_mode'] = None
+                        st.success("✅ एंट्री सफलतापूर्वक सेव हो गई!")
                         st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
 
-        with tab_report:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown("### 📋 संपूर्ण रिटेलर लेजर रिपोर्ट (Detailed Ledger)")
+            # Transaction History Table Grouped by Date (Exact Khatabook Passbook Layout)
+            st.markdown("""
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:#f8fafc; border-radius:10px; font-weight:900; font-size:13px; color:#475569; margin-bottom:10px; border:1px solid #e2e8f0;">
+                    <div style="flex:2;">ENTRIES</div>
+                    <div style="flex:1; text-align:right; color:#b91c1c;">AAPNE DIYE</div>
+                    <div style="flex:1; text-align:right; color:#15803d;">AAPKO MILE</div>
+                </div>
+            """, unsafe_allow_html=True)
 
-            df_all = pd.read_sql_query(f"""
-                SELECT id, retailer_name, phone, amount_given, amount_received, 
-                       (amount_given - amount_received) as due_amount, payment_mode, remarks, date
-                FROM auto_refill_ledger 
-                WHERE dist_id={dist_id} 
-                ORDER BY id DESC
-            """, conn)
-
-            if df_all.empty:
-                st.info("अभी कोई ऑटो-रिफिल एंट्री दर्ज नहीं है।")
+            if df_cust_txns.empty:
+                st.info("इस रिटेलर के लिए अभी कोई लेनदेन दर्ज नहीं है। नीचे दिए गए बटनों से पहली एंट्री दर्ज करें।")
             else:
-                search_q = st.text_input("🔍 रिटेलर खोजें (Search Retailer Name)", "")
-                if search_q:
-                    df_filtered = df_all[df_all['retailer_name'].str.contains(search_q, case=False, na=False)]
-                else:
-                    df_filtered = df_all
+                # Reverse order for Passbook stream (latest on top)
+                df_reversed = df_cust_txns.iloc[::-1]
 
-                st.dataframe(df_filtered, use_container_width=True, hide_index=True)
+                for _, txn in df_reversed.iterrows():
+                    amt_given = txn['amount_given']
+                    amt_received = txn['amount_received']
+                    run_bal = txn['running_bal']
+                    pay_mode = txn['payment_mode'] or 'Transaction'
+                    t_date = txn['date']
 
-                csv_buffer = io.StringIO()
-                df_filtered.to_csv(csv_buffer, index=False)
-                st.download_button(
-                    label="📥 रिपोर्ट एक्सेल / CSV डाउनलोड करें",
-                    data=csv_buffer.getvalue(),
-                    file_name=f"Jio_AutoRefill_Report_{datetime.now().strftime('%Y%m%d')}.csv",
-                    mime="text/csv"
-                )
-            st.markdown('</div>', unsafe_allow_html=True)
+                    diye_cell = f"<div style='flex:1; text-align:right; font-size:17px; font-weight:900; color:#b91c1c; background:#fef2f2; padding:10px 12px; border-radius:8px;'>₹ {amt_given:,.0f}</div>" if amt_given > 0 else "<div style='flex:1;'></div>"
+                    mile_cell = f"<div style='flex:1; text-align:right; font-size:17px; font-weight:900; color:#15803d; background:#f0fdf4; padding:10px 12px; border-radius:8px;'>₹ {amt_received:,.0f}</div>" if amt_received > 0 else "<div style='flex:1;'></div>"
 
-        with tab_quick_reminder:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown("### 📱 1-क्लिक व्हाट्सएप पेमेंट रिमाइंडर एवं डायरेक्ट कॉल")
-            st.caption("नीचे प्रत्येक रिटेलर का कुल बकाया हिसाब है। आप एक क्लिक में व्हाट्सएप संदेश भेज सकते हैं या कॉल कर सकते हैं।")
+                    st.markdown(f"""
+                        <div class="kb-txn-row">
+                            <div style="flex:2;">
+                                <div style="font-size:13px; color:#64748b; font-weight:700;">{t_date}</div>
+                                <div style="margin:4px 0;"><span class="kb-txn-bal">Bal. ₹ {run_bal:,.0f}</span></div>
+                                <div style="font-size:14px; font-weight:800; color:#1e293b;">{pay_mode}</div>
+                            </div>
+                            {diye_cell}
+                            {mile_cell}
+                        </div>
+                    """, unsafe_allow_html=True)
 
-            df_summary = pd.read_sql_query(f"""
-                SELECT retailer_name, phone, 
-                       SUM(amount_given) as total_given, 
+            st.write("")
+            # Bottom Dual Action Buttons (Khatabook Style Sticky Bottom)
+            btn_col1, btn_col2 = st.columns(2)
+            with btn_col1:
+                if st.button("🔴 AAPNE DIYE ₹", key="btn_diye_trigger", use_container_width=True):
+                    st.session_state['kb_action_mode'] = 'diye'
+                    st.rerun()
+            with btn_col2:
+                if st.button("🟢 AAPKO MILE ₹", key="btn_mile_trigger", use_container_width=True):
+                    st.session_state['kb_action_mode'] = 'mile'
+                    st.rerun()
+
+        # ======================================================================
+        # VIEW B: KHATABOOK CUSTOMER LIST (IMAGE 1)
+        # ======================================================================
+        else:
+            # Khatabook Top Business Header
+            st.markdown(f"""
+                <div class="kb-topbar">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="font-size:22px;">📖</span>
+                        <div>
+                            <div style="font-size:18px; font-weight:900;">{biz_name.upper()} ▾</div>
+                            <div style="font-size:12px; color:#bbdefb;">CUSTOMERS & SUPPLIERS LEDGER</div>
+                        </div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.2); padding:6px 12px; border-radius:20px; font-weight:900; font-size:13px;">
+                        🪙 Sandhya SaaS
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # Aggregate Customer Balances
+            df_cust_agg = pd.read_sql_query(f"""
+                SELECT retailer_name, phone,
+                       SUM(amount_given) as total_given,
                        SUM(amount_received) as total_received,
                        (SUM(amount_given) - SUM(amount_received)) as net_balance,
                        MAX(date) as last_txn_date
-                FROM auto_refill_ledger 
+                FROM auto_refill_ledger
                 WHERE dist_id={dist_id}
                 GROUP BY retailer_name
-                HAVING net_balance > 0
-                ORDER BY net_balance DESC
+                ORDER BY last_txn_date DESC
             """, conn)
 
-            if df_summary.empty:
-                st.success("🎉 बधाई हो! किसी भी रिटेलर का कोई बकाया (Due) बाकी नहीं है।")
+            # Calculate "Aapko dene hain" vs "Aapko Milenge"
+            if not df_cust_agg.empty:
+                aapko_milenge = df_cust_agg[df_cust_agg['net_balance'] > 0]['net_balance'].sum()
+                aapko_dene_hain = abs(df_cust_agg[df_cust_agg['net_balance'] < 0]['net_balance'].sum())
             else:
-                for idx, row in df_summary.iterrows():
-                    ret_name = row['retailer_name']
-                    ret_phone = row['phone']
-                    balance = row['net_balance']
-                    given = row['total_given']
-                    recv = row['total_received']
+                aapko_milenge = 0.0
+                aapko_dene_hain = 0.0
 
+            # Khatabook Summary Card (Exact Image 1 Header Card)
+            st.markdown(f"""
+                <div class="kb-summary-card">
+                    <div class="kb-summary-split">
+                        <div>
+                            <div class="kb-summary-label">Aapko dene hain</div>
+                            <div class="kb-summary-dene">₹ {aapko_dene_hain:,.0f}</div>
+                        </div>
+                        <div style="border-right: 1px solid #f1f5f9;"></div>
+                        <div>
+                            <div class="kb-summary-label">Aapko Milenge</div>
+                            <div class="kb-summary-milenge">₹ {aapko_milenge:,.0f}</div>
+                        </div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # Download Report Button
+            csv_all_rep = io.StringIO()
+            if not df_cust_agg.empty:
+                df_cust_agg.to_csv(csv_all_rep, index=False)
+            st.download_button(
+                label="📄 Reports Dekhein (Download CSV Ledger)",
+                data=csv_all_rep.getvalue(),
+                file_name=f"Khatabook_Summary_{datetime.now().strftime('%Y%m%d')}.csv",
+                use_container_width=True
+            )
+
+            # Search bar + Add Customer Row
+            s_col1, s_col2 = st.columns([3, 1])
+            search_query = s_col1.text_input("🔍 Customer search karein", placeholder="Search by name or phone...", label_visibility="collapsed")
+            with s_col2:
+                add_new_expander = st.expander("➕ CUSTOMER ADD KAREIN", expanded=False)
+
+            with add_new_expander:
+                with st.form("add_new_customer_form", clear_on_submit=True):
+                    st.markdown("#### ➕ नया कस्टमर / रिटेलर जोड़ें")
+                    nc_name = st.text_input("Customer / Retailer Name*", placeholder="जैसे: RK DIGITAL POINT")
+                    nc_phone = st.text_input("Phone / LAPU Number*", placeholder="जैसे: 663144037")
+                    nc_opening = st.number_input("Opening Balance (यदि पहले से बकाया हो तो भरें ₹)", min_value=0.0, step=100.0, value=0.0)
+                    nc_mode = st.selectbox("Opening Type", ["Aapko Milenge (Due)", "Aapko Dene Hain (Advance)"])
+                    
+                    submit_nc = st.form_submit_button("💾 Save Customer", type="primary")
+                    if submit_nc:
+                        if not nc_name.strip():
+                            st.error("कृपया कस्टमर का नाम दर्ज करें!")
+                        else:
+                            clean_p = ''.join(filter(str.isdigit, nc_phone))
+                            date_now = datetime.now().strftime('%Y-%m-%d %I:%M %p')
+                            g_val = nc_opening if nc_mode == "Aapko Milenge (Due)" else 0.0
+                            r_val = nc_opening if nc_mode == "Aapko Dene Hain (Advance)" else 0.0
+                            c.execute('''
+                                INSERT INTO auto_refill_ledger (dist_id, retailer_name, phone, amount_given, amount_received, payment_mode, remarks, date)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            ''', (dist_id, nc_name.strip(), clean_p, g_val, r_val, 'Opening Balance', 'Initial setup', date_now))
+                            conn.commit()
+                            st.success(f"✅ {nc_name} सफलतापूर्वक जुड़ गया!")
+                            st.rerun()
+
+            # Filter customer list by search query
+            if not df_cust_agg.empty and search_query:
+                filtered_customers = df_cust_agg[
+                    df_cust_agg['retailer_name'].str.contains(search_query, case=False, na=False) |
+                    df_cust_agg['phone'].str.contains(search_query, case=False, na=False)
+                ]
+            else:
+                filtered_customers = df_cust_agg
+
+            # Customer List Render (Exact Image 1 Design)
+            if filtered_customers.empty:
+                st.info("कोई कस्टमर नहीं मिला। ऊपर दिए गए '+ CUSTOMER ADD KAREIN' से नया रिटेलर जोड़ें।")
+            else:
+                for idx, row in filtered_customers.iterrows():
+                    c_name = row['retailer_name']
+                    c_phone = row['phone']
+                    c_bal = row['net_balance']
+                    c_date = row['last_txn_date'] or "हाल ही में"
+                    c_initials = get_initials(c_name)
+
+                    # Reminder link for WhatsApp
                     reminder_msg = (
-                        f"नमस्ते {ret_name} जी,\n\n"
+                        f"नमस्ते {c_name} जी,\n\n"
                         f"यह *{biz_name}* (Jio Distributor) की तरफ से ऑटो-रिफिल बकाया पेमेंट का सूचना संदेश है:\n"
-                        f"▪ कुल ऑटो-रिफिल दिया गया: ₹{given:,.2f}\n"
-                        f"▪ कुल प्राप्त भुगतान: ₹{recv:,.2f}\n"
-                        f"👉 *वर्तमान बकाया राशि (Remaining Due): ₹{balance:,.2f}*\n\n"
-                        f"कृपया बकाया राशि आज ही कैश या यूपीआई/खाते में जमा कराने की कृपा करें। धन्यवाद!"
+                        f"👉 *वर्तमान बकाया राशि: ₹{c_bal:,.2f}*\n\n"
+                        f"कृपया बकाया राशि आज ही कैश या ऑनलाइन जमा कराने की कृपा करें। धन्यवाद!"
                     )
-                    encoded_msg = urllib.parse.quote(reminder_msg)
-                    wa_link = f"https://api.whatsapp.com/send?phone=91{ret_phone}&text={encoded_msg}" if ret_phone else "#"
-                    call_link = f"tel:+91{ret_phone}" if ret_phone else "#"
+                    wa_url = f"https://api.whatsapp.com/send?phone=91{c_phone}&text={urllib.parse.quote(reminder_msg)}" if c_phone else "#"
 
-                    with st.container():
+                    # Card Row with Columns
+                    card_col1, card_col2, card_col3 = st.columns([4, 2, 2])
+                    
+                    with card_col1:
                         st.markdown(f"""
-                            <div style="background:#ffffff; border:1px solid #e2e8f0; border-left: 6px solid #dc2626; border-radius:14px; padding:16px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
-                                <div>
-                                    <h4 style="margin:0; font-size:18px; color:#0f172a;">👤 {ret_name}</h4>
-                                    <div style="color:#64748b; font-size:14px; margin-top:4px;">
-                                        📞 फ़ोन: <b>{ret_phone or 'नंबर नहीं है'}</b> | कुल दिया: <b>₹{given:,.2f}</b> | मिला: <b>₹{recv:,.2f}</b>
-                                    </div>
+                            <div style="display:flex; align-items:center;">
+                                <div class="kb-avatar">
+                                    {c_initials}
+                                    {f'<div class="kb-avatar-dot"></div>' if c_bal > 0 else ''}
                                 </div>
-                                <div style="text-align:right; margin-top:8px;">
-                                    <div style="font-size:20px; font-weight:900; color:#dc2626;">बकाया: ₹{balance:,.2f}</div>
-                                    <div style="margin-top:8px;">
-                                        {f'<a href="{wa_link}" target="_blank" class="btn-wa">💬 WhatsApp Reminder</a>' if ret_phone else ''}
-                                        {f'<a href="{call_link}" class="btn-call">📞 Call Retailer</a>' if ret_phone else ''}
-                                    </div>
+                                <div>
+                                    <div class="kb-customer-name">{c_name.upper()} {c_phone}</div>
+                                    <div class="kb-customer-time">{c_date}</div>
                                 </div>
                             </div>
                         """, unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+
+                    with card_col2:
+                        if c_bal > 0:
+                            st.markdown(f"""
+                                <div class="kb-amount-due">₹ {c_bal:,.0f}</div>
+                                {f'<a href="{wa_url}" target="_blank" class="kb-remind-link">REMIND KARAYEIN &gt;</a>' if c_phone else ''}
+                            """, unsafe_allow_html=True)
+                        elif c_bal < 0:
+                            st.markdown(f"""
+                                <div class="kb-amount-advance">₹ {abs(c_bal):,.0f}</div>
+                                <div style="font-size:11px; color:#16a34a; font-weight:800; text-align:right;">ADVANCE</div>
+                            """, unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"""
+                                <div class="kb-amount-zero">₹ 0</div>
+                                <div style="font-size:11px; color:#64748b; font-weight:700; text-align:right;">SETTLED</div>
+                            """, unsafe_allow_html=True)
+
+                    with card_col3:
+                        if st.button("📖 खाता खोलें", key=f"open_cust_{idx}", use_container_width=True):
+                            st.session_state['kb_selected_retailer'] = c_name
+                            st.session_state['kb_action_mode'] = None
+                            st.rerun()
+
+                    st.markdown("<hr style='margin: 8px 0; border: none; border-bottom: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
 
     # --------------------------------------------------------------------------
     # MODULE 2: FSE / DAB MANAGEMENT & PAYMENT SLIP
@@ -897,7 +1320,7 @@ def distributor_panel():
                 <div class="slip-box">
                     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #e2e8f0; padding-bottom:10px;">
                         <div>
-                            <h3 style="margin:0; color:#1e3a8a;">📄 JIO FSE / DAB PAYMENT SLIP</h3>
+                            <h3 style="margin:0; color:#1565c0;">📄 JIO FSE / DAB PAYMENT SLIP</h3>
                             <div style="color:#64748b; font-size:13px; font-weight:700;">{biz_name.upper()} • DATE: {datetime.now().strftime('%d-%b-%Y')}</div>
                         </div>
                         <div style="text-align:right;">
@@ -972,7 +1395,7 @@ def distributor_panel():
 
             st.markdown(f"""
                 <div class="slip-box">
-                    <h3 style="margin:0; color:#1e3a8a;">⚡ JIO AIRFIBER COMMISSION SLIP</h3>
+                    <h3 style="margin:0; color:#1565c0;">⚡ JIO AIRFIBER COMMISSION SLIP</h3>
                     <div style="font-size:13px; color:#64748b; font-weight:700;">{biz_name} • Technician: <b>{af_staff or 'N/A'}</b></div>
                     <div style="margin:14px 0;">
                         ▪ कुल इंस्टॉलेशन: <b>{inst_count} nos × ₹{af_rate} = ₹{inst_count * af_rate:,.2f}</b><br/>
@@ -1034,7 +1457,7 @@ def distributor_panel():
 
             st.markdown(f"""
                 <div class="slip-box">
-                    <h3 style="margin:0; color:#1e3a8a;">📦 JIO DEVICE RECOVERY SLIP</h3>
+                    <h3 style="margin:0; color:#1565c0;">📦 JIO DEVICE RECOVERY SLIP</h3>
                     <div style="font-size:13px; color:#64748b; font-weight:700;">{biz_name} • Staff: <b>{rec_staff or 'N/A'}</b></div>
                     <div style="margin:14px 0; font-size:15px;">
                         ▪ IDU Recovered: <b>{idu_c} nos × ₹{idu_r:,.2f} = ₹{idu_c * idu_r:,.2f}</b><br/>
@@ -1110,7 +1533,6 @@ def distributor_panel():
 if not st.session_state['logged_in']:
     login_page()
 else:
-    # Sidebar Logout & Account Card
     with st.sidebar:
         st.markdown(f"**लॉगिन उपयोगकर्ता:** `{st.session_state['username']}`")
         st.markdown(f"**रोल:** `{st.session_state['role'].upper()}`")
@@ -1119,7 +1541,6 @@ else:
             st.rerun()
         st.divider()
 
-    # Route based on role
     if st.session_state['role'] == 'admin':
         admin_panel()
     else:
