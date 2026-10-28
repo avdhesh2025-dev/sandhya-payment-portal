@@ -203,16 +203,20 @@ def init_db():
 
         # Auto-migrate missing columns in users if existing DB was from older version
         c = conn.cursor()
-        c.execute("PRAGMA table_info(users)")
-        u_cols = [r[1] for r in c.fetchall()]
-        if 'business_name' not in u_cols:
-            c.execute("ALTER TABLE users ADD COLUMN business_name TEXT DEFAULT ''")
-        if 'phone' not in u_cols:
-            c.execute("ALTER TABLE users ADD COLUMN phone TEXT DEFAULT ''")
-        if 'status' not in u_cols:
-            c.execute("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active'")
-        if 'created_at' not in u_cols:
-            c.execute("ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+        try:
+            c.execute("PRAGMA table_info(users)")
+            u_cols = [r[1] for r in c.fetchall()]
+            if 'business_name' not in u_cols:
+                c.execute("ALTER TABLE users ADD COLUMN business_name TEXT DEFAULT ''")
+            if 'phone' not in u_cols:
+                c.execute("ALTER TABLE users ADD COLUMN phone TEXT DEFAULT ''")
+            if 'status' not in u_cols:
+                c.execute("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active'")
+            if 'created_at' not in u_cols:
+                c.execute("ALTER TABLE users ADD COLUMN created_at TEXT DEFAULT ''")
+                c.execute("UPDATE users SET created_at = datetime('now') WHERE created_at = '' OR created_at IS NULL")
+        except Exception:
+            pass
 
         # 2. Module 1: Auto-refill & Retailer Ledger
         conn.execute('''
@@ -258,40 +262,36 @@ def init_db():
         ''')
 
         # Auto-migrate commission_settings columns
-        c.execute("PRAGMA table_info(commission_settings)")
-        cs_cols = [r[1] for r in c.fetchall()]
-        if 'fse_sim_rate' not in cs_cols:
-            c.execute("ALTER TABLE commission_settings ADD COLUMN fse_sim_rate REAL DEFAULT 15.0")
-        if 'fse_mnp_rate' not in cs_cols:
-            c.execute("ALTER TABLE commission_settings ADD COLUMN fse_mnp_rate REAL DEFAULT 50.0")
-        if 'fse_recharge_pct' not in cs_cols:
-            c.execute("ALTER TABLE commission_settings ADD COLUMN fse_recharge_pct REAL DEFAULT 1.0")
-        if 'fse_daily_da' not in cs_cols:
-            c.execute("ALTER TABLE commission_settings ADD COLUMN fse_daily_da REAL DEFAULT 100.0")
-        if 'airfiber_rate' not in cs_cols:
-            if 'airfiber' in cs_cols:
-                c.execute("ALTER TABLE commission_settings ADD COLUMN airfiber_rate REAL DEFAULT 150.0")
-                c.execute("UPDATE commission_settings SET airfiber_rate = airfiber WHERE airfiber IS NOT NULL")
-            else:
-                c.execute("ALTER TABLE commission_settings ADD COLUMN airfiber_rate REAL DEFAULT 150.0")
-        if 'idu_rate' not in cs_cols:
-            if 'idu' in cs_cols:
-                c.execute("ALTER TABLE commission_settings ADD COLUMN idu_rate REAL DEFAULT 40.0")
-                c.execute("UPDATE commission_settings SET idu_rate = idu WHERE idu IS NOT NULL")
-            else:
-                c.execute("ALTER TABLE commission_settings ADD COLUMN idu_rate REAL DEFAULT 40.0")
-        if 'stb_rate' not in cs_cols:
-            if 'stb' in cs_cols:
-                c.execute("ALTER TABLE commission_settings ADD COLUMN stb_rate REAL DEFAULT 30.0")
-                c.execute("UPDATE commission_settings SET stb_rate = stb WHERE stb IS NOT NULL")
-            else:
-                c.execute("ALTER TABLE commission_settings ADD COLUMN stb_rate REAL DEFAULT 30.0")
-        if 'odu_rate' not in cs_cols:
-            if 'odu' in cs_cols:
-                c.execute("ALTER TABLE commission_settings ADD COLUMN odu_rate REAL DEFAULT 50.0")
-                c.execute("UPDATE commission_settings SET odu_rate = odu WHERE odu IS NOT NULL")
-            else:
-                c.execute("ALTER TABLE commission_settings ADD COLUMN odu_rate REAL DEFAULT 50.0")
+        try:
+            c.execute("PRAGMA table_info(commission_settings)")
+            cs_cols = [r[1] for r in c.fetchall()]
+            cols_to_add = [
+                ('fse_sim_rate', 'REAL', 15.0),
+                ('fse_mnp_rate', 'REAL', 50.0),
+                ('fse_recharge_pct', 'REAL', 1.0),
+                ('fse_daily_da', 'REAL', 100.0),
+                ('airfiber_rate', 'REAL', 150.0),
+                ('idu_rate', 'REAL', 40.0),
+                ('stb_rate', 'REAL', 30.0),
+                ('odu_rate', 'REAL', 50.0)
+            ]
+            for col_name, col_type, def_val in cols_to_add:
+                if col_name not in cs_cols:
+                    try:
+                        c.execute(f"ALTER TABLE commission_settings ADD COLUMN {col_name} {col_type} DEFAULT {def_val}")
+                    except Exception:
+                        pass
+            
+            # Map legacy column values if they exist
+            legacy_mappings = [('airfiber', 'airfiber_rate'), ('idu', 'idu_rate'), ('stb', 'stb_rate'), ('odu', 'odu_rate')]
+            for old_c, new_c in legacy_mappings:
+                if old_c in cs_cols:
+                    try:
+                        c.execute(f"UPDATE commission_settings SET {new_c} = {old_c} WHERE {old_c} IS NOT NULL")
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
         # 4. Module 2: FSE / DAB Payout Entries
         conn.execute('''
